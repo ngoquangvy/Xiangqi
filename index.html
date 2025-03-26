@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';">
+    <title>Chinese Chess</title>
+    <link rel="stylesheet" href="styles/styles.css"> <!-- Liên kết tới file CSS mới -->
+    
+</head>
+
+<body>
+    <div id="main-container" style="display: flex; flex-direction: row;">
+        <!-- Nút điều khiển và lịch sử nước đi -->
+        <div id="container">
+            <div id="controls">
+                <button id="controls-btn">Controls</button>
+                <div id="controls-menu"
+                    style="display: none; position: absolute; background: white; border: 1px solid #ccc; padding: 5px;">
+                    <button id="undo-btn">Undo</button>
+                    <button id="redo-btn">Redo</button>
+                    <button id="reset-initial-btn">Reset to Initial</button>
+                    <button id="reset-game-btn">Reset Game</button>
+                    <button id="export-game-btn">Export Game</button>
+                    <button id="import-game-btn">Import Game</button>
+                    <button id="flip-board-btn">Flip Board</button>
+                    <input type="file" id="import-game-file" style="display: none;" accept=".json">
+                </div>
+                <button id="engine-btn">Engine</button>
+                <div id="engine-menu"
+                    style="display: none; position: absolute; background: white; border: 1px solid #ccc; padding: 5px;">
+                    <button id="add-engine-btn">Add Engine</button>
+                    <input type="file" id="engine-file-input" style="display: none;" accept=".exe">
+                    <div id="engine-list"></div>
+                </div>
+            </div>
+            <div id="move-history">
+                <h3>Move History</h3>
+                <ul id="move-list"></ul>
+            </div>
+        </div>
+
+        <!-- Bàn cờ -->
+        <div id="board-section">
+            <div id="adjustments">
+                <label>Board Type:
+                    <select id="board-type">
+                        <option value="drawn">Drawn Board</option>
+                        <option value="image">Image Board</option>
+                    </select>
+                </label>
+            </div>
+            <div id="top-numbers" style="text-align: center;"></div>
+            <div id="xiangqi-board">
+                <div id="board-container">
+                    <img id="board-image" src="assets/XiangqiBoard.png"
+                        style="position: absolute; top: 0; left: 0; display: none;">
+                    <canvas id="boardCanvas"
+                        style="position: absolute; top: 0; left: 0; background: transparent;"></canvas>
+                    <div id="pieces"></div>
+                    <div id="game-over-message"></div>
+                </div>
+            </div>
+            <div id="bottom-numbers" style="text-align: center;"></div>
+        </div>
+
+        <!-- Các bảng engine (di chuyển sang bên phải) -->
+        <div id="engine-container">
+            <table id="move-suggestions">
+                <thead>
+                    <tr>
+                        <th>Move</th>
+                        <th>Score</th>
+                        <th>Rank</th>
+                        <th>Note</th>
+                        <th>Depth</th>
+                        <th>Nodes</th>
+                        <th>Time</th>
+                        <th>Principal Variation</th> <!-- Cột mới -->
+                    </tr>
+                </thead>
+                <tbody id="suggestions-body"></tbody>
+            </table>
+
+            <div id="move-evaluation">
+                <h3>Đánh giá nước vừa đi</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Score</th>
+                            <th>Rank</th>
+                            <th>Note</th>
+                        </tr>
+                    </thead>
+                    <tbody id="evaluation-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal chỉnh sửa engine -->
+    <div id="modal-overlay"></div>
+    <div id="edit-engine-modal">
+        <form id="edit-engine-form">
+            <label for="edit-engine-name">Engine Name:</label>
+            <input type="text" id="edit-engine-name" required><br>
+            <label for="edit-engine-hash">Hash (MB):</label>
+            <input type="number" id="edit-engine-hash" min="1"><br>
+            <label for="edit-engine-multipv">MultiPV:</label>
+            <input type="number" id="edit-engine-multipv" min="1"><br>
+            <label for="edit-engine-depth">Depth:</label>
+            <input type="number" id="edit-engine-depth" min="1"><br>
+            <label for="edit-engine-threads">Threads:</label>
+            <input type="number" id="edit-engine-threads" min="1"><br>
+            <label for="edit-engine-skill-level">Skill Level:</label>
+            <input type="number" id="edit-engine-skill-level" min="1" max="20"><br>
+            <button type="submit">Save</button>
+            <button type="button" id="cancel-edit-engine">Cancel</button>
+        </form>
+    </div>
+
+    <script src="ui.js"></script>
+</body>
+
+</html>

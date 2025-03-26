@@ -1,0 +1,484 @@
+/* styles.css */
+body {
+    margin: 0;
+    padding: 10px;
+    background-color: #f0f0f0;
+    /* Đổi màu nền để không còn màu tím */
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    /* Căn lề trái */
+    width: 100%;
+    box-sizing: border-box;
+}
+
+#controls button {
+    padding: 5px 10px;
+    margin: 2px 0;
+    font-size: 14px;
+    cursor: pointer;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    width: 100%;
+    /* Nút trong menu chiếm toàn bộ chiều rộng */
+}
+
+#controls-menu {
+    z-index: 10;
+    /* Đảm bảo menu hiển thị trên các phần tử khác */
+}
+
+#engine-container {
+    display: flex;
+    flex-direction: column;
+    width: 400px;
+    /* Tăng từ 300px lên 400px */
+    margin-left: 20px;
+}
+
+#game-container {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    width: 100%;
+    max-width: 950px;
+    /* Khớp với chiều ngang cửa sổ */
+}
+
+#move-suggestions {
+    border: 1px solid #ccc;
+    padding: 10px;
+    margin-bottom: 10px;
+}
+
+.main-container {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: flex-start;
+    width: 100%;
+    max-width: 1200px;
+    gap: 20px;
+}
+
+.board-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.right-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    max-width: 400px;
+    width: 100%;
+}
+
+canvas {
+    border: 1px solid black;
+}
+
+#move-list {
+    margin-top: 10px;
+    max-height: 200px;
+    overflow-y: auto;
+    list-style-type: none;
+    padding: 0;
+    width: 200px;
+}
+
+#move-list li {
+    padding: 5px;
+    border-bottom: 1px solid #ccc;
+}
+
+#edit-engine-modal {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    padding: 20px;
+    z-index: 1001;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.9);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+#edit-engine-modal.show {
+    display: block;
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+}
+
+#edit-engine-modal label {
+    display: inline-block;
+    width: 120px;
+    margin: 5px 0;
+}
+
+#edit-engine-modal input {
+    margin: 5px 0;
+    padding: 5px;
+}
+
+#edit-engine-modal button {
+    margin: 10px 5px;
+    padding: 5px 10px;
+}
+
+#edit-engine-form label {
+    display: inline-block;
+    width: 120px;
+    margin-bottom: 10px;
+}
+
+#edit-engine-form input {
+    width: 150px;
+    padding: 5px;
+    margin-bottom: 10px;
+}
+
+#edit-engine-form button {
+    padding: 5px 10px;
+    margin-right: 10px;
+}
+
+#modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+#modal-overlay.show {
+    display: block;
+    opacity: 1;
+}
+
+/* Bàn cờ */
+#boardCanvas,
+#board-image,
+#pieces {
+    margin-left: 0;
+    /* Đảm bảo bàn cờ căn lề trái */
+}
+
+
+#boardCanvas {
+    border: 1px solid black;
+    display: block;
+    position: relative;
+}
+
+#move-evaluation {
+    border: 1px solid #ccc;
+    padding: 10px;
+    margin-bottom: 10px;
+}
+
+#move-suggestions table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: auto;
+    /* Thay vì fixed, để các cột tự điều chỉnh theo nội dung */
+}
+
+#move-suggestions th,
+#move-suggestions td {
+    border: 1px solid #ddd;
+    padding: 5px;
+    text-align: left;
+    min-width: 50px;
+    /* Đảm bảo mỗi cột có chiều rộng tối thiểu */
+    white-space: nowrap;
+    /* Giữ nội dung trên một dòng */
+}
+
+#move-suggestions th {
+    background-color: #f2f2f2;
+    font-size: 14px;
+}
+
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th,
+td {
+    border: 1px solid #ddd;
+    padding: 5px;
+    text-align: center;
+}
+
+th {
+    background-color: #f2f2f2;
+}
+
+#container {
+    /* display: flex; */
+    align-items: flex-start;
+    margin-bottom: 20px;
+}
+
+#controls {
+    display: flex;
+    flex-direction: column;
+    margin-right: 20px;
+}
+
+
+#controls button:hover {
+    background-color: #45a049;
+}
+
+.last-move {
+    /* background-color: rgba(255, 165, 0, 0.5) !important; */
+    /* Màu cam nhạt */
+    border: 2px solid orange;
+    /* Viền cam */
+    border-radius: 50%;
+}
+
+.hover-move {
+    /* background-color: rgba(0, 255, 0, 0.3) !important; Màu xanh nhạt */
+    border: 2px solid green;
+    /* Viền xanh */
+    border-radius: 50%;
+}
+
+#move-history {
+    margin-right: 20px;
+    max-height: 500px;
+    overflow-y: auto;
+    border: 1px solid #ccc;
+    padding: 10px;
+    background-color: #f9f9f9;
+    width: 100px;
+    /* Giảm từ 200px xuống 100px */
+}
+
+#move-history ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+#move-history li {
+    padding: 5px 0;
+    white-space: nowrap;
+    /* Giữ nội dung trên một dòng */
+    overflow: hidden;
+    /* Ẩn phần dư */
+    text-overflow: ellipsis;
+    /* Thêm dấu "..." nếu nội dung bị cắt */
+}
+
+#xiangqi-board {
+    position: relative;
+    width: 450px;
+    height: 500px;
+    border: 4px solid black;
+    background-color: #f4c27a;
+}
+
+.red {
+    background-color: red;
+    color: white;
+}
+
+.black {
+    background-color: black;
+    color: white;
+}
+
+.highlight {
+    background-color: yellow !important;
+    opacity: 0.7;
+}
+
+#game-over-message {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 40px;
+    font-weight: bold;
+    color: gold;
+    text-shadow: 2px 2px 5px black;
+    z-index: 1000;
+    display: none;
+}
+
+@keyframes blink {
+    0% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0;
+    }
+
+    100% {
+        opacity: 1;
+    }
+}
+
+@keyframes fadeOut {
+    0% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 0;
+    }
+}
+
+.blink {
+    animation: blink 0.5s infinite;
+}
+
+.fade-out {
+    animation: fadeOut 2s forwards;
+}
+
+.highlighted-move {
+    background-color: #ffeb3b;
+    /* Màu nền vàng nhạt để làm nổi bật */
+    color: #000;
+    /* Màu chữ đen để dễ đọc */
+    padding: 2px 4px;
+    /* Thêm khoảng đệm để trông đẹp hơn */
+    border-radius: 3px;
+    /* Bo góc nhẹ */
+}
+
+#pieces {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 2;
+    pointer-events: none;
+}
+
+#pieces .piece {
+    pointer-events: auto;
+}
+
+.piece {
+    position: absolute;
+    width: 56px;
+    height: 56px;
+    line-height: 56px;
+    text-align: center;
+    font-size: 24px;
+    border-radius: 50%;
+    cursor: pointer;
+    user-select: none;
+    pointer-events: auto;
+    transition: left 0.3s ease, top 0.3s ease;
+}
+
+#engine-menu {
+    z-index: 10;
+}
+
+.engine-item {
+    display: flex;
+    align-items: center;
+    margin: 5px 0;
+}
+
+.engine-item input[type="radio"] {
+    margin-right: 5px;
+}
+
+.engine-item span {
+    flex-grow: 1;
+}
+
+.remove-engine-btn {
+    padding: 2px 5px;
+    background-color: #ff4444;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    margin-left: 5px;
+}
+
+.remove-engine-btn:hover {
+    background-color: #cc0000;
+}
+
+#top-numbers,
+#bottom-numbers {
+    margin-left: 0;
+    text-align: left;
+    display: flex;
+    justify-content: flex-start;
+    font-size: 16px;
+    font-family: 'Noto Sans SC', Arial, sans-serif;
+    z-index: 3;
+}
+
+#top-numbers span,
+#bottom-numbers span {
+    display: inline-block;
+    text-align: center;
+}
+
+#adjustments {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+#adjustments label {
+    margin-right: 10px;
+}
+
+#adjustments button {
+    padding: 5px 10px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+#adjustments button:hover {
+    background-color: #45a049;
+}
+
+#board-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+#board-image {
+    position: absolute;
+    margin: 0;
+    padding: 0;
+    z-index: 1;
+    background-color: white;
+}
