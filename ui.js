@@ -36,6 +36,9 @@
             this.lastMovePositions = null; // Đã có, lưu nước đi cuối cùng trong chế độ chơi thông thường
             this.lastSimulatedMove = null; // Thêm thuộc tính mới để lưu nước đi vừa mô phỏng
             this.moveHistory = []; // Thêm mảng để lưu lịch sử nước đi
+            this.analysisTimeout = null; // Biến để lưu timeout
+            this.maxAnalysisTime = null; // Thời gian chờ tối đa (được tính dựa trên cài đặt engine)
+            this.isAnalyzing = false; // Trạng thái phân tích
 
 
             // Lắng nghe dữ liệu từ engine
@@ -79,10 +82,31 @@
         }
         async analyzeCurrentPosition() {
             try {
+                // Hiển thị "Loading" trong bảng gợi ý
+                this.suggestionsBody.innerHTML = '<tr><td colspan="8" style="text-align: center;">Loading...</td></tr>';
+                this.isAnalyzing = true;
+
+                // Lấy cài đặt engine hiện tại để xác định thời gian tối đa
+                const engines = await window.XiangqiGameAPI.getEngines();
+                const selectedEngine = engines[this.selectedEngineIndex] || { options: {} };
+                const depth = selectedEngine.options?.depth || 20; // Mặc định depth = 20 nếu không có
+                this.maxAnalysisTime = (depth * 1000) + 1000; // Thời gian tối đa = (depth * 1s) + 1s
+
+                // Thiết lập timeout để kiểm tra nếu engine không phản hồi
+                if (this.analysisTimeout) clearTimeout(this.analysisTimeout);
+                this.analysisTimeout = setTimeout(() => {
+                    if (this.isAnalyzing) {
+                        this.suggestionsBody.innerHTML = '<tr><td colspan="8" style="text-align: center;">Engine timeout</td></tr>';
+                        this.isAnalyzing = false;
+                    }
+                }, this.maxAnalysisTime);
+
                 const fen = await window.XiangqiGameAPI.getFen();
                 window.XiangqiGameAPI.analyzePosition(fen);
             } catch (err) {
                 console.error('Error analyzing position:', err);
+                this.suggestionsBody.innerHTML = '<tr><td colspan="8" style="text-align: center;">Error analyzing position</td></tr>';
+                this.isAnalyzing = false;
             }
         }
         async makeMove(fromX, fromY, toX, toY) {
@@ -177,8 +201,15 @@
                             suggestions[0] = { move, score: scoreValue, rank: 1, note, depth, nodes, time };
                         }
                     }
-                } else if (line.startsWith('bestmove') && suggestions.length > 0) {
-                    this.updateSuggestionsTable(suggestions.sort((a, b) => a.rank - b.rank));
+                } else if (line.startsWith('bestmove')) {
+                    if (suggestions.length > 0) {
+                        this.updateSuggestionsTable(suggestions.sort((a, b) => a.rank - b.rank));
+                    } else {
+                        this.suggestionsBody.innerHTML = '<tr><td colspan="8" style="text-align: center;">No suggestions available</td></tr>';
+                    }
+                    // Khi nhận được bestmove, kết thúc phân tích
+                    if (this.analysisTimeout) clearTimeout(this.analysisTimeout);
+                    this.isAnalyzing = false;
                 }
             });
         }
@@ -781,6 +812,7 @@
                             console.log("King is in check!");
                         }
                         await this.checkForCheckmate();
+                        this.suggestionsBody.innerHTML = ''; // Xóa bảng gợi ý nước đi ngay sau khi di chuyển
                         await this.analyzeCurrentPosition();
                     }
                     this.clearHighlights();
@@ -1191,6 +1223,17 @@
                 this.useImageBoard = boardTypeSelect.value === "image";
                 this.updateBoardDisplay();
             });
+
+            //Nút load cho bảng suggest
+            const loadSuggestionsBtn = document.getElementById("load-suggestions-btn");
+            if (loadSuggestionsBtn) {
+                loadSuggestionsBtn.addEventListener("click", async () => {
+                    this.suggestionsBody.innerHTML = ''; // Xóa bảng gợi ý trước khi tải lại
+                    await this.analyzeCurrentPosition(); // Gửi bàn cờ hiện tại đến engine để phân tích lại
+                });
+            } else {
+                console.warn('Load Suggestions button not found in DOM');
+            }
         }
     }
 

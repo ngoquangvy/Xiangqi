@@ -51,7 +51,6 @@ class XiangqiGame {
             const turn = parts[1];
             const moveNumber = parseInt(parts[4]) || 1;
 
-            // Đặt lại bàn cờ
             this.board = Array(ROWS).fill().map(() => Array(COLS).fill(null));
             const rows = boardFen.split('/');
             if (rows.length !== ROWS) {
@@ -59,7 +58,6 @@ class XiangqiGame {
                 return false;
             }
 
-            // Ánh xạ ngược từ ký hiệu FEN sang tên quân cờ
             const reverseFenMap = {
                 'r': "車", 'R': "車",
                 'n': "马", 'N': "馬",
@@ -69,6 +67,9 @@ class XiangqiGame {
                 'c': "砲", 'C': "炮",
                 'p': "卒", 'P': "兵"
             };
+
+            let kingRedCount = 0;
+            let kingBlackCount = 0;
 
             for (let y = 0; y < ROWS; y++) {
                 let x = 0;
@@ -82,6 +83,9 @@ class XiangqiGame {
                         if (pieceName) {
                             const color = char === char.toUpperCase() ? "red" : "black";
                             this.board[y][x] = { name: pieceName, color };
+                            // Kiểm tra số lượng vua
+                            if (pieceName === "帅" && color === "red") kingRedCount++;
+                            if (pieceName === "将" && color === "black") kingBlackCount++;
                             x++;
                         } else {
                             console.warn(`Unknown FEN symbol at row ${y}, col ${x}: ${char}`);
@@ -91,13 +95,19 @@ class XiangqiGame {
                 }
             }
 
-            // Cập nhật trạng thái trò chơi
+            // Kiểm tra lỗi FEN
+            if (kingRedCount !== 1 || kingBlackCount !== 1) {
+                console.error(`Invalid FEN: Red kings: ${kingRedCount}, Black kings: ${kingBlackCount}`);
+                return false;
+            }
+
             this.currentTurn = turn === 'w' ? 'red' : 'black';
             this.moveCount = moveNumber;
-            this.moveHistory = []; // Xóa lịch sử nước đi
+            this.moveHistory = [];
             this.currentMoveIndex = -1;
             this.fenBoardSnapshot = null;
 
+            console.log(`Imported FEN: ${fen}`);
             return true;
         } catch (err) {
             console.error('Error importing FEN:', err);
@@ -207,35 +217,56 @@ class XiangqiGame {
     }
     move(fromX, fromY, toX, toY) {
         const piece = this.board[fromY][fromX];
-        if (!piece) return false;
+        if (!piece) {
+            console.error(`No piece found at (${fromX}, ${fromY})`);
+            return false;
+        }
 
-        if (piece.color !== this.currentTurn) return false;
+        if (piece.color !== this.currentTurn) {
+            console.log(`Not ${piece.color}'s turn, current turn is ${this.currentTurn}`);
+            return false;
+        }
 
         const legalMoves = this.getLegalMoves(fromX, fromY);
         const isLegal = legalMoves.some(([mx, my]) => mx === toX && my === toY);
-        if (!isLegal) return false;
+        if (!isLegal) {
+            console.log(`Illegal move attempted: (${fromX}, ${fromY}) to (${toX}, ${toY})`);
+            return false;
+        }
 
         const capturedPiece = this.board[toY][toX];
+        if (capturedPiece && capturedPiece.name === (piece.color === "red" ? "将" : "帅")) {
+            console.warn(`Attempted to capture opponent's king at (${toX}, ${toY})`);
+            return false; // Không cho phép ăn vua đối phương
+        }
+
+        // Lưu lịch sử nước đi
         this.moveHistory = this.moveHistory.slice(0, this.currentMoveIndex + 1);
-        this.moveHistory.push({
+        const fenBefore = this.exportFen(); // Lưu FEN trước khi di chuyển để debug
+        this.board[toY][toX] = piece;
+        this.board[fromY][fromX] = null;
+
+        // Kiểm tra chiếu sau khi di chuyển
+        if (this.isKingInCheck(piece.color)) {
+            console.log(`Move rejected: ${piece.color} king in check after move`);
+            this.board[fromY][fromX] = piece;
+            this.board[toY][toX] = capturedPiece;
+            return false;
+        }
+
+        // Lưu nước đi với FEN sau khi di chuyển
+        const fenAfter = this.exportFen();
+        const moveEntry = {
             fromX,
             fromY,
             toX,
             toY,
             capturedPiece,
             currentTurn: this.currentTurn,
-            piece: { ...piece } // Lưu thông tin quân cờ tại thời điểm di chuyển
-        });
-
-        this.board[toY][toX] = piece;
-        this.board[fromY][fromX] = null;
-
-        if (this.isKingInCheck(piece.color)) {
-            this.board[fromY][fromX] = piece;
-            this.board[toY][toX] = capturedPiece;
-            this.moveHistory.pop();
-            return false;
-        }
+            piece: { name: piece.name, color: piece.color }, // Đảm bảo sao chép chính xác
+            fen: fenAfter // Thêm FEN vào lịch sử
+        };
+        this.moveHistory.push(moveEntry);
 
         this.currentMoveIndex++;
         const previousTurn = this.currentTurn;
@@ -243,6 +274,8 @@ class XiangqiGame {
         if (previousTurn === "black" && this.currentTurn === "red") {
             this.moveCount++;
         }
+
+        console.log(`Move successful: ${this.getMoveNotation(moveEntry)}, New FEN: ${fenAfter}`);
         return true;
     }
 
@@ -721,7 +754,9 @@ class XiangqiGame {
                 return "Unknown Move";
             }
         }
-
+        // Sử dụng ký hiệu Latin thay vì tên Trung Quốc để tránh lỗi hiển thị
+        const fenSymbol = this.pieceToFen(piece) || piece.name;
+        console.log(`Processing move: ${fenSymbol} (${piece.color}) from (${move.fromX}, ${move.fromY}) to (${move.toX}, ${move.toY})`);
         const pieceNotation = this.getPieceNotation(piece);
         if (!pieceNotation) return "Invalid Piece";
 

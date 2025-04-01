@@ -8,7 +8,7 @@
         content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';">
     <title>Chinese Chess</title>
     <link rel="stylesheet" href="styles/styles.css"> <!-- Liên kết tới file CSS mới -->
-    
+
 </head>
 
 <body>
@@ -68,6 +68,7 @@
 
         <!-- Các bảng engine (di chuyển sang bên phải) -->
         <div id="engine-container">
+            <button id="load-suggestions-btn">Load Suggestions</button> <!-- Thêm nút Load -->
             <table id="move-suggestions">
                 <thead>
                     <tr>
@@ -78,7 +79,7 @@
                         <th>Depth</th>
                         <th>Nodes</th>
                         <th>Time</th>
-                        <th>Principal Variation</th> <!-- Cột mới -->
+                        <th>Principal Variation</th> 
                     </tr>
                 </thead>
                 <tbody id="suggestions-body"></tbody>
