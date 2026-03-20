@@ -1,9 +1,9 @@
-﻿// main.js
+// main.js
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs').promises;
 const { spawn } = require('child_process');
-const fsSync = require('fs'); // Äá»ƒ kiá»ƒm tra file tá»“n táº¡i
+const fsSync = require('fs'); // Để kiểm tra file tồn tại
 
 const XiangqiGame = require(path.join(__dirname, 'game.js'));
 
@@ -60,7 +60,7 @@ async function loadEngines() {
         }));
     } catch (err) {
         console.error('Error loading engines:', err.message);
-        // Kiá»ƒm tra xem file Pikafish cÃ³ tá»“n táº¡i khÃ´ng
+        // Kiểm tra xem file Pikafish có tồn tại không
         if (fsSync.existsSync(defaultEngine.path)) {
             engines = [defaultEngine];
             await saveEngines();
@@ -106,7 +106,7 @@ function startEngine(enginePath) {
         engineProcess = null;
     }
 
-    // Kiá»ƒm tra xem file engine cÃ³ tá»“n táº¡i khÃ´ng
+    // Kiểm tra xem file engine có tồn tại không
     if (!fsSync.existsSync(enginePath)) {
         console.error(`Engine file does not exist at ${enginePath}`);
         if (mainWindow) {
@@ -131,7 +131,7 @@ function startEngine(enginePath) {
             mainWindow.webContents.send('engine-output', data.toString());
         }
         const output = data.toString();
-        console.log(`Engine output: ${output}`); // Log chi tiáº¿t
+        console.log(`Engine output: ${output}`); // Log chi tiết
         if (output.includes('readyok') && mainWindow) {
             mainWindow.webContents.send('engine-ready');
         }
@@ -214,23 +214,23 @@ function startEngine(enginePath) {
 
 ipcMain.handle('simulate-pv', async (event, fen, pvMoves, stepLimit) => {
     try {
-        // Táº¡o má»™t instance táº¡m thá»i cá»§a XiangqiGame
+        // Tạo một instance tạm thời của XiangqiGame
         const tempGame = new XiangqiGame();
 
-        // KhÃ´i phá»¥c tráº¡ng thÃ¡i bÃ n cá» tá»« FEN
+        // Khôi phục trạng thái bàn cờ từ FEN
         tempGame.importFen(fen);
 
-        // Danh sÃ¡ch lÆ°u cÃ¡c tráº¡ng thÃ¡i bÃ n cá» sau má»—i nÆ°á»›c Ä‘i
+        // Danh sách lưu các trạng thái bàn cờ sau mỗi nước đi
         const boardStates = [];
 
-        // LÆ°u tráº¡ng thÃ¡i ban Ä‘áº§u
+        // Lưu trạng thái ban đầu
         boardStates.push({
             board: tempGame.board.map(row => row.map(cell => (cell ? { ...cell } : null))),
             currentTurn: tempGame.currentTurn,
             moveCount: tempGame.moveCount
         });
 
-        // MÃ´ phá»ng cÃ¡c nÆ°á»›c Ä‘i trong chuá»—i PV Ä‘áº¿n stepLimit
+        // Mô phỏng các nước đi trong chuỗi PV đến stepLimit
         for (let i = 0; i < pvMoves.length && i < stepLimit; i++) {
             const move = pvMoves[i];
             const fromX = move.charCodeAt(0) - 97; // 'a' = 0, 'i' = 8
@@ -257,8 +257,6 @@ ipcMain.handle('simulate-pv', async (event, fen, pvMoves, stepLimit) => {
         return [];
     }
 });
-
-
 
 ipcMain.handle('format-pv', async (event, fen, pvMoves) => {
     try {
@@ -298,6 +296,7 @@ ipcMain.handle('format-pv', async (event, fen, pvMoves) => {
         return { moves: [], formatted: '-' };
     }
 });
+
 ipcMain.handle('import-fen', (event, fen) => {
     if (typeof gameInstance.importFen !== 'function') {
         throw new Error('importFen is not a function');
