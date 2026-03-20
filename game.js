@@ -1,41 +1,44 @@
+﻿// game.js
 const ROWS = 10;
 const COLS = 9;
 
 class XiangqiGame {
     constructor() {
         this.currentTurn = "red";
-        this.moveHistory = [];
-        this.currentMoveIndex = -1;
+        this.moveHistory = []; // LÆ°u lá»‹ch sá»­ cÃ¡c nÆ°á»›c Ä‘i
+        this.currentMoveIndex = -1; // Chá»‰ sá»‘ cá»§a nÆ°á»›c Ä‘i hiá»‡n táº¡i
         this.initialBoard = null;
         this.board = Array(ROWS).fill().map(() => Array(COLS).fill(null));
-        this.moveCount = 1;
+        this.moveCount = 1; // Khá»Ÿi táº¡o sá»‘ nÆ°á»›c Ä‘i
         this.setupInitialPosition();
         this.saveInitialBoard();
-        this.fenBoardSnapshot = null;
+        this.fenBoardSnapshot = null; // LÆ°u tráº¡ng thÃ¡i bÃ n cá» táº¡i thá»i Ä‘iá»ƒm FEN
+        // Ãnh xáº¡ tÃªn quÃ¢n cá» sang kÃ½ hiá»‡u FEN
         this.fenMap = {
-            "\u8eca": "r",
-            "\u99Ac": "n",
-            "\u9a6c": "n",
-            "\u8c61": "b",
-            "\u76f8": "b",
-            "\u4ed5": "a",
-            "\u58eb": "a",
-            "\u5e05": "k",
-            "\u5c06": "k",
-            "\u70ae": "c",
-            "\u7832": "c",
-            "\u5175": "p",
-            "\u5352": "p"
+            "è»Š": "r", // Xe
+            "é¦¬": "n", // MÃ£
+            "é©¬": "n", // MÃ£ (kÃ½ tá»± khÃ¡c)
+            "è±¡": "b", // TÆ°á»£ng
+            "ç›¸": "b", // TÆ°á»£ng (kÃ½ tá»± khÃ¡c)
+            "ä»•": "a", // SÄ©
+            "å£«": "a", // SÄ© (kÃ½ tá»± khÃ¡c)
+            "å¸…": "k", // TÆ°á»›ng (Ä‘á»)
+            "å°†": "k", // TÆ°á»›ng (Ä‘en)
+            "ç‚®": "c", // PhÃ¡o
+            "ç ²": "c", // PhÃ¡o (kÃ½ tá»± khÃ¡c)
+            "å…µ": "p", // Tá»‘t (Ä‘á»)
+            "å’": "p"  // Tá»‘t (Ä‘en)
         };
     }
 
+    // HÃ m chuyá»ƒn Ä‘á»•i quÃ¢n cá» thÃ nh kÃ½ hiá»‡u FEN
     pieceToFen(piece) {
         if (!piece) return null;
         let symbol = this.fenMap[piece.name];
         if (!symbol) return null;
+        // QuÃ¢n Ä‘á»: in hoa, quÃ¢n Ä‘en: in thÆ°á»ng
         return piece.color === "red" ? symbol.toUpperCase() : symbol.toLowerCase();
     }
-    // Rebuild board state from FEN and reset replay pointers for that new state.
     importFen(fen) {
         try {
             const parts = fen.split(' ');
@@ -48,6 +51,7 @@ class XiangqiGame {
             const turn = parts[1];
             const moveNumber = parseInt(parts[4]) || 1;
 
+            // Äáº·t láº¡i bÃ n cá»
             this.board = Array(ROWS).fill().map(() => Array(COLS).fill(null));
             const rows = boardFen.split('/');
             if (rows.length !== ROWS) {
@@ -55,18 +59,16 @@ class XiangqiGame {
                 return false;
             }
 
+            // Ãnh xáº¡ ngÆ°á»£c tá»« kÃ½ hiá»‡u FEN sang tÃªn quÃ¢n cá»
             const reverseFenMap = {
-                'r': "\u8eca", 'R': "\u8eca",
-                'n': "\u9a6c", 'N': "\u99Ac",
-                'b': "\u76f8", 'B': "\u8c61",
-                'a': "\u58eb", 'A': "\u4ed5",
-                'k': "\u5c06", 'K': "\u5e05",
-                'c': "\u7832", 'C': "\u70ae",
-                'p': "\u5352", 'P': "\u5175"
+                'r': "è»Š", 'R': "è»Š",
+                'n': "é©¬", 'N': "é¦¬",
+                'b': "ç›¸", 'B': "è±¡",
+                'a': "å£«", 'A': "ä»•",
+                'k': "å°†", 'K': "å¸…",
+                'c': "ç ²", 'C': "ç‚®",
+                'p': "å’", 'P': "å…µ"
             };
-
-            let kingRedCount = 0;
-            let kingBlackCount = 0;
 
             for (let y = 0; y < ROWS; y++) {
                 let x = 0;
@@ -80,8 +82,6 @@ class XiangqiGame {
                         if (pieceName) {
                             const color = char === char.toUpperCase() ? "red" : "black";
                             this.board[y][x] = { name: pieceName, color };
-                            if (pieceName === "\u5e05" && color === "red") kingRedCount++;
-                            if (pieceName === "\u5c06" && color === "black") kingBlackCount++;
                             x++;
                         } else {
                             console.warn(`Unknown FEN symbol at row ${y}, col ${x}: ${char}`);
@@ -91,17 +91,13 @@ class XiangqiGame {
                 }
             }
 
-            if (kingRedCount !== 1 || kingBlackCount !== 1) {
-                console.error(`Invalid FEN: Red kings: ${kingRedCount}, Black kings: ${kingBlackCount}`);
-                return false;
-            }
-
+            // Cáº­p nháº­t tráº¡ng thÃ¡i trÃ² chÆ¡i
             this.currentTurn = turn === 'w' ? 'red' : 'black';
             this.moveCount = moveNumber;
-            // Importing a fresh FEN intentionally clears current game history.
-            this.moveHistory = [];
+            this.moveHistory = []; // XÃ³a lá»‹ch sá»­ nÆ°á»›c Ä‘i
             this.currentMoveIndex = -1;
             this.fenBoardSnapshot = null;
+
             return true;
         } catch (err) {
             console.error('Error importing FEN:', err);
@@ -111,24 +107,24 @@ class XiangqiGame {
 
     setupInitialPosition() {
         const initialSetup = [
-            { name: "\u8eca", color: "red", x: 0, y: 9 }, { name: "\u8eca", color: "red", x: 8, y: 9 },
-            { name: "\u99Ac", color: "red", x: 1, y: 9 }, { name: "\u99Ac", color: "red", x: 7, y: 9 },
-            { name: "\u8c61", color: "red", x: 2, y: 9 }, { name: "\u8c61", color: "red", x: 6, y: 9 },
-            { name: "\u4ed5", color: "red", x: 3, y: 9 }, { name: "\u4ed5", color: "red", x: 5, y: 9 },
-            { name: "\u5e05", color: "red", x: 4, y: 9 },
-            { name: "\u70ae", color: "red", x: 1, y: 7 }, { name: "\u70ae", color: "red", x: 7, y: 7 },
-            { name: "\u5175", color: "red", x: 0, y: 6 }, { name: "\u5175", color: "red", x: 2, y: 6 },
-            { name: "\u5175", color: "red", x: 4, y: 6 }, { name: "\u5175", color: "red", x: 6, y: 6 },
-            { name: "\u5175", color: "red", x: 8, y: 6 },
-            { name: "\u8eca", color: "black", x: 0, y: 0 }, { name: "\u8eca", color: "black", x: 8, y: 0 },
-            { name: "\u9a6c", color: "black", x: 1, y: 0 }, { name: "\u9a6c", color: "black", x: 7, y: 0 },
-            { name: "\u76f8", color: "black", x: 2, y: 0 }, { name: "\u76f8", color: "black", x: 6, y: 0 },
-            { name: "\u58eb", color: "black", x: 3, y: 0 }, { name: "\u58eb", color: "black", x: 5, y: 0 },
-            { name: "\u5c06", color: "black", x: 4, y: 0 },
-            { name: "\u7832", color: "black", x: 1, y: 2 }, { name: "\u7832", color: "black", x: 7, y: 2 },
-            { name: "\u5352", color: "black", x: 0, y: 3 }, { name: "\u5352", color: "black", x: 2, y: 3 },
-            { name: "\u5352", color: "black", x: 4, y: 3 }, { name: "\u5352", color: "black", x: 6, y: 3 },
-            { name: "\u5352", color: "black", x: 8, y: 3 }
+            { name: "è»Š", color: "red", x: 0, y: 9 }, { name: "è»Š", color: "red", x: 8, y: 9 },
+            { name: "é¦¬", color: "red", x: 1, y: 9 }, { name: "é¦¬", color: "red", x: 7, y: 9 },
+            { name: "è±¡", color: "red", x: 2, y: 9 }, { name: "è±¡", color: "red", x: 6, y: 9 },
+            { name: "ä»•", color: "red", x: 3, y: 9 }, { name: "ä»•", color: "red", x: 5, y: 9 },
+            { name: "å¸…", color: "red", x: 4, y: 9 },
+            { name: "ç‚®", color: "red", x: 1, y: 7 }, { name: "ç‚®", color: "red", x: 7, y: 7 },
+            { name: "å…µ", color: "red", x: 0, y: 6 }, { name: "å…µ", color: "red", x: 2, y: 6 },
+            { name: "å…µ", color: "red", x: 4, y: 6 }, { name: "å…µ", color: "red", x: 6, y: 6 },
+            { name: "å…µ", color: "red", x: 8, y: 6 },
+            { name: "è»Š", color: "black", x: 0, y: 0 }, { name: "è»Š", color: "black", x: 8, y: 0 },
+            { name: "é©¬", color: "black", x: 1, y: 0 }, { name: "é©¬", color: "black", x: 7, y: 0 },
+            { name: "ç›¸", color: "black", x: 2, y: 0 }, { name: "ç›¸", color: "black", x: 6, y: 0 },
+            { name: "å£«", color: "black", x: 3, y: 0 }, { name: "å£«", color: "black", x: 5, y: 0 },
+            { name: "å°†", color: "black", x: 4, y: 0 },
+            { name: "ç ²", color: "black", x: 1, y: 2 }, { name: "ç ²", color: "black", x: 7, y: 2 },
+            { name: "å’", color: "black", x: 0, y: 3 }, { name: "å’", color: "black", x: 2, y: 3 },
+            { name: "å’", color: "black", x: 4, y: 3 }, { name: "å’", color: "black", x: 6, y: 3 },
+            { name: "å’", color: "black", x: 8, y: 3 }
         ];
 
         initialSetup.forEach(piece => {
@@ -136,7 +132,9 @@ class XiangqiGame {
         });
     }
     exportFen() {
+        // LÆ°u tráº¡ng thÃ¡i bÃ n cá» trÆ°á»›c khi xuáº¥t FEN
         this.fenBoardSnapshot = this.board.map(row => row.map(cell => (cell ? { ...cell } : null)));
+        // Logic Ä‘á»ƒ táº¡o chuá»—i FEN tá»« tráº¡ng thÃ¡i bÃ n cá»
         let fen = '';
         for (let y = 0; y < ROWS; y++) {
             let emptyCount = 0;
@@ -149,12 +147,13 @@ class XiangqiGame {
                         fen += emptyCount;
                         emptyCount = 0;
                     }
+                    //fen += piece.toFen(); // Giáº£ Ä‘á»‹nh má»—i quÃ¢n cá» cÃ³ hÃ m toFen()
                     const fenSymbol = this.pieceToFen(piece);
                     if (fenSymbol) {
                         fen += fenSymbol;
                     } else {
                         console.warn(`Unknown piece at (${x}, ${y}):`, piece);
-                        fen += '?';
+                        fen += '?'; // Placeholder cho quÃ¢n cá» khÃ´ng xÃ¡c Ä‘á»‹nh
                     }
                 }
             }
@@ -165,6 +164,7 @@ class XiangqiGame {
         return fen;
     }
 
+    // HÃ m láº¥y quÃ¢n cá» tá»« snapshot (náº¿u cÃ³), náº¿u khÃ´ng thÃ¬ tá»« bÃ n cá» hiá»‡n táº¡i
     getPieceForNotation(x, y) {
         if (this.fenBoardSnapshot && this.fenBoardSnapshot[y] && this.fenBoardSnapshot[y][x]) {
             return this.fenBoardSnapshot[y][x];
@@ -176,7 +176,23 @@ class XiangqiGame {
         this.initialBoard = this.board.map(row => row.map(cell => (cell ? { ...cell } : null)));
     }
 
+    // saveState() {
+    //     if (!Array.isArray(this.history)) {
+    //         console.error('this.history is not an array, resetting to []');
+    //         this.history = [];
+    //     }
+    //     if (typeof this.currentStep !== 'number' || isNaN(this.currentStep)) {
+    //         console.error('this.currentStep is not a number, resetting to -1');
+    //         this.currentStep = -1;
+    //     }
 
+    //     this.history = this.history.slice(0, this.currentStep + 1);
+    //     this.history.push({
+    //         board: this.board.map(row => row.map(cell => (cell ? { ...cell } : null))),
+    //         currentTurn: this.currentTurn
+    //     });
+    //     this.currentStep++;
+    // }
 
     getPiece(x, y) {
         if (!this.board || !Array.isArray(this.board) || !this.board[y] || !this.isValidPosition(x, y)) {
@@ -191,52 +207,35 @@ class XiangqiGame {
     }
     move(fromX, fromY, toX, toY) {
         const piece = this.board[fromY][fromX];
-        if (!piece) {
-            console.error(`No piece found at (${fromX}, ${fromY})`);
-            return false;
-        }
+        if (!piece) return false;
 
-        if (piece.color !== this.currentTurn) {
-            console.log(`Not ${piece.color}'s turn, current turn is ${this.currentTurn}`);
-            return false;
-        }
+        if (piece.color !== this.currentTurn) return false;
 
         const legalMoves = this.getLegalMoves(fromX, fromY);
         const isLegal = legalMoves.some(([mx, my]) => mx === toX && my === toY);
-        if (!isLegal) {
-            console.log(`Illegal move attempted: (${fromX}, ${fromY}) to (${toX}, ${toY})`);
-            return false;
-        }
+        if (!isLegal) return false;
 
         const capturedPiece = this.board[toY][toX];
-        if (capturedPiece && capturedPiece.name === (piece.color === "red" ? "\u5c06" : "\u5e05")) {
-            console.warn(`Attempted to capture opponent's king at (${toX}, ${toY})`);
-            return false;
-        }
-
         this.moveHistory = this.moveHistory.slice(0, this.currentMoveIndex + 1);
-        const fenBefore = this.exportFen();
-        this.board[toY][toX] = piece;
-        this.board[fromY][fromX] = null;
-
-        if (this.isKingInCheck(piece.color)) {
-            this.board[fromY][fromX] = piece;
-            this.board[toY][toX] = capturedPiece;
-            return false;
-        }
-
-        const fenAfter = this.exportFen();
-        const moveEntry = {
+        this.moveHistory.push({
             fromX,
             fromY,
             toX,
             toY,
             capturedPiece,
             currentTurn: this.currentTurn,
-            piece: { name: piece.name, color: piece.color },
-            fen: fenAfter
-        };
-        this.moveHistory.push(moveEntry);
+            piece: { ...piece } // LÆ°u thÃ´ng tin quÃ¢n cá» táº¡i thá»i Ä‘iá»ƒm di chuyá»ƒn
+        });
+
+        this.board[toY][toX] = piece;
+        this.board[fromY][fromX] = null;
+
+        if (this.isKingInCheck(piece.color)) {
+            this.board[fromY][fromX] = piece;
+            this.board[toY][toX] = capturedPiece;
+            this.moveHistory.pop();
+            return false;
+        }
 
         this.currentMoveIndex++;
         const previousTurn = this.currentTurn;
@@ -247,46 +246,83 @@ class XiangqiGame {
         return true;
     }
 
+    // move(fromX, fromY, toX, toY) {
+    //     const piece = this.getPiece(fromX, fromY);
+    //     if (!piece || piece.color !== this.currentTurn) return false;
 
+    //     const legalMoves = this.getLegalMoves(fromX, fromY);
+    //     if (!legalMoves.some(([mx, my]) => mx === toX && my === toY)) return false;
 
+    //     const target = this.getPiece(toX, toY);
+    //     this.board[toY][toX] = piece;
+    //     this.board[fromY][fromX] = null;
 
+    //     if (this.isKingInCheck(piece.color)) {
+    //         this.board[fromY][fromX] = piece;
+    //         this.board[toY][toX] = target;
+    //         return false;
+    //     }
 
+    //     this.currentTurn = this.currentTurn === "red" ? "black" : "red";
+    //     return true;
+    // }
 
+    // HÃ m má»›i: TÃ­nh nÆ°á»›c Ä‘i thÃ´ (khÃ´ng kiá»ƒm tra chiáº¿u)
     getRawMoves(x, y) {
         const piece = this.getPiece(x, y);
         if (!piece) return [];
 
         let moves = [];
         switch (piece.name) {
-            case "\u5175": case "\u5352": moves = this.getSoldierMoves(x, y, piece.color); break;
-            case "\u70ae": case "\u7832": moves = this.getCannonMoves(x, y, piece.color); break;
-            case "\u8eca": moves = this.getRookMoves(x, y, piece.color); break;
-            case "\u99Ac": case "\u9a6c": moves = this.getKnightMoves(x, y, piece.color); break;
-            case "\u76f8": case "\u8c61": moves = this.getElephantMoves(x, y, piece.color); break;
-            case "\u4ed5": case "\u58eb": moves = this.getGuardMoves(x, y, piece.color); break;
-            case "\u5e05": case "\u5c06": moves = this.getKingMoves(x, y, piece.color); break;
+            case "å…µ": case "å’": moves = this.getSoldierMoves(x, y, piece.color); break;
+            case "ç‚®": case "ç ²": moves = this.getCannonMoves(x, y, piece.color); break;
+            case "è»Š": moves = this.getRookMoves(x, y, piece.color); break;
+            case "é¦¬": case "é©¬": moves = this.getKnightMoves(x, y, piece.color); break;
+            case "ç›¸": case "è±¡": moves = this.getElephantMoves(x, y, piece.color); break;
+            case "ä»•": case "å£«": moves = this.getGuardMoves(x, y, piece.color); break;
+            case "å¸…": case "å°†": moves = this.getKingMoves(x, y, piece.color); break;
             default: return [];
         }
         return moves;
     }
 
+    // getLegalMoves(x, y) {
+    //     const piece = this.getPiece(x, y);
+    //     if (!piece) return [];
 
+    //     const moves = this.getRawMoves(x, y);
+    //     return moves.filter(([toX, toY]) => {
+    //         const original = this.board[y][x];
+    //         const target = this.board[toY][toX];
+    //         this.board[toY][toX] = original;
+    //         this.board[y][x] = null;
 
+    //         const inCheck = this.isKingInCheck(piece.color);
+    //         this.board[y][x] = original;
+    //         this.board[toY][toX] = target;
 
+    //         return !inCheck;
+    //     });
+    // }
     getLegalMoves(x, y) {
         const piece = this.getPiece(x, y);
         if (!piece) return [];
 
+        // Láº¥y cÃ¡c nÆ°á»›c Ä‘i thÃ´ (khÃ´ng kiá»ƒm tra chiáº¿u)
         const rawMoves = this.getRawMoves(x, y);
 
+        // Lá»c cÃ¡c nÆ°á»›c Ä‘i Ä‘á»ƒ Ä‘áº£m báº£o khÃ´ng Ä‘á»ƒ vua bá»‹ chiáº¿u sau khi di chuyá»ƒn
         const legalMoves = rawMoves.filter(([toX, toY]) => {
+            // Thá»­ di chuyá»ƒn
             const originalPiece = this.board[y][x];
             const targetPiece = this.board[toY][toX];
             this.board[toY][toX] = originalPiece;
             this.board[y][x] = null;
 
+            // Kiá»ƒm tra xem vua cá»§a bÃªn mÃ¬nh cÃ³ bá»‹ chiáº¿u khÃ´ng
             const inCheck = this.isKingInCheck(piece.color);
 
+            // HoÃ n tÃ¡c di chuyá»ƒn
             this.board[y][x] = originalPiece;
             this.board[toY][toX] = targetPiece;
 
@@ -304,6 +340,7 @@ class XiangqiGame {
             for (let x = 0; x < COLS; x++) {
                 const piece = this.board[y][x];
                 if (piece && piece.color === enemyColor) {
+                    // Sá»­ dá»¥ng getRawMoves thay vÃ¬ getLegalMoves Ä‘á»ƒ trÃ¡nh Ä‘á»‡ quy
                     const moves = this.getRawMoves(x, y);
                     if (moves.some(([mx, my]) => mx === kingPos.x && my === kingPos.y)) {
                         return true;
@@ -316,16 +353,20 @@ class XiangqiGame {
     }
 
     isCheckmate(color) {
+        // Kiá»ƒm tra xem vua cá»§a color cÃ³ bá»‹ chiáº¿u bÃ­ hay khÃ´ng
+        // 1. Kiá»ƒm tra xem vua cÃ³ bá»‹ chiáº¿u khÃ´ng
         if (!this.isKingInCheck(color)) {
             return false;
         }
 
+        // 2. Kiá»ƒm tra xem cÃ³ nÆ°á»›c Ä‘i nÃ o Ä‘á»ƒ thoÃ¡t chiáº¿u khÃ´ng
         for (let y = 0; y < ROWS; y++) {
             for (let x = 0; x < COLS; x++) {
                 const piece = this.getPiece(x, y);
                 if (piece && piece.color === color) {
                     const moves = this.getLegalMoves(x, y);
                     for (const [toX, toY] of moves) {
+                        // Thá»­ di chuyá»ƒn vÃ  kiá»ƒm tra xem cÃ³ thoÃ¡t chiáº¿u khÃ´ng
                         const originalPiece = this.board[y][x];
                         const targetPiece = this.board[toY][toX];
                         this.board[toY][toX] = originalPiece;
@@ -333,25 +374,26 @@ class XiangqiGame {
 
                         const stillInCheck = this.isKingInCheck(color);
 
+                        // HoÃ n tÃ¡c di chuyá»ƒn
                         this.board[y][x] = originalPiece;
                         this.board[toY][toX] = targetPiece;
 
                         if (!stillInCheck) {
-                            return false;
+                            return false; // CÃ³ nÆ°á»›c Ä‘i Ä‘á»ƒ thoÃ¡t chiáº¿u
                         }
                     }
                 }
             }
         }
 
-        return true;
+        return true; // KhÃ´ng cÃ³ nÆ°á»›c Ä‘i nÃ o Ä‘á»ƒ thoÃ¡t chiáº¿u -> chiáº¿u bÃ­
     }
 
     findKing(color) {
         for (let y = 0; y < ROWS; y++) {
             for (let x = 0; x < COLS; x++) {
                 const piece = this.board[y][x];
-                if (piece && piece.name === (color === "red" ? "\u5e05" : "\u5c06") && piece.color === color) {
+                if (piece && piece.name === (color === "red" ? "å¸…" : "å°†") && piece.color === color) {
                     return { x, y };
                 }
             }
@@ -396,7 +438,7 @@ class XiangqiGame {
 
         directions.forEach(([dx, dy]) => {
             let nx = x, ny = y;
-            let jumpCount = 0;
+            let jumpCount = 0; // Äáº¿m sá»‘ quÃ¢n Ä‘Ã£ nháº£y qua (bá»‡ phÃ¡o)
 
             while (this.isValidPosition(nx + dx, ny + dy)) {
                 nx += dx;
@@ -404,18 +446,23 @@ class XiangqiGame {
                 const pieceAt = this.board[ny][nx];
 
                 if (jumpCount === 0) {
+                    // ChÆ°a nháº£y qua quÃ¢n nÃ o: cÃ³ thá»ƒ di chuyá»ƒn Ä‘áº¿n Ã´ trá»‘ng
                     if (!pieceAt) {
                         moves.push([nx, ny]);
                     } else {
+                        // Gáº·p quÃ¢n Ä‘áº§u tiÃªn: tÄƒng jumpCount
                         jumpCount++;
                     }
                 } else if (jumpCount === 1) {
+                    // ÄÃ£ nháº£y qua má»™t quÃ¢n: kiá»ƒm tra Ã´ Ä‘Ã­ch
                     if (pieceAt) {
+                        // Náº¿u Ã´ Ä‘Ã­ch cÃ³ quÃ¢n vÃ  lÃ  quÃ¢n Ä‘á»‹ch, cÃ³ thá»ƒ Äƒn
                         if (pieceAt.color !== color) {
                             moves.push([nx, ny]);
                         }
-                        break;
+                        break; // DÃ¹ cÃ³ Äƒn Ä‘Æ°á»£c hay khÃ´ng, dá»«ng láº¡i sau khi gáº·p quÃ¢n thá»© hai
                     }
+                    // Náº¿u Ã´ trá»‘ng, khÃ´ng thá»ƒ di chuyá»ƒn tiáº¿p (PhÃ¡o khÃ´ng di chuyá»ƒn qua bá»‡ phÃ¡o mÃ  khÃ´ng Äƒn)
                 }
             }
         });
@@ -506,11 +553,12 @@ class XiangqiGame {
         const move = this.moveHistory[this.currentMoveIndex];
         if (!move) return false;
 
+        // KhÃ´i phá»¥c tráº¡ng thÃ¡i bÃ n cá»
         const piece = this.board[move.toY][move.toX];
         this.board[move.fromY][move.fromX] = piece;
-        this.board[move.toY][move.toX] = move.capturedPiece;
-        this.currentTurn = move.currentTurn;
-        // moveCount increases after black moves, so undo black turn should decrement it.
+        this.board[move.toY][move.toX] = move.capturedPiece; // KhÃ´i phá»¥c quÃ¢n cá» bá»‹ Äƒn (náº¿u cÃ³)
+        this.currentTurn = move.currentTurn; // KhÃ´i phá»¥c lÆ°á»£t chÆ¡i
+        // Giáº£m moveCount náº¿u quay láº¡i tá»« Ä‘á» vá» Ä‘en
         if (this.currentTurn === "black" && this.moveCount > 1) {
             this.moveCount--;
         }
@@ -526,11 +574,13 @@ class XiangqiGame {
         const move = this.moveHistory[this.currentMoveIndex];
         if (!move) return false;
 
+        // Ãp dá»¥ng láº¡i nÆ°á»›c Ä‘i
         const piece = this.board[move.fromY][move.fromX];
         this.board[move.toY][move.toX] = piece;
         this.board[move.fromY][move.fromX] = null;
         const previousTurn = this.currentTurn;
         this.currentTurn = this.currentTurn === "red" ? "black" : "red";
+        // TÄƒng moveCount náº¿u Ä‘i tá»« Ä‘en sang Ä‘á»
         if (previousTurn === "black" && this.currentTurn === "red") {
             this.moveCount++;
         }
@@ -543,7 +593,7 @@ class XiangqiGame {
         this.currentTurn = "red";
         this.moveHistory = [];
         this.currentMoveIndex = -1;
-        this.moveCount = 1;
+        this.moveCount = 1; // Äáº·t láº¡i moveCount
         return true;
     }
 
@@ -552,13 +602,12 @@ class XiangqiGame {
         this.currentTurn = "red";
         this.moveHistory = [];
         this.currentMoveIndex = -1;
-        this.moveCount = 1;
+        this.moveCount = 1; // Äáº·t láº¡i moveCount
         this.setupInitialPosition();
         this.saveInitialBoard();
         return true;
     }
 
-    // Return history entries with both notation and coordinates for UI replay/navigation.
     getMoveHistory() {
         if (!this.moveHistory || !Array.isArray(this.moveHistory)) {
             console.error('Move history is not initialized or invalid:', this.moveHistory);
@@ -571,7 +620,6 @@ class XiangqiGame {
             }
             try {
                 const notation = this.getMoveNotation(move);
-                // Keep coordinates in history entries so replay and jump-to-move stay stable.
                 return { ...move, moveNotation: notation };
             } catch (err) {
                 console.error(`Error processing move ${index}:`, move, err);
@@ -595,6 +643,7 @@ class XiangqiGame {
             this.currentMoveIndex = data.currentMoveIndex || -1;
             this.initialBoard = data.initialBoard || null;
 
+            // Äáº·t láº¡i bÃ n cá» vá» tráº¡ng thÃ¡i ban Ä‘áº§u
             if (this.initialBoard) {
                 this.board = this.initialBoard.map(row => row.map(cell => (cell ? { ...cell } : null)));
             } else {
@@ -604,6 +653,7 @@ class XiangqiGame {
             }
             this.currentTurn = "red";
 
+            // Ãp dá»¥ng láº¡i cÃ¡c nÆ°á»›c Ä‘i
             for (let i = 0; i <= this.currentMoveIndex; i++) {
                 const move = this.moveHistory[i];
                 if (move) {
@@ -620,26 +670,29 @@ class XiangqiGame {
         }
     }
 
+    // Chuyá»ƒn Ä‘á»•i tÃªn quÃ¢n cá» sang kÃ½ hiá»‡u ngáº¯n gá»n
     getPieceNotation(piece) {
         if (!piece) return "";
         const notationMap = {
-            "\u5175": "P", "\u5352": "P",
-            "\u70ae": "C", "\u7832": "C",
-            "\u99Ac": "N", "\u9a6c": "N",
-            "\u8c61": "B", "\u76f8": "B",
-            "\u8eca": "R", "\u8f66": "R",
-            "\u4ed5": "A", "\u58eb": "A",
-            "\u5e05": "K", "\u5c06": "K"
+            "å…µ": "P", "å’": "P", // Tá»‘t
+            "ç‚®": "C", "ç ²": "C", // PhÃ¡o
+            "é¦¬": "N", "é©¬": "N", // MÃ£
+            "è±¡": "B", "ç›¸": "B", // TÆ°á»£ng
+            "è»Š": "R", "è½¦": "R", // Xe
+            "ä»•": "A", "å£«": "A", // SÄ©
+            "å¸…": "K", "å°†": "K"  // TÆ°á»›ng/Vua
         };
         return notationMap[piece.name] || piece.name;
     }
 
+    // Chuyá»ƒn Ä‘á»•i tá»a Ä‘á»™ (x, y) thÃ nh Ä‘á»‹nh dáº¡ng C2=5
     getPositionNotation(x, y) {
-        const col = x + 1;
-        const row = 10 - y;
+        const col = x + 1; // Cá»™t tá»« 1 Ä‘áº¿n 9 (x tá»« 0 Ä‘áº¿n 8)
+        const row = 10 - y; // HÃ ng tá»« 1 Ä‘áº¿n 10 (y tá»« 0 Ä‘áº¿n 9, Ä‘áº£o ngÆ°á»£c)
         return `${col}.${row}`;
     }
 
+    // TÃ¬m táº¥t cáº£ cÃ¡c quÃ¢n cÃ¹ng loáº¡i trÃªn cÃ¹ng má»™t cá»™t
     getPiecesInColumn(pieceName, col, color) {
         const pieces = [];
         for (let y = 0; y < 10; y++) {
@@ -650,6 +703,7 @@ class XiangqiGame {
         }
         return pieces;
     }
+    // Táº¡o kÃ½ hiá»‡u nÆ°á»›c Ä‘i (C2+2, -C+2, v.v.)
     getMoveNotation(move) {
         if (!move || typeof move.fromX === 'undefined' || typeof move.fromY === 'undefined' ||
             typeof move.toX === 'undefined' || typeof move.toY === 'undefined') {
@@ -657,6 +711,7 @@ class XiangqiGame {
             return "Invalid Move";
         }
 
+        // Æ¯u tiÃªn sá»­ dá»¥ng move.piece, náº¿u khÃ´ng cÃ³ thÃ¬ láº¥y tá»« this.board
         let piece = move.piece;
         if (!piece) {
             console.warn('No piece information in move object, attempting to fetch from board:', move);
@@ -666,7 +721,7 @@ class XiangqiGame {
                 return "Unknown Move";
             }
         }
-        const fenSymbol = this.pieceToFen(piece) || piece.name;
+
         const pieceNotation = this.getPieceNotation(piece);
         if (!pieceNotation) return "Invalid Piece";
 
@@ -678,7 +733,7 @@ class XiangqiGame {
         let moveSymbol = "";
         let moveDistance = 0;
 
-        if (["\u99Ac", "\u9a6c", "\u8c61", "\u76f8", "\u4ed5", "\u58eb"].includes(piece.name)) {
+        if (["é¦¬", "é©¬", "è±¡", "ç›¸", "ä»•", "å£«"].includes(piece.name)) {
             moveSymbol = deltaY > 0 ? (piece.color === "red" ? "-" : "+") : (piece.color === "red" ? "+" : "-");
             moveDistance = toCol;
         } else {
@@ -708,5 +763,3 @@ class XiangqiGame {
 }
 
 module.exports = XiangqiGame;
-
-

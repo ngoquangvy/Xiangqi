@@ -1,8 +1,9 @@
+﻿// main.js
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs').promises;
 const { spawn } = require('child_process');
-const fsSync = require('fs');
+const fsSync = require('fs'); // Äá»ƒ kiá»ƒm tra file tá»“n táº¡i
 
 const XiangqiGame = require(path.join(__dirname, 'game.js'));
 
@@ -59,6 +60,7 @@ async function loadEngines() {
         }));
     } catch (err) {
         console.error('Error loading engines:', err.message);
+        // Kiá»ƒm tra xem file Pikafish cÃ³ tá»“n táº¡i khÃ´ng
         if (fsSync.existsSync(defaultEngine.path)) {
             engines = [defaultEngine];
             await saveEngines();
@@ -104,6 +106,7 @@ function startEngine(enginePath) {
         engineProcess = null;
     }
 
+    // Kiá»ƒm tra xem file engine cÃ³ tá»“n táº¡i khÃ´ng
     if (!fsSync.existsSync(enginePath)) {
         console.error(`Engine file does not exist at ${enginePath}`);
         if (mainWindow) {
@@ -128,6 +131,7 @@ function startEngine(enginePath) {
             mainWindow.webContents.send('engine-output', data.toString());
         }
         const output = data.toString();
+        console.log(`Engine output: ${output}`); // Log chi tiáº¿t
         if (output.includes('readyok') && mainWindow) {
             mainWindow.webContents.send('engine-ready');
         }
@@ -208,25 +212,29 @@ function startEngine(enginePath) {
     }
 }
 
-// Simulate PV on a temporary game to preview board states without touching the live game.
 ipcMain.handle('simulate-pv', async (event, fen, pvMoves, stepLimit) => {
     try {
+        // Táº¡o má»™t instance táº¡m thá»i cá»§a XiangqiGame
         const tempGame = new XiangqiGame();
 
+        // KhÃ´i phá»¥c tráº¡ng thÃ¡i bÃ n cá» tá»« FEN
         tempGame.importFen(fen);
 
+        // Danh sÃ¡ch lÆ°u cÃ¡c tráº¡ng thÃ¡i bÃ n cá» sau má»—i nÆ°á»›c Ä‘i
         const boardStates = [];
 
+        // LÆ°u tráº¡ng thÃ¡i ban Ä‘áº§u
         boardStates.push({
             board: tempGame.board.map(row => row.map(cell => (cell ? { ...cell } : null))),
             currentTurn: tempGame.currentTurn,
             moveCount: tempGame.moveCount
         });
 
+        // MÃ´ phá»ng cÃ¡c nÆ°á»›c Ä‘i trong chuá»—i PV Ä‘áº¿n stepLimit
         for (let i = 0; i < pvMoves.length && i < stepLimit; i++) {
             const move = pvMoves[i];
-            const fromX = move.charCodeAt(0) - 97;
-            const fromY = 9 - parseInt(move[1]);
+            const fromX = move.charCodeAt(0) - 97; // 'a' = 0, 'i' = 8
+            const fromY = 9 - parseInt(move[1]);   // '0' = 9, '9' = 0
             const toX = move.charCodeAt(2) - 97;
             const toY = 9 - parseInt(move[3]);
 
@@ -251,14 +259,13 @@ ipcMain.handle('simulate-pv', async (event, fen, pvMoves, stepLimit) => {
 });
 
 
-// Format PV using a temporary game state so renderer analysis never mutates live history.
+
 ipcMain.handle('format-pv', async (event, fen, pvMoves) => {
     try {
         const tempGame = new XiangqiGame();
         tempGame.importFen(fen);
 
         const notations = [];
-        // Translate PV into notation using only tempGame state to keep live history intact.
         for (const move of pvMoves || []) {
             if (!/^[a-i][0-9][a-i][0-9]$/.test(move)) continue;
 
@@ -304,6 +311,7 @@ ipcMain.handle('get-engines', () => {
 
 ipcMain.handle('add-engine', async (event, enginePath) => {
     try {
+        console.log(`Testing engine: ${enginePath}`);
         const protocol = await detectEngineProtocol(enginePath);
         if (protocol === 'unknown') {
             return { success: false, error: 'Engine does not support UCI or UCCI' };
@@ -324,6 +332,7 @@ ipcMain.handle('add-engine', async (event, enginePath) => {
         };
         engines.push(newEngine);
         await saveEngines();
+        console.log(`Engine added: ${name} (${protocol}) at ${enginePath}`);
         startEngine(enginePath);
         return { success: true };
     } catch (err) {
@@ -502,6 +511,7 @@ ipcMain.handle('get-move-notation', (event, fromX, fromY, toX, toY) => {
 ipcMain.on('analyze-position', (event, fen) => {
     if (engineProcess && engineProcess.stdin && !engineProcess.killed) {
         try {
+            console.log(`Analyzing FEN: ${fen}`);
             engineProcess.stdin.write(`position fen ${fen}\n`);
             const selectedEngine = engines.find(e => e.path === engineProcess.spawnargs[0]) || { options: {} };
             if (engineProtocol === 'uci') {
