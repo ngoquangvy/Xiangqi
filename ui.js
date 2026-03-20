@@ -1,4 +1,4 @@
-(function () {
+﻿(function () {
     const canvas = document.getElementById("boardCanvas");
     const ctx = canvas ? canvas.getContext("2d") : null;
     const piecesContainer = document.getElementById("pieces");
@@ -25,23 +25,23 @@
             this.imageWidthScale = 1.02;
             this.imageHeightScale = 1.02;
             this.isFlipped = false;
-            this.lastMove = null; // Lưu nước đi vừa thực hiện (định dạng "R1+1")
-            this.lastMoveRaw = null; // Lưu nước đi vừa thực hiện (định dạng "b2e2")
-            this.lastMovePositions = null; // Lưu vị trí from/to của nước đi cuối cùng
-            this.selectedEngineIndex = 0; // Engine hiện tại được chọn
+            this.lastMove = null; // LÆ°u nÆ°á»›c Ä‘i vá»«a thá»±c hiá»‡n (Ä‘á»‹nh dáº¡ng "R1+1")
+            this.lastMoveRaw = null; // LÆ°u nÆ°á»›c Ä‘i vá»«a thá»±c hiá»‡n (Ä‘á»‹nh dáº¡ng "b2e2")
+            this.lastMovePositions = null; // LÆ°u vá»‹ trÃ­ from/to cá»§a nÆ°á»›c Ä‘i cuá»‘i cÃ¹ng
+            this.selectedEngineIndex = 0; // Engine hiá»‡n táº¡i Ä‘Æ°á»£c chá»n
             this.engineProtocol = window.XiangqiGameAPI.getProtocol();
-            this.currentPVIndex = null; // Chỉ số của hàng PV hiện tại trong bảng gợi ý
-            this.simulationStates = []; // Lưu danh sách trạng thái bàn cờ từ mô phỏng
-            this.originalFen = null; // Lưu FEN ban đầu trước khi mô phỏng
-            this.lastMovePositions = null; // Đã có, lưu nước đi cuối cùng trong chế độ chơi thông thường
-            this.lastSimulatedMove = null; // Thêm thuộc tính mới để lưu nước đi vừa mô phỏng
-            this.moveHistory = []; // Thêm mảng để lưu lịch sử nước đi
-            this.analysisTimeout = null; // Biến để lưu timeout
-            this.maxAnalysisTime = null; // Thời gian chờ tối đa (được tính dựa trên cài đặt engine)
-            this.isAnalyzing = false; // Trạng thái phân tích
+            this.currentPVIndex = null; // Chá»‰ sá»‘ cá»§a hÃ ng PV hiá»‡n táº¡i trong báº£ng gá»£i Ã½
+            this.simulationStates = []; // LÆ°u danh sÃ¡ch tráº¡ng thÃ¡i bÃ n cá» tá»« mÃ´ phá»ng
+            this.originalFen = null; // LÆ°u FEN ban Ä‘áº§u trÆ°á»›c khi mÃ´ phá»ng
+            this.lastMovePositions = null; // ÄÃ£ cÃ³, lÆ°u nÆ°á»›c Ä‘i cuá»‘i cÃ¹ng trong cháº¿ Ä‘á»™ chÆ¡i thÃ´ng thÆ°á»ng
+            this.lastSimulatedMove = null; // ThÃªm thuá»™c tÃ­nh má»›i Ä‘á»ƒ lÆ°u nÆ°á»›c Ä‘i vá»«a mÃ´ phá»ng
+            this.moveHistory = []; // ThÃªm máº£ng Ä‘á»ƒ lÆ°u lá»‹ch sá»­ nÆ°á»›c Ä‘i
+            this.analysisTimeout = null; // Biáº¿n Ä‘á»ƒ lÆ°u timeout
+            this.maxAnalysisTime = null; // Thá»i gian chá» tá»‘i Ä‘a (Ä‘Æ°á»£c tÃ­nh dá»±a trÃªn cÃ i Ä‘áº·t engine)
+            this.isAnalyzing = false; // Tráº¡ng thÃ¡i phÃ¢n tÃ­ch
 
 
-            // Lắng nghe dữ liệu từ engine
+            // Láº¯ng nghe dá»¯ liá»‡u tá»« engine
             window.XiangqiGameAPI.onEngineOutput((data) => {
                 this.handleEngineOutput(data);
             });
@@ -73,7 +73,7 @@
             this.offsetY = -24;
             this.scale = 0.87;
 
-            // Gọi các phương thức sau khi window.XiangqiGameAPI đã được khởi tạo
+            // Gá»i cÃ¡c phÆ°Æ¡ng thá»©c sau khi window.XiangqiGameAPI Ä‘Ã£ Ä‘Æ°á»£c khá»Ÿi táº¡o
             this.updateBoardDisplay();
             this.renderBoardNumbers();
             this.renderPieces(this.offsetX, this.offsetY, this.scale);
@@ -82,17 +82,17 @@
         }
         async analyzeCurrentPosition() {
             try {
-                // Hiển thị "Loading" trong bảng gợi ý
+                // Hiá»ƒn thá»‹ "Loading" trong báº£ng gá»£i Ã½
                 this.suggestionsBody.innerHTML = '<tr><td colspan="8" style="text-align: center;">Loading...</td></tr>';
                 this.isAnalyzing = true;
 
-                // Lấy cài đặt engine hiện tại để xác định thời gian tối đa
+                // Láº¥y cÃ i Ä‘áº·t engine hiá»‡n táº¡i Ä‘á»ƒ xÃ¡c Ä‘á»‹nh thá»i gian tá»‘i Ä‘a
                 const engines = await window.XiangqiGameAPI.getEngines();
                 const selectedEngine = engines[this.selectedEngineIndex] || { options: {} };
-                const depth = selectedEngine.options?.depth || 20; // Mặc định depth = 20 nếu không có
-                this.maxAnalysisTime = (depth * 1000) + 1000; // Thời gian tối đa = (depth * 1s) + 1s
+                const depth = selectedEngine.options?.depth || 20; // Máº·c Ä‘á»‹nh depth = 20 náº¿u khÃ´ng cÃ³
+                this.maxAnalysisTime = (depth * 1000) + 1000; // Thá»i gian tá»‘i Ä‘a = (depth * 1s) + 1s
 
-                // Thiết lập timeout để kiểm tra nếu engine không phản hồi
+                // Thiáº¿t láº­p timeout Ä‘á»ƒ kiá»ƒm tra náº¿u engine khÃ´ng pháº£n há»“i
                 if (this.analysisTimeout) clearTimeout(this.analysisTimeout);
                 this.analysisTimeout = setTimeout(() => {
                     if (this.isAnalyzing) {
@@ -110,21 +110,23 @@
             }
         }
         async makeMove(fromX, fromY, toX, toY) {
-            const moveResult = await window.XiangqiGameAPI.move(fromX, fromY, toX, toY);
-            if (!moveResult) {
-                console.warn(`Invalid move: (${fromX}, ${fromY}) to (${toX}, ${toY})`);
+            try {
+                const moveResult = await window.XiangqiGameAPI.makeMove(fromX, fromY, toX, toY);
+                if (!moveResult) {
+                    console.warn('Move failed:', { fromX, fromY, toX, toY });
+                    return false;
+                }
+                this.updateMoveHistory();
+                const fen = await window.XiangqiGameAPI.getFen();
+                this.gameFen = fen;
+                this.updateBoardFromFen(fen);
+                this.updateCapturedPieces();
+                await this.stopAnalysis();
+                return true;
+            } catch (err) {
+                console.error('Error making move:', err);
                 return false;
             }
-
-            // Lưu nước đi vào moveHistory
-            const moveNotation = await window.XiangqiGameAPI.getMoveNotation(fromX, fromY, toX, toY);
-            this.moveHistory.push(moveNotation);
-
-            this.lastMovePositions = { fromX, fromY, toX, toY };
-            await this.renderPieces(this.offsetX, this.offsetY, this.scale);
-            await this.updateMoveHistory();
-
-            return true;
         }
 
 
@@ -132,7 +134,7 @@
         async convertMoveToNotation(move) {
             if (!move || move.length !== 4) return move;
             const fromX = move.charCodeAt(0) - 97; // 'a' = 0, 'i' = 8
-            const fromY = 9 - parseInt(move[1]);   // '0' = 9, '9' = 0 (đảo ngược cho cờ Tướng)
+            const fromY = 9 - parseInt(move[1]);   // '0' = 9, '9' = 0 (Ä‘áº£o ngÆ°á»£c cho cá» TÆ°á»›ng)
             const toX = move.charCodeAt(2) - 97;
             const toY = 9 - parseInt(move[3]);
             try {
@@ -145,8 +147,8 @@
         }
 
         async handleEngineOutput(data) {
-            this.engineProtocol = window.XiangqiGameAPI.getProtocol(); // Cập nhật giao thức
-            // Đảm bảo data là chuỗi
+            this.engineProtocol = window.XiangqiGameAPI.getProtocol(); // Cáº­p nháº­t giao thá»©c
+            // Äáº£m báº£o data lÃ  chuá»—i
             if (typeof data !== 'string') {
                 // console.warn('Engine output is not a string:', data);
                 if (typeof data === 'object') {
@@ -184,9 +186,9 @@
                             const nodes = nodesIndex !== -1 ? parseInt(parts[nodesIndex + 1]) : '-';
                             const time = timeIndex !== -1 ? (parseInt(parts[timeIndex + 1]) / 1000).toFixed(2) : '-';
 
-                            // Lấy chuỗi PV và lọc các nước đi hợp lệ
+                            // Láº¥y chuá»—i PV vÃ  lá»c cÃ¡c nÆ°á»›c Ä‘i há»£p lá»‡
                             pvMoves = parts.slice(pvIndex + 1);
-                            pvMoves = pvMoves.filter(move => /^[a-i][0-9][a-i][0-9]$/.test(move)); // Chỉ giữ các nước đi có định dạng hợp lệ (ví dụ: h0g2)
+                            pvMoves = pvMoves.filter(move => /^[a-i][0-9][a-i][0-9]$/.test(move)); // Chá»‰ giá»¯ cÃ¡c nÆ°á»›c Ä‘i cÃ³ Ä‘á»‹nh dáº¡ng há»£p lá»‡ (vÃ­ dá»¥: h0g2)
                             suggestions.push({ move, score: scoreValue, rank, note, depth, nodes, time, pv: pvMoves });
                         }
                     } else if (this.engineProtocol === 'ucci' && line.includes('move')) {
@@ -207,7 +209,7 @@
                     } else {
                         this.suggestionsBody.innerHTML = '<tr><td colspan="8" style="text-align: center;">No suggestions available</td></tr>';
                     }
-                    // Khi nhận được bestmove, kết thúc phân tích
+                    // Khi nháº­n Ä‘Æ°á»£c bestmove, káº¿t thÃºc phÃ¢n tÃ­ch
                     if (this.analysisTimeout) clearTimeout(this.analysisTimeout);
                     this.isAnalyzing = false;
                 }
@@ -224,7 +226,7 @@
                     const pvMoves = pvResult.moves;
 
                     const row = document.createElement('tr');
-                    row.dataset.rowIndex = rowIndex; // Lưu chỉ số hàng để xác định PV
+                    row.dataset.rowIndex = rowIndex; // LÆ°u chá»‰ sá»‘ hÃ ng Ä‘á»ƒ xÃ¡c Ä‘á»‹nh PV
                     row.innerHTML = `
                         <td>${moveNotation} (${s.move})</td>
                         <td>${s.score}</td>
@@ -239,7 +241,7 @@
                     const moveCell = row.querySelector('td:first-child');
                     moveCell.dataset.move = s.move;
 
-                    // Hover: Đánh dấu nước đi (giữ nguyên)
+                    // Hover: ÄÃ¡nh dáº¥u nÆ°á»›c Ä‘i (giá»¯ nguyÃªn)
                     moveCell.addEventListener("mouseenter", async () => {
                         const [fromX, fromY, toX, toY] = this.parseUCIMove(s.move);
                         await this.highlightMove(fromX, fromY, toX, toY, "hover-move");
@@ -248,11 +250,11 @@
                         this.clearHoverHighlights();
                     });
 
-                    // Tạo các ký hiệu có thể nhấp trong cột Principal Variation
+                    // Táº¡o cÃ¡c kÃ½ hiá»‡u cÃ³ thá»ƒ nháº¥p trong cá»™t Principal Variation
                     const pvCell = row.querySelector('.pv-cell');
                     const pvParts = pvNotation.split(', ');
                     pvParts.forEach((part, partIndex) => {
-                        const movesInPart = part.split(' ').slice(1); // Bỏ số thứ tự (ví dụ: "1." -> ["P7+1", "N8+7"])
+                        const movesInPart = part.split(' ').slice(1); // Bá» sá»‘ thá»© tá»± (vÃ­ dá»¥: "1." -> ["P7+1", "N8+7"])
                         movesInPart.forEach((move, moveIndex) => {
                             if (move !== '...') {
                                 const moveSpan = document.createElement('span');
@@ -260,15 +262,15 @@
                                 moveSpan.style.cursor = 'pointer';
                                 moveSpan.style.marginRight = '5px';
                                 moveSpan.style.textDecoration = 'underline';
-                                moveSpan.dataset.step = (partIndex * 2 + moveIndex + 1).toString(); // Số bước từ đầu chuỗi
+                                moveSpan.dataset.step = (partIndex * 2 + moveIndex + 1).toString(); // Sá»‘ bÆ°á»›c tá»« Ä‘áº§u chuá»—i
                                 moveSpan.addEventListener('click', async () => {
                                     document.querySelectorAll('.highlighted-move').forEach(span => {
                                         span.classList.remove('highlighted-move');
                                     });
 
-                                    // Thêm lớp highlighted-move cho ký hiệu vừa được nhấp
+                                    // ThÃªm lá»›p highlighted-move cho kÃ½ hiá»‡u vá»«a Ä‘Æ°á»£c nháº¥p
                                     moveSpan.classList.add('highlighted-move');
-                                    // Gọi hàm simulateToStep để mô phỏng nước đi
+                                    // Gá»i hÃ m simulateToStep Ä‘á»ƒ mÃ´ phá»ng nÆ°á»›c Ä‘i
                                     const step = parseInt(moveSpan.dataset.step);
                                     await this.simulateToStep(rowIndex, s.pv, step);
                                 });
@@ -286,58 +288,58 @@
                 }
             }
 
-            // Hiển thị nút Reset nếu đang mô phỏng
+            // Hiá»ƒn thá»‹ nÃºt Reset náº¿u Ä‘ang mÃ´ phá»ng
             if (this.currentPVIndex !== null) {
                 this.showResetButton();
             }
         }
 
         async resetSimulation() {
-            // Khôi phục trạng thái ban đầu từ FEN
+            // KhÃ´i phá»¥c tráº¡ng thÃ¡i ban Ä‘áº§u tá»« FEN
             // if (this.originalFen) {
             //     await window.XiangqiGameAPI.importFen(this.originalFen);
             // }
 
-            // Đặt lại trạng thái mô phỏng
+            // Äáº·t láº¡i tráº¡ng thÃ¡i mÃ´ phá»ng
             this.currentPVIndex = null;
             this.simulationStates = [];
             this.originalFen = null;
-            this.lastSimulatedMove = null; // Xóa highlight của nước đi mô phỏng
+            this.lastSimulatedMove = null; // XÃ³a highlight cá»§a nÆ°á»›c Ä‘i mÃ´ phá»ng
 
-            // Xóa lớp highlighted-move khỏi tất cả các ký hiệu trong cột PV
+            // XÃ³a lá»›p highlighted-move khá»i táº¥t cáº£ cÃ¡c kÃ½ hiá»‡u trong cá»™t PV
             document.querySelectorAll('.highlighted-move').forEach(span => {
                 span.classList.remove('highlighted-move');
             });
 
-            // Xóa nút Reset
+            // XÃ³a nÃºt Reset
             const controls = document.getElementById('simulation-controls');
             if (controls) {
                 controls.remove();
             }
 
-            // Cập nhật lại giao diện
+            // Cáº­p nháº­t láº¡i giao diá»‡n
             await this.renderPieces(this.offsetX, this.offsetY, this.scale);
             await this.updateMoveHistory();
         }
 
         async simulateToStep(rowIndex, pvMoves, step) {
-            // Nếu nhấp vào một Principal Variation khác, xóa trạng thái hiện tại
+            // Náº¿u nháº¥p vÃ o má»™t Principal Variation khÃ¡c, xÃ³a tráº¡ng thÃ¡i hiá»‡n táº¡i
             if (this.currentPVIndex !== rowIndex) {
                 this.currentPVIndex = rowIndex;
                 this.simulationStates = [];
                 this.originalFen = null;
             }
 
-            // Lấy FEN hiện tại của bàn cờ
+            // Láº¥y FEN hiá»‡n táº¡i cá»§a bÃ n cá»
             this.originalFen = await window.XiangqiGameAPI.getFen();
 
-            // Kiểm tra chuỗi pvMoves
+            // Kiá»ƒm tra chuá»—i pvMoves
             if (!pvMoves || !Array.isArray(pvMoves) || pvMoves.length === 0 || step < 1 || step > pvMoves.length) {
                 console.warn('Invalid pvMoves or step:', { pvMoves, step });
                 return;
             }
 
-            // Gọi simulatePV để mô phỏng đến bước được chỉ định
+            // Gá»i simulatePV Ä‘á»ƒ mÃ´ phá»ng Ä‘áº¿n bÆ°á»›c Ä‘Æ°á»£c chá»‰ Ä‘á»‹nh
             try {
                 this.simulationStates = await window.XiangqiGameAPI.simulatePV(this.originalFen, pvMoves, step);
                 if (this.simulationStates.length === 0) {
@@ -349,20 +351,20 @@
                 return;
             }
 
-            // Xác định nước đi cuối cùng trong chuỗi mô phỏng (tương ứng với bước step)
+            // XÃ¡c Ä‘á»‹nh nÆ°á»›c Ä‘i cuá»‘i cÃ¹ng trong chuá»—i mÃ´ phá»ng (tÆ°Æ¡ng á»©ng vá»›i bÆ°á»›c step)
             if (pvMoves && pvMoves.length >= step) {
-                const lastMove = pvMoves[step - 1]; // Nước đi cuối cùng trong chuỗi (step bắt đầu từ 1)
+                const lastMove = pvMoves[step - 1]; // NÆ°á»›c Ä‘i cuá»‘i cÃ¹ng trong chuá»—i (step báº¯t Ä‘áº§u tá»« 1)
                 const [fromX, fromY, toX, toY] = this.parseUCIMove(lastMove);
-                this.lastSimulatedMove = { fromX, fromY, toX, toY }; // Lưu nước đi vừa mô phỏng
+                this.lastSimulatedMove = { fromX, fromY, toX, toY }; // LÆ°u nÆ°á»›c Ä‘i vá»«a mÃ´ phá»ng
             } else {
-                this.lastSimulatedMove = null; // Nếu không có nước đi, đặt lại
+                this.lastSimulatedMove = null; // Náº¿u khÃ´ng cÃ³ nÆ°á»›c Ä‘i, Ä‘áº·t láº¡i
             }
 
-            // Hiển thị trạng thái bàn cờ tại bước cuối cùng
+            // Hiá»ƒn thá»‹ tráº¡ng thÃ¡i bÃ n cá» táº¡i bÆ°á»›c cuá»‘i cÃ¹ng
             const lastState = this.simulationStates[this.simulationStates.length - 1];
-            this.renderSimulationStep(lastState); // Bỏ await vì renderSimulationStep không còn là async
+            this.renderSimulationStep(lastState); // Bá» await vÃ¬ renderSimulationStep khÃ´ng cÃ²n lÃ  async
 
-            // Hiển thị nút Reset
+            // Hiá»ƒn thá»‹ nÃºt Reset
             this.showResetButton();
         }
 
@@ -372,7 +374,7 @@
                 return;
             }
 
-            // Cập nhật bàn cờ với trạng thái mô phỏng
+            // Cáº­p nháº­t bÃ n cá» vá»›i tráº¡ng thÃ¡i mÃ´ phá»ng
             piecesContainer.innerHTML = "";
             for (let y = 0; y < 10; y++) {
                 for (let x = 0; x < 9; x++) {
@@ -400,7 +402,7 @@
 
                         div.dataset.x = x;
                         div.dataset.y = y;
-                        // Highlight nước đi vừa mô phỏng
+                        // Highlight nÆ°á»›c Ä‘i vá»«a mÃ´ phá»ng
                         if (this.lastSimulatedMove &&
                             ((x === this.lastSimulatedMove.fromX && y === this.lastSimulatedMove.fromY) ||
                                 (x === this.lastSimulatedMove.toX && y === this.lastSimulatedMove.toY))) {
@@ -410,13 +412,13 @@
                     }
                 }
             }
-            // Highlight vị trí trống của nước đi vừa mô phỏng (nếu có)
+            // Highlight vá»‹ trÃ­ trá»‘ng cá»§a nÆ°á»›c Ä‘i vá»«a mÃ´ phá»ng (náº¿u cÃ³)
             if (this.lastSimulatedMove) {
                 const { fromX, fromY, toX, toY } = this.lastSimulatedMove;
-                if (!state.board[fromY][fromX]) { // Nếu vị trí "from" trống
+                if (!state.board[fromY][fromX]) { // Náº¿u vá»‹ trÃ­ "from" trá»‘ng
                     this.highlightPosition(fromX, fromY, "last-move");
                 }
-                if (!state.board[toY][toX]) { // Nếu vị trí "to" trống
+                if (!state.board[toY][toX]) { // Náº¿u vá»‹ trÃ­ "to" trá»‘ng
                     this.highlightPosition(toX, toY, "last-move");
                 }
             }
@@ -447,26 +449,26 @@
             }
         }
 
-        // Hàm định dạng chuỗi PV giống Move History
+        // HÃ m Ä‘á»‹nh dáº¡ng chuá»—i PV giá»‘ng Move History
         async formatPrincipalVariation(pvMoves) {
             if (!pvMoves || pvMoves.length === 0) return '-';
 
             const formattedMoves = [];
             let moveNumber = 1;
-            let isRedTurn = true; // Đỏ đi trước
+            let isRedTurn = true; // Äá» Ä‘i trÆ°á»›c
 
-            // Lưu trạng thái hiện tại của bàn cờ
+            // LÆ°u tráº¡ng thÃ¡i hiá»‡n táº¡i cá»§a bÃ n cá»
             const originalFen = await window.XiangqiGameAPI.getFen();
 
-            // Mô phỏng từng nước đi trong chuỗi PV
+            // MÃ´ phá»ng tá»«ng nÆ°á»›c Ä‘i trong chuá»—i PV
             for (let i = 0; i < pvMoves.length; i++) {
                 const move = pvMoves[i];
                 const [fromX, fromY, toX, toY] = this.parseUCIMove(move);
 
-                // Chuyển đổi nước đi thành ký hiệu cờ Tướng
+                // Chuyá»ƒn Ä‘á»•i nÆ°á»›c Ä‘i thÃ nh kÃ½ hiá»‡u cá» TÆ°á»›ng
                 const notation = await window.XiangqiGameAPI.getMoveNotation(fromX, fromY, toX, toY);
 
-                // Thực hiện nước đi trên bàn cờ chính (tạm thời)
+                // Thá»±c hiá»‡n nÆ°á»›c Ä‘i trÃªn bÃ n cá» chÃ­nh (táº¡m thá»i)
                 await window.XiangqiGameAPI.move(fromX, fromY, toX, toY);
 
                 formattedMoves.push(notation);
@@ -476,10 +478,10 @@
                 isRedTurn = !isRedTurn;
             }
 
-            // Khôi phục trạng thái ban đầu của bàn cờ
+            // KhÃ´i phá»¥c tráº¡ng thÃ¡i ban Ä‘áº§u cá»§a bÃ n cá»
             await window.XiangqiGameAPI.importFen(originalFen);
 
-            // Định dạng chuỗi PV
+            // Äá»‹nh dáº¡ng chuá»—i PV
             const result = [];
             for (let i = 0; i < formattedMoves.length; i += 2) {
                 const redMove = formattedMoves[i];
@@ -490,7 +492,7 @@
             return { moves: formattedMoves, formatted: result.join(', ') };
         }
 
-        // Hàm hỗ trợ phân tích nước đi UCI (b2e2 -> tọa độ bàn cờ)
+        // HÃ m há»— trá»£ phÃ¢n tÃ­ch nÆ°á»›c Ä‘i UCI (b2e2 -> tá»a Ä‘á»™ bÃ n cá»)
         parseUCIMove(move) {
             const fromX = move.charCodeAt(0) - 97; // 'a' = 0, 'i' = 8
             const fromY = 9 - parseInt(move[1]);   // '0' = 9, '9' = 0
@@ -503,7 +505,7 @@
             this.evaluationBody.innerHTML = '';
             const row = document.createElement('tr');
             row.innerHTML = `
-                <td>${evalData.move}</td> <!-- Đã được gán thành định dạng "R1+1" trong handleEngineOutput -->
+                <td>${evalData.move}</td> <!-- ÄÃ£ Ä‘Æ°á»£c gÃ¡n thÃ nh Ä‘á»‹nh dáº¡ng "R1+1" trong handleEngineOutput -->
                 <td>${evalData.rank}</td>
                 <td>${evalData.note}</td>
             `;
@@ -515,13 +517,13 @@
             if (boardImage) {
                 if (this.useImageBoard) {
                     boardImage.style.display = "block";
-                    const baseWidth = 8 * this.cellWidth + 70; // Khớp với canvas.style.width
-                    const baseHeight = 9 * this.cellHeight + 70; // Khớp với canvas.style.height
+                    const baseWidth = 8 * this.cellWidth + 70; // Khá»›p vá»›i canvas.style.width
+                    const baseHeight = 9 * this.cellHeight + 70; // Khá»›p vá»›i canvas.style.height
                     boardImage.style.width = `${baseWidth * this.imageWidthScale}px`;
                     boardImage.style.height = `${baseHeight * this.imageHeightScale}px`;
                     boardImage.style.position = "absolute";
-                    boardImage.style.top = "-4px";// Lên
-                    boardImage.style.left = "-3px";//Xuống
+                    boardImage.style.top = "-4px";// LÃªn
+                    boardImage.style.left = "-3px";//Xuá»‘ng
                     if (this.ctx && this.canvas) {
                         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
                     } else {
@@ -540,7 +542,7 @@
                 }
                 this.drawBoard();
             }
-            // Luôn gọi renderBoardNumbers để đảm bảo số thứ tự được vẽ lại
+            // LuÃ´n gá»i renderBoardNumbers Ä‘á»ƒ Ä‘áº£m báº£o sá»‘ thá»© tá»± Ä‘Æ°á»£c váº½ láº¡i
             this.renderBoardNumbers();
         }
 
@@ -553,27 +555,27 @@
             const ctx = this.ctx;
             const canvas = this.canvas;
 
-            // Xóa canvas
+            // XÃ³a canvas
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Đặt lề để căn giữa bàn cờ
+            // Äáº·t lá» Ä‘á»ƒ cÄƒn giá»¯a bÃ n cá»
             const marginX = 23;
             const marginY = 21;
             ctx.translate(marginX, marginY);
 
-            // Đặt kiểu vẽ
+            // Äáº·t kiá»ƒu váº½
             ctx.strokeStyle = "black";
             ctx.lineWidth = 1;
 
-            // Vẽ các đường dọc (9 cột)
+            // Váº½ cÃ¡c Ä‘Æ°á»ng dá»c (9 cá»™t)
             for (let i = 0; i < 9; i++) {
                 ctx.beginPath();
                 if (i === 0 || i === 8) {
-                    // Đường dọc đầy đủ cho cột 0 và 8
+                    // ÄÆ°á»ng dá»c Ä‘áº§y Ä‘á»§ cho cá»™t 0 vÃ  8
                     ctx.moveTo(i * this.cellWidth, 0);
                     ctx.lineTo(i * this.cellWidth, 9 * this.cellHeight);
                 } else {
-                    // Đường dọc bị ngắt ở giữa (hàng 4 và 5) để tạo sông
+                    // ÄÆ°á»ng dá»c bá»‹ ngáº¯t á»Ÿ giá»¯a (hÃ ng 4 vÃ  5) Ä‘á»ƒ táº¡o sÃ´ng
                     ctx.moveTo(i * this.cellWidth, 0);
                     ctx.lineTo(i * this.cellWidth, 4 * this.cellHeight);
                     ctx.moveTo(i * this.cellWidth, 5 * this.cellHeight);
@@ -582,7 +584,7 @@
                 ctx.stroke();
             }
 
-            // Vẽ các đường ngang (10 hàng)
+            // Váº½ cÃ¡c Ä‘Æ°á»ng ngang (10 hÃ ng)
             for (let i = 0; i < 10; i++) {
                 ctx.beginPath();
                 ctx.moveTo(0, i * this.cellHeight);
@@ -590,19 +592,19 @@
                 ctx.stroke();
             }
 
-            // Vẽ đường chéo trong cung
+            // Váº½ Ä‘Æ°á»ng chÃ©o trong cung
             this.drawPalaceDiagonals();
 
-            // Vẽ các điểm đánh dấu cho Tốt và Pháo
+            // Váº½ cÃ¡c Ä‘iá»ƒm Ä‘Ã¡nh dáº¥u cho Tá»‘t vÃ  PhÃ¡o
             this.drawPawnAndCannonDots();
 
-            // Vẽ khu vực "sông" và chữ "楚 河 - 汉 界"
+            // Váº½ khu vá»±c "sÃ´ng" vÃ  chá»¯ "æ¥š æ²³ - æ±‰ ç•Œ"
             ctx.font = "20px 'Noto Sans SC', Arial, sans-serif";
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
-            ctx.fillText("楚 河 - 汉 界", 4 * this.cellWidth, 4.5 * this.cellHeight);
+            ctx.fillText("æ¥š æ²³ - æ±‰ ç•Œ", 4 * this.cellWidth, 4.5 * this.cellHeight);
 
-            // Khôi phục tọa độ
+            // KhÃ´i phá»¥c tá»a Ä‘á»™
             ctx.translate(-marginX, -marginY);
         }
 
@@ -613,11 +615,11 @@
             topNumbers.innerHTML = "";
             bottomNumbers.innerHTML = "";
 
-            // Giữ nguyên thứ tự các số, không đảo ngược khi isFlipped
+            // Giá»¯ nguyÃªn thá»© tá»± cÃ¡c sá»‘, khÃ´ng Ä‘áº£o ngÆ°á»£c khi isFlipped
             const labels1 = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
             const labels2 = ["9", "8", "7", "6", "5", "4", "3", "2", "1"];
 
-            // Hiển thị số ở phía trên
+            // Hiá»ƒn thá»‹ sá»‘ á»Ÿ phÃ­a trÃªn
             labels1.forEach(labels1 => {
                 const span = document.createElement("span");
                 span.textContent = labels1;
@@ -627,7 +629,7 @@
                 topNumbers.appendChild(span);
             });
 
-            // Hiển thị số ở phía dưới
+            // Hiá»ƒn thá»‹ sá»‘ á»Ÿ phÃ­a dÆ°á»›i
             labels2.forEach(labels2 => {
                 const span = document.createElement("span");
                 span.textContent = labels2;
@@ -692,8 +694,8 @@
 
                         const displayX = this.isFlipped ? (8 - x) : x;
                         const displayY = this.isFlipped ? (9 - y) : y;
-                        const marginX = 23; // Phải khớp với marginX trong drawBoard
-                        const marginY = 21; // Phải khớp với marginY trong drawBoard
+                        const marginX = 23; // Pháº£i khá»›p vá»›i marginX trong drawBoard
+                        const marginY = 21; // Pháº£i khá»›p vá»›i marginY trong drawBoard
                         const baseLeft = displayX * this.cellWidth * this.pieceSpacing + marginX;
                         const baseTop = displayY * this.cellHeight * this.pieceSpacing + marginY;
                         div.style.left = `${(baseLeft + offsetX)}px`;
@@ -706,7 +708,7 @@
                         div.dataset.y = y;
                         div.addEventListener("click", () => this.handlePieceClick(x, y));
 
-                        // Đánh dấu nước đi cuối cùng
+                        // ÄÃ¡nh dáº¥u nÆ°á»›c Ä‘i cuá»‘i cÃ¹ng
                         if (this.lastMovePositions &&
                             ((x === this.lastMovePositions.fromX && y === this.lastMovePositions.fromY) ||
                                 (x === this.lastMovePositions.toX && y === this.lastMovePositions.toY))) {
@@ -717,7 +719,7 @@
                     }
                 }
             }
-            // Đánh dấu vị trí trống của nước đi cuối cùng (nếu có)
+            // ÄÃ¡nh dáº¥u vá»‹ trÃ­ trá»‘ng cá»§a nÆ°á»›c Ä‘i cuá»‘i cÃ¹ng (náº¿u cÃ³)
             if (this.lastMovePositions) {
                 const { fromX, fromY, toX, toY } = this.lastMovePositions;
                 if (!await window.XiangqiGameAPI.getPiece(fromX, fromY)) {
@@ -726,7 +728,7 @@
             }
         }
 
-        // Hàm hỗ trợ đánh dấu vị trí trống
+        // HÃ m há»— trá»£ Ä‘Ã¡nh dáº¥u vá»‹ trÃ­ trá»‘ng
         highlightPosition(x, y, className) {
             const marker = document.createElement("div");
             marker.className = `piece ${className}`;
@@ -763,10 +765,10 @@
 
                 const displayX = this.isFlipped ? (8 - mx) : mx;
                 const displayY = this.isFlipped ? (9 - my) : my;
-                const marginX = 23; // Phải khớp với marginX trong drawBoard
-                const marginY = 21; // Phải khớp với marginY trong drawBoard
-                const baseLeft = displayX * this.cellWidth * this.pieceSpacing + marginX; // Sử dụng displayX
-                const baseTop = displayY * this.cellHeight * this.pieceSpacing + marginY; // Sử dụng displayY
+                const marginX = 23; // Pháº£i khá»›p vá»›i marginX trong drawBoard
+                const marginY = 21; // Pháº£i khá»›p vá»›i marginY trong drawBoard
+                const baseLeft = displayX * this.cellWidth * this.pieceSpacing + marginX; // Sá»­ dá»¥ng displayX
+                const baseTop = displayY * this.cellHeight * this.pieceSpacing + marginY; // Sá»­ dá»¥ng displayY
                 marker.style.left = `${(baseLeft + offsetX)}px`;
                 marker.style.top = `${(baseTop + offsetY)}px`;
 
@@ -801,7 +803,7 @@
                 if (isLegalMove) {
                     const success = await window.XiangqiGameAPI.move(fromX, fromY, x, y);
                     if (success) {
-                        this.lastMovePositions = { fromX, fromY, toX: x, toY: y }; // Lưu nước đi cuối cùng
+                        this.lastMovePositions = { fromX, fromY, toX: x, toY: y }; // LÆ°u nÆ°á»›c Ä‘i cuá»‘i cÃ¹ng
                         await this.renderPieces(this.offsetX, this.offsetY, this.scale);
                         const moveHistory = await window.XiangqiGameAPI.getMoveHistory();
                         const lastMoveEntry = moveHistory[moveHistory.length - 1];
@@ -812,7 +814,7 @@
                             console.log("King is in check!");
                         }
                         await this.checkForCheckmate();
-                        this.suggestionsBody.innerHTML = ''; // Xóa bảng gợi ý nước đi ngay sau khi di chuyển
+                        this.suggestionsBody.innerHTML = ''; // XÃ³a báº£ng gá»£i Ã½ nÆ°á»›c Ä‘i ngay sau khi di chuyá»ƒn
                         await this.analyzeCurrentPosition();
                     }
                     this.clearHighlights();
@@ -870,25 +872,25 @@
                 return;
             }
 
-            console.log('Updating move history with:', this.moveHistory); // Thêm log để kiểm tra
+            const history = await window.XiangqiGameAPI.getMoveHistory();
+            this.moveHistory = history.map((entry) => entry.moveNotation || '-');
 
-            moveList.innerHTML = ''; // Xóa bảng hiện tại
+            moveList.innerHTML = '';
 
             let moveNumber = 1;
             for (let i = 0; i < this.moveHistory.length; i += 2) {
                 const row = document.createElement('tr');
                 const redMove = this.moveHistory[i] || '-';
                 const blackMove = this.moveHistory[i + 1] || '-';
-                row.innerHTML = `
-                    <td>${moveNumber}</td>
-                    <td>${redMove}</td>
-                    <td>${blackMove}</td>
-                `;
+                row.innerHTML =
+                    '<td>' + moveNumber + '</td>' +
+                    '<td>' + redMove + '</td>' +
+                    '<td>' + blackMove + '</td>';
                 moveList.appendChild(row);
                 moveNumber++;
             }
         }
-        // Hàm đánh dấu nước đi
+
         highlightMove(fromX, fromY, toX, toY, className) {
             this.clearHoverHighlights();
             const fromPiece = window.XiangqiGameAPI.getPiece(fromX, fromY);
@@ -900,14 +902,14 @@
             }
             this.highlightPosition(toX, toY, className);
         }
-        // Hàm xóa đánh dấu hover
+        // HÃ m xÃ³a Ä‘Ã¡nh dáº¥u hover
         clearHoverHighlights() {
             document.querySelectorAll(".hover-move").forEach(el => el.classList.remove("hover-move"));
         }
 
-        // Hàm chuyển bàn cờ về trạng thái sau nước đi (cơ bản)
+        // HÃ m chuyá»ƒn bÃ n cá» vá» tráº¡ng thÃ¡i sau nÆ°á»›c Ä‘i (cÆ¡ báº£n)
         async goToMove(index) {
-            await window.XiangqiGameAPI.resetToInitial(); // Đặt lại trạng thái ban đầu
+            await window.XiangqiGameAPI.resetToInitial(); // Äáº·t láº¡i tráº¡ng thÃ¡i ban Ä‘áº§u
             const moves = await window.XiangqiGameAPI.getMoveHistory();
             for (let i = 0; i <= index; i++) {
                 const move = moves[i];
@@ -944,7 +946,6 @@
 
                 const editBtn = div.querySelector(".edit-engine-btn");
                 editBtn.addEventListener("click", () => {
-                    console.log(`Edit button clicked for engine index ${index}`); // Thêm log để kiểm tra
                     this.showEditEngineForm(index, engine);
                 });
 
@@ -976,7 +977,7 @@
             const threadsInput = document.getElementById("edit-engine-threads");
             const skillLevelInput = document.getElementById("edit-engine-skill-level");
 
-            // Kiểm tra các phần tử
+            // Kiá»ƒm tra cÃ¡c pháº§n tá»­
             if (!modal || !overlay || !form || !cancelBtn || !nameInput || !hashInput || !multipvInput || !depthInput || !threadsInput || !skillLevelInput) {
                 console.error('One or more modal elements are missing:', {
                     modal: !!modal,
@@ -994,7 +995,7 @@
                 return;
             }
 
-            // Điền thông tin hiện tại của engine vào form
+            // Äiá»n thÃ´ng tin hiá»‡n táº¡i cá»§a engine vÃ o form
             nameInput.value = engine.name;
             hashInput.value = engine.options?.hash || 128;
             multipvInput.value = engine.options?.multipv || 6;
@@ -1002,19 +1003,19 @@
             threadsInput.value = engine.options?.threads || 1;
             skillLevelInput.value = engine.options?.skillLevel || 20;
 
-            // Hiển thị modal với hiệu ứng fade-in
+            // Hiá»ƒn thá»‹ modal vá»›i hiá»‡u á»©ng fade-in
             modal.classList.add("show");
             overlay.classList.add("show");
 
-            // Đóng modal khi nhấn vào overlay
+            // ÄÃ³ng modal khi nháº¥n vÃ o overlay
             const closeModal = () => {
                 modal.classList.remove("show");
                 overlay.classList.remove("show");
-                overlay.removeEventListener("click", closeModal); // Xóa sự kiện sau khi đóng
+                overlay.removeEventListener("click", closeModal); // XÃ³a sá»± kiá»‡n sau khi Ä‘Ã³ng
             };
             overlay.addEventListener("click", closeModal);
 
-            // Xử lý khi submit form
+            // Xá»­ lÃ½ khi submit form
             form.onsubmit = async (e) => {
                 e.preventDefault();
                 const updatedEngine = {
@@ -1037,22 +1038,22 @@
                         this.analyzeCurrentPosition();
                     }
                     this.updateEngineList();
-                    closeModal(); // Đóng modal khi lưu thành công
+                    closeModal(); // ÄÃ³ng modal khi lÆ°u thÃ nh cÃ´ng
                 } else {
                     alert("Failed to update engine.");
                 }
             };
 
-            // Xử lý khi nhấn Cancel
+            // Xá»­ lÃ½ khi nháº¥n Cancel
             cancelBtn.onclick = () => {
-                closeModal(); // Đóng modal khi nhấn Cancel
+                closeModal(); // ÄÃ³ng modal khi nháº¥n Cancel
             };
         }
 
         setupControls() {
             const controlsBtn = document.getElementById("controls-btn");
             const controlsMenu = document.getElementById("controls-menu");
-            // Nút Engine
+            // NÃºt Engine
             const engineBtn = document.getElementById("engine-btn");
             const engineMenu = document.getElementById("engine-menu");
             const addEngineBtn = document.getElementById("add-engine-btn");
@@ -1095,19 +1096,19 @@
                 alert(`Engine error: ${error}`);
             });
 
-            // Hiển thị/ẩn menu khi nhấp vào nút "Controls"
+            // Hiá»ƒn thá»‹/áº©n menu khi nháº¥p vÃ o nÃºt "Controls"
             controlsBtn.addEventListener("click", () => {
                 controlsMenu.style.display = controlsMenu.style.display === "none" ? "block" : "none";
             });
 
-            // Đóng menu khi nhấp ra ngoài
+            // ÄÃ³ng menu khi nháº¥p ra ngoÃ i
             document.addEventListener("click", (event) => {
                 if (!controlsBtn.contains(event.target) && !controlsMenu.contains(event.target)) {
                     controlsMenu.style.display = "none";
                 }
             });
 
-            // Nút Undo
+            // NÃºt Undo
             const undoBtn = document.getElementById("undo-btn");
             undoBtn.addEventListener("click", async () => {
                 const success = await window.XiangqiGameAPI.undo();
@@ -1116,11 +1117,11 @@
                     this.selectedPiece = null;
                     await this.renderPieces(this.offsetX, this.offsetY, this.scale);
                     await this.updateMoveHistory();
-                    controlsMenu.style.display = "none"; // Đóng menu
+                    controlsMenu.style.display = "none"; // ÄÃ³ng menu
                 }
             });
 
-            // Nút Redo
+            // NÃºt Redo
             const redoBtn = document.getElementById("redo-btn");
             redoBtn.addEventListener("click", async () => {
                 const success = await window.XiangqiGameAPI.redo();
@@ -1129,11 +1130,11 @@
                     this.selectedPiece = null;
                     await this.renderPieces(this.offsetX, this.offsetY, this.scale);
                     await this.updateMoveHistory();
-                    controlsMenu.style.display = "none"; // Đóng menu
+                    controlsMenu.style.display = "none"; // ÄÃ³ng menu
                 }
             });
 
-            // Nút Reset to Initial
+            // NÃºt Reset to Initial
             const resetInitialBtn = document.getElementById("reset-initial-btn");
             resetInitialBtn.addEventListener("click", async () => {
                 const success = await window.XiangqiGameAPI.resetToInitial();
@@ -1142,25 +1143,25 @@
                     this.selectedPiece = null;
                     await this.renderPieces(this.offsetX, this.offsetY, this.scale);
                     await this.updateMoveHistory();
-                    controlsMenu.style.display = "none"; // Đóng menu
+                    controlsMenu.style.display = "none"; // ÄÃ³ng menu
                 }
             });
 
-            // Nút Reset Game
+            // NÃºt Reset Game
             const resetGameBtn = document.getElementById("reset-game-btn");
             resetGameBtn.addEventListener("click", async () => {
                 const success = await window.XiangqiGameAPI.resetGame();
                 if (success) {
                     this.clearHighlights();
                     this.selectedPiece = null;
-                    this.moveHistory = []; // Đặt lại lịch sử nước đi
+                    this.moveHistory = []; // Äáº·t láº¡i lá»‹ch sá»­ nÆ°á»›c Ä‘i
                     await this.renderPieces(this.offsetX, this.offsetY, this.scale);
                     await this.updateMoveHistory();
-                    controlsMenu.style.display = "none"; // Đóng menu
+                    controlsMenu.style.display = "none"; // ÄÃ³ng menu
                 }
             });
 
-            // Nút Export Game
+            // NÃºt Export Game
             const exportGameBtn = document.getElementById("export-game-btn");
             exportGameBtn.addEventListener("click", async () => {
                 const gameData = await window.XiangqiGameAPI.exportGame();
@@ -1171,15 +1172,15 @@
                 a.download = 'xiangqi-game.json';
                 a.click();
                 URL.revokeObjectURL(url);
-                controlsMenu.style.display = "none"; // Đóng menu
+                controlsMenu.style.display = "none"; // ÄÃ³ng menu
             });
 
-            // Nút Import Game
+            // NÃºt Import Game
             const importGameBtn = document.getElementById("import-game-btn");
             const importGameFile = document.getElementById("import-game-file");
             importGameBtn.addEventListener("click", () => {
                 importGameFile.click();
-                controlsMenu.style.display = "none"; // Đóng menu ngay khi mở file picker
+                controlsMenu.style.display = "none"; // ÄÃ³ng menu ngay khi má»Ÿ file picker
             });
 
             importGameFile.addEventListener("change", async (event) => {
@@ -1197,13 +1198,13 @@
                         } else {
                             alert('Failed to import game.');
                         }
-                        controlsMenu.style.display = "none"; // Đóng menu sau khi import
+                        controlsMenu.style.display = "none"; // ÄÃ³ng menu sau khi import
                     };
                     reader.readAsText(file);
                 }
             });
 
-            // Nút Flip Board
+            // NÃºt Flip Board
             const flipBoardBtn = document.getElementById("flip-board-btn");
             flipBoardBtn.addEventListener("click", async () => {
                 this.isFlipped = !this.isFlipped;
@@ -1214,22 +1215,22 @@
                     const [x, y] = this.selectedPiece;
                     await this.highlightMoves(x, y, this.offsetX, this.offsetY, this.scale);
                 }
-                controlsMenu.style.display = "none"; // Đóng menu
+                controlsMenu.style.display = "none"; // ÄÃ³ng menu
             });
 
-            // Chọn loại bàn cờ (không nằm trong menu)
+            // Chá»n loáº¡i bÃ n cá» (khÃ´ng náº±m trong menu)
             const boardTypeSelect = document.getElementById("board-type");
             boardTypeSelect.addEventListener("change", () => {
                 this.useImageBoard = boardTypeSelect.value === "image";
                 this.updateBoardDisplay();
             });
 
-            //Nút load cho bảng suggest
+            //NÃºt load cho báº£ng suggest
             const loadSuggestionsBtn = document.getElementById("load-suggestions-btn");
             if (loadSuggestionsBtn) {
                 loadSuggestionsBtn.addEventListener("click", async () => {
-                    this.suggestionsBody.innerHTML = ''; // Xóa bảng gợi ý trước khi tải lại
-                    await this.analyzeCurrentPosition(); // Gửi bàn cờ hiện tại đến engine để phân tích lại
+                    this.suggestionsBody.innerHTML = ''; // XÃ³a báº£ng gá»£i Ã½ trÆ°á»›c khi táº£i láº¡i
+                    await this.analyzeCurrentPosition(); // Gá»­i bÃ n cá» hiá»‡n táº¡i Ä‘áº¿n engine Ä‘á»ƒ phÃ¢n tÃ­ch láº¡i
                 });
             } else {
                 console.warn('Load Suggestions button not found in DOM');
@@ -1241,3 +1242,5 @@
         new XiangqiUI();
     });
 })();
+
+

@@ -1,42 +1,42 @@
-// game.js
+﻿// game.js
 const ROWS = 10;
 const COLS = 9;
 
 class XiangqiGame {
     constructor() {
         this.currentTurn = "red";
-        this.moveHistory = []; // Lưu lịch sử các nước đi
-        this.currentMoveIndex = -1; // Chỉ số của nước đi hiện tại
+        this.moveHistory = []; // LÆ°u lá»‹ch sá»­ cÃ¡c nÆ°á»›c Ä‘i
+        this.currentMoveIndex = -1; // Chá»‰ sá»‘ cá»§a nÆ°á»›c Ä‘i hiá»‡n táº¡i
         this.initialBoard = null;
         this.board = Array(ROWS).fill().map(() => Array(COLS).fill(null));
-        this.moveCount = 1; // Khởi tạo số nước đi
+        this.moveCount = 1; // Khá»Ÿi táº¡o sá»‘ nÆ°á»›c Ä‘i
         this.setupInitialPosition();
         this.saveInitialBoard();
-        this.fenBoardSnapshot = null; // Lưu trạng thái bàn cờ tại thời điểm FEN
-        // Ánh xạ tên quân cờ sang ký hiệu FEN
+        this.fenBoardSnapshot = null; // LÆ°u tráº¡ng thÃ¡i bÃ n cá» táº¡i thá»i Ä‘iá»ƒm FEN
+        // Ãnh xáº¡ tÃªn quÃ¢n cá» sang kÃ½ hiá»‡u FEN
         this.fenMap = {
-            "車": "r", // Xe
-            "馬": "n", // Mã
-            "马": "n", // Mã (ký tự khác)
-            "象": "b", // Tượng
-            "相": "b", // Tượng (ký tự khác)
-            "仕": "a", // Sĩ
-            "士": "a", // Sĩ (ký tự khác)
-            "帅": "k", // Tướng (đỏ)
-            "将": "k", // Tướng (đen)
-            "炮": "c", // Pháo
-            "砲": "c", // Pháo (ký tự khác)
-            "兵": "p", // Tốt (đỏ)
-            "卒": "p"  // Tốt (đen)
+            "è»Š": "r", // Xe
+            "é¦¬": "n", // MÃ£
+            "é©¬": "n", // MÃ£ (kÃ½ tá»± khÃ¡c)
+            "è±¡": "b", // TÆ°á»£ng
+            "ç›¸": "b", // TÆ°á»£ng (kÃ½ tá»± khÃ¡c)
+            "ä»•": "a", // SÄ©
+            "å£«": "a", // SÄ© (kÃ½ tá»± khÃ¡c)
+            "å¸…": "k", // TÆ°á»›ng (Ä‘á»)
+            "å°†": "k", // TÆ°á»›ng (Ä‘en)
+            "ç‚®": "c", // PhÃ¡o
+            "ç ²": "c", // PhÃ¡o (kÃ½ tá»± khÃ¡c)
+            "å…µ": "p", // Tá»‘t (Ä‘á»)
+            "å’": "p"  // Tá»‘t (Ä‘en)
         };
     }
 
-    // Hàm chuyển đổi quân cờ thành ký hiệu FEN
+    // HÃ m chuyá»ƒn Ä‘á»•i quÃ¢n cá» thÃ nh kÃ½ hiá»‡u FEN
     pieceToFen(piece) {
         if (!piece) return null;
         let symbol = this.fenMap[piece.name];
         if (!symbol) return null;
-        // Quân đỏ: in hoa, quân đen: in thường
+        // QuÃ¢n Ä‘á»: in hoa, quÃ¢n Ä‘en: in thÆ°á»ng
         return piece.color === "red" ? symbol.toUpperCase() : symbol.toLowerCase();
     }
     importFen(fen) {
@@ -59,13 +59,13 @@ class XiangqiGame {
             }
 
             const reverseFenMap = {
-                'r': "車", 'R': "車",
-                'n': "马", 'N': "馬",
-                'b': "相", 'B': "象",
-                'a': "士", 'A': "仕",
-                'k': "将", 'K': "帅",
-                'c': "砲", 'C': "炮",
-                'p': "卒", 'P': "兵"
+                'r': "è»Š", 'R': "è»Š",
+                'n': "é©¬", 'N': "é¦¬",
+                'b': "ç›¸", 'B': "è±¡",
+                'a': "å£«", 'A': "ä»•",
+                'k': "å°†", 'K': "å¸…",
+                'c': "ç ²", 'C': "ç‚®",
+                'p': "å’", 'P': "å…µ"
             };
 
             let kingRedCount = 0;
@@ -83,9 +83,9 @@ class XiangqiGame {
                         if (pieceName) {
                             const color = char === char.toUpperCase() ? "red" : "black";
                             this.board[y][x] = { name: pieceName, color };
-                            // Kiểm tra số lượng vua
-                            if (pieceName === "帅" && color === "red") kingRedCount++;
-                            if (pieceName === "将" && color === "black") kingBlackCount++;
+                            // Kiá»ƒm tra sá»‘ lÆ°á»£ng vua
+                            if (pieceName === "å¸…" && color === "red") kingRedCount++;
+                            if (pieceName === "å°†" && color === "black") kingBlackCount++;
                             x++;
                         } else {
                             console.warn(`Unknown FEN symbol at row ${y}, col ${x}: ${char}`);
@@ -95,7 +95,7 @@ class XiangqiGame {
                 }
             }
 
-            // Kiểm tra lỗi FEN
+            // Kiá»ƒm tra lá»—i FEN
             if (kingRedCount !== 1 || kingBlackCount !== 1) {
                 console.error(`Invalid FEN: Red kings: ${kingRedCount}, Black kings: ${kingBlackCount}`);
                 return false;
@@ -106,8 +106,6 @@ class XiangqiGame {
             this.moveHistory = [];
             this.currentMoveIndex = -1;
             this.fenBoardSnapshot = null;
-
-            console.log(`Imported FEN: ${fen}`);
             return true;
         } catch (err) {
             console.error('Error importing FEN:', err);
@@ -117,24 +115,24 @@ class XiangqiGame {
 
     setupInitialPosition() {
         const initialSetup = [
-            { name: "車", color: "red", x: 0, y: 9 }, { name: "車", color: "red", x: 8, y: 9 },
-            { name: "馬", color: "red", x: 1, y: 9 }, { name: "馬", color: "red", x: 7, y: 9 },
-            { name: "象", color: "red", x: 2, y: 9 }, { name: "象", color: "red", x: 6, y: 9 },
-            { name: "仕", color: "red", x: 3, y: 9 }, { name: "仕", color: "red", x: 5, y: 9 },
-            { name: "帅", color: "red", x: 4, y: 9 },
-            { name: "炮", color: "red", x: 1, y: 7 }, { name: "炮", color: "red", x: 7, y: 7 },
-            { name: "兵", color: "red", x: 0, y: 6 }, { name: "兵", color: "red", x: 2, y: 6 },
-            { name: "兵", color: "red", x: 4, y: 6 }, { name: "兵", color: "red", x: 6, y: 6 },
-            { name: "兵", color: "red", x: 8, y: 6 },
-            { name: "車", color: "black", x: 0, y: 0 }, { name: "車", color: "black", x: 8, y: 0 },
-            { name: "马", color: "black", x: 1, y: 0 }, { name: "马", color: "black", x: 7, y: 0 },
-            { name: "相", color: "black", x: 2, y: 0 }, { name: "相", color: "black", x: 6, y: 0 },
-            { name: "士", color: "black", x: 3, y: 0 }, { name: "士", color: "black", x: 5, y: 0 },
-            { name: "将", color: "black", x: 4, y: 0 },
-            { name: "砲", color: "black", x: 1, y: 2 }, { name: "砲", color: "black", x: 7, y: 2 },
-            { name: "卒", color: "black", x: 0, y: 3 }, { name: "卒", color: "black", x: 2, y: 3 },
-            { name: "卒", color: "black", x: 4, y: 3 }, { name: "卒", color: "black", x: 6, y: 3 },
-            { name: "卒", color: "black", x: 8, y: 3 }
+            { name: "è»Š", color: "red", x: 0, y: 9 }, { name: "è»Š", color: "red", x: 8, y: 9 },
+            { name: "é¦¬", color: "red", x: 1, y: 9 }, { name: "é¦¬", color: "red", x: 7, y: 9 },
+            { name: "è±¡", color: "red", x: 2, y: 9 }, { name: "è±¡", color: "red", x: 6, y: 9 },
+            { name: "ä»•", color: "red", x: 3, y: 9 }, { name: "ä»•", color: "red", x: 5, y: 9 },
+            { name: "å¸…", color: "red", x: 4, y: 9 },
+            { name: "ç‚®", color: "red", x: 1, y: 7 }, { name: "ç‚®", color: "red", x: 7, y: 7 },
+            { name: "å…µ", color: "red", x: 0, y: 6 }, { name: "å…µ", color: "red", x: 2, y: 6 },
+            { name: "å…µ", color: "red", x: 4, y: 6 }, { name: "å…µ", color: "red", x: 6, y: 6 },
+            { name: "å…µ", color: "red", x: 8, y: 6 },
+            { name: "è»Š", color: "black", x: 0, y: 0 }, { name: "è»Š", color: "black", x: 8, y: 0 },
+            { name: "é©¬", color: "black", x: 1, y: 0 }, { name: "é©¬", color: "black", x: 7, y: 0 },
+            { name: "ç›¸", color: "black", x: 2, y: 0 }, { name: "ç›¸", color: "black", x: 6, y: 0 },
+            { name: "å£«", color: "black", x: 3, y: 0 }, { name: "å£«", color: "black", x: 5, y: 0 },
+            { name: "å°†", color: "black", x: 4, y: 0 },
+            { name: "ç ²", color: "black", x: 1, y: 2 }, { name: "ç ²", color: "black", x: 7, y: 2 },
+            { name: "å’", color: "black", x: 0, y: 3 }, { name: "å’", color: "black", x: 2, y: 3 },
+            { name: "å’", color: "black", x: 4, y: 3 }, { name: "å’", color: "black", x: 6, y: 3 },
+            { name: "å’", color: "black", x: 8, y: 3 }
         ];
 
         initialSetup.forEach(piece => {
@@ -142,9 +140,9 @@ class XiangqiGame {
         });
     }
     exportFen() {
-        // Lưu trạng thái bàn cờ trước khi xuất FEN
+        // LÆ°u tráº¡ng thÃ¡i bÃ n cá» trÆ°á»›c khi xuáº¥t FEN
         this.fenBoardSnapshot = this.board.map(row => row.map(cell => (cell ? { ...cell } : null)));
-        // Logic để tạo chuỗi FEN từ trạng thái bàn cờ
+        // Logic Ä‘á»ƒ táº¡o chuá»—i FEN tá»« tráº¡ng thÃ¡i bÃ n cá»
         let fen = '';
         for (let y = 0; y < ROWS; y++) {
             let emptyCount = 0;
@@ -157,13 +155,13 @@ class XiangqiGame {
                         fen += emptyCount;
                         emptyCount = 0;
                     }
-                    //fen += piece.toFen(); // Giả định mỗi quân cờ có hàm toFen()
+                    //fen += piece.toFen(); // Giáº£ Ä‘á»‹nh má»—i quÃ¢n cá» cÃ³ hÃ m toFen()
                     const fenSymbol = this.pieceToFen(piece);
                     if (fenSymbol) {
                         fen += fenSymbol;
                     } else {
                         console.warn(`Unknown piece at (${x}, ${y}):`, piece);
-                        fen += '?'; // Placeholder cho quân cờ không xác định
+                        fen += '?'; // Placeholder cho quÃ¢n cá» khÃ´ng xÃ¡c Ä‘á»‹nh
                     }
                 }
             }
@@ -174,7 +172,7 @@ class XiangqiGame {
         return fen;
     }
 
-    // Hàm lấy quân cờ từ snapshot (nếu có), nếu không thì từ bàn cờ hiện tại
+    // HÃ m láº¥y quÃ¢n cá» tá»« snapshot (náº¿u cÃ³), náº¿u khÃ´ng thÃ¬ tá»« bÃ n cá» hiá»‡n táº¡i
     getPieceForNotation(x, y) {
         if (this.fenBoardSnapshot && this.fenBoardSnapshot[y] && this.fenBoardSnapshot[y][x]) {
             return this.fenBoardSnapshot[y][x];
@@ -235,26 +233,25 @@ class XiangqiGame {
         }
 
         const capturedPiece = this.board[toY][toX];
-        if (capturedPiece && capturedPiece.name === (piece.color === "red" ? "将" : "帅")) {
+        if (capturedPiece && capturedPiece.name === (piece.color === "red" ? "å°†" : "å¸…")) {
             console.warn(`Attempted to capture opponent's king at (${toX}, ${toY})`);
-            return false; // Không cho phép ăn vua đối phương
+            return false; // KhÃ´ng cho phÃ©p Äƒn vua Ä‘á»‘i phÆ°Æ¡ng
         }
 
-        // Lưu lịch sử nước đi
+        // LÆ°u lá»‹ch sá»­ nÆ°á»›c Ä‘i
         this.moveHistory = this.moveHistory.slice(0, this.currentMoveIndex + 1);
-        const fenBefore = this.exportFen(); // Lưu FEN trước khi di chuyển để debug
+        const fenBefore = this.exportFen(); // LÆ°u FEN trÆ°á»›c khi di chuyá»ƒn Ä‘á»ƒ debug
         this.board[toY][toX] = piece;
         this.board[fromY][fromX] = null;
 
-        // Kiểm tra chiếu sau khi di chuyển
+        // Kiá»ƒm tra chiáº¿u sau khi di chuyá»ƒn
         if (this.isKingInCheck(piece.color)) {
-            console.log(`Move rejected: ${piece.color} king in check after move`);
             this.board[fromY][fromX] = piece;
             this.board[toY][toX] = capturedPiece;
             return false;
         }
 
-        // Lưu nước đi với FEN sau khi di chuyển
+        // LÆ°u nÆ°á»›c Ä‘i vá»›i FEN sau khi di chuyá»ƒn
         const fenAfter = this.exportFen();
         const moveEntry = {
             fromX,
@@ -263,8 +260,8 @@ class XiangqiGame {
             toY,
             capturedPiece,
             currentTurn: this.currentTurn,
-            piece: { name: piece.name, color: piece.color }, // Đảm bảo sao chép chính xác
-            fen: fenAfter // Thêm FEN vào lịch sử
+            piece: { name: piece.name, color: piece.color }, // Äáº£m báº£o sao chÃ©p chÃ­nh xÃ¡c
+            fen: fenAfter // ThÃªm FEN vÃ o lá»‹ch sá»­
         };
         this.moveHistory.push(moveEntry);
 
@@ -274,8 +271,6 @@ class XiangqiGame {
         if (previousTurn === "black" && this.currentTurn === "red") {
             this.moveCount++;
         }
-
-        console.log(`Move successful: ${this.getMoveNotation(moveEntry)}, New FEN: ${fenAfter}`);
         return true;
     }
 
@@ -300,20 +295,20 @@ class XiangqiGame {
     //     return true;
     // }
 
-    // Hàm mới: Tính nước đi thô (không kiểm tra chiếu)
+    // HÃ m má»›i: TÃ­nh nÆ°á»›c Ä‘i thÃ´ (khÃ´ng kiá»ƒm tra chiáº¿u)
     getRawMoves(x, y) {
         const piece = this.getPiece(x, y);
         if (!piece) return [];
 
         let moves = [];
         switch (piece.name) {
-            case "兵": case "卒": moves = this.getSoldierMoves(x, y, piece.color); break;
-            case "炮": case "砲": moves = this.getCannonMoves(x, y, piece.color); break;
-            case "車": moves = this.getRookMoves(x, y, piece.color); break;
-            case "馬": case "马": moves = this.getKnightMoves(x, y, piece.color); break;
-            case "相": case "象": moves = this.getElephantMoves(x, y, piece.color); break;
-            case "仕": case "士": moves = this.getGuardMoves(x, y, piece.color); break;
-            case "帅": case "将": moves = this.getKingMoves(x, y, piece.color); break;
+            case "å…µ": case "å’": moves = this.getSoldierMoves(x, y, piece.color); break;
+            case "ç‚®": case "ç ²": moves = this.getCannonMoves(x, y, piece.color); break;
+            case "è»Š": moves = this.getRookMoves(x, y, piece.color); break;
+            case "é¦¬": case "é©¬": moves = this.getKnightMoves(x, y, piece.color); break;
+            case "ç›¸": case "è±¡": moves = this.getElephantMoves(x, y, piece.color); break;
+            case "ä»•": case "å£«": moves = this.getGuardMoves(x, y, piece.color); break;
+            case "å¸…": case "å°†": moves = this.getKingMoves(x, y, piece.color); break;
             default: return [];
         }
         return moves;
@@ -341,21 +336,21 @@ class XiangqiGame {
         const piece = this.getPiece(x, y);
         if (!piece) return [];
 
-        // Lấy các nước đi thô (không kiểm tra chiếu)
+        // Láº¥y cÃ¡c nÆ°á»›c Ä‘i thÃ´ (khÃ´ng kiá»ƒm tra chiáº¿u)
         const rawMoves = this.getRawMoves(x, y);
 
-        // Lọc các nước đi để đảm bảo không để vua bị chiếu sau khi di chuyển
+        // Lá»c cÃ¡c nÆ°á»›c Ä‘i Ä‘á»ƒ Ä‘áº£m báº£o khÃ´ng Ä‘á»ƒ vua bá»‹ chiáº¿u sau khi di chuyá»ƒn
         const legalMoves = rawMoves.filter(([toX, toY]) => {
-            // Thử di chuyển
+            // Thá»­ di chuyá»ƒn
             const originalPiece = this.board[y][x];
             const targetPiece = this.board[toY][toX];
             this.board[toY][toX] = originalPiece;
             this.board[y][x] = null;
 
-            // Kiểm tra xem vua của bên mình có bị chiếu không
+            // Kiá»ƒm tra xem vua cá»§a bÃªn mÃ¬nh cÃ³ bá»‹ chiáº¿u khÃ´ng
             const inCheck = this.isKingInCheck(piece.color);
 
-            // Hoàn tác di chuyển
+            // HoÃ n tÃ¡c di chuyá»ƒn
             this.board[y][x] = originalPiece;
             this.board[toY][toX] = targetPiece;
 
@@ -373,7 +368,7 @@ class XiangqiGame {
             for (let x = 0; x < COLS; x++) {
                 const piece = this.board[y][x];
                 if (piece && piece.color === enemyColor) {
-                    // Sử dụng getRawMoves thay vì getLegalMoves để tránh đệ quy
+                    // Sá»­ dá»¥ng getRawMoves thay vÃ¬ getLegalMoves Ä‘á»ƒ trÃ¡nh Ä‘á»‡ quy
                     const moves = this.getRawMoves(x, y);
                     if (moves.some(([mx, my]) => mx === kingPos.x && my === kingPos.y)) {
                         return true;
@@ -386,20 +381,20 @@ class XiangqiGame {
     }
 
     isCheckmate(color) {
-        // Kiểm tra xem vua của color có bị chiếu bí hay không
-        // 1. Kiểm tra xem vua có bị chiếu không
+        // Kiá»ƒm tra xem vua cá»§a color cÃ³ bá»‹ chiáº¿u bÃ­ hay khÃ´ng
+        // 1. Kiá»ƒm tra xem vua cÃ³ bá»‹ chiáº¿u khÃ´ng
         if (!this.isKingInCheck(color)) {
             return false;
         }
 
-        // 2. Kiểm tra xem có nước đi nào để thoát chiếu không
+        // 2. Kiá»ƒm tra xem cÃ³ nÆ°á»›c Ä‘i nÃ o Ä‘á»ƒ thoÃ¡t chiáº¿u khÃ´ng
         for (let y = 0; y < ROWS; y++) {
             for (let x = 0; x < COLS; x++) {
                 const piece = this.getPiece(x, y);
                 if (piece && piece.color === color) {
                     const moves = this.getLegalMoves(x, y);
                     for (const [toX, toY] of moves) {
-                        // Thử di chuyển và kiểm tra xem có thoát chiếu không
+                        // Thá»­ di chuyá»ƒn vÃ  kiá»ƒm tra xem cÃ³ thoÃ¡t chiáº¿u khÃ´ng
                         const originalPiece = this.board[y][x];
                         const targetPiece = this.board[toY][toX];
                         this.board[toY][toX] = originalPiece;
@@ -407,26 +402,26 @@ class XiangqiGame {
 
                         const stillInCheck = this.isKingInCheck(color);
 
-                        // Hoàn tác di chuyển
+                        // HoÃ n tÃ¡c di chuyá»ƒn
                         this.board[y][x] = originalPiece;
                         this.board[toY][toX] = targetPiece;
 
                         if (!stillInCheck) {
-                            return false; // Có nước đi để thoát chiếu
+                            return false; // CÃ³ nÆ°á»›c Ä‘i Ä‘á»ƒ thoÃ¡t chiáº¿u
                         }
                     }
                 }
             }
         }
 
-        return true; // Không có nước đi nào để thoát chiếu -> chiếu bí
+        return true; // KhÃ´ng cÃ³ nÆ°á»›c Ä‘i nÃ o Ä‘á»ƒ thoÃ¡t chiáº¿u -> chiáº¿u bÃ­
     }
 
     findKing(color) {
         for (let y = 0; y < ROWS; y++) {
             for (let x = 0; x < COLS; x++) {
                 const piece = this.board[y][x];
-                if (piece && piece.name === (color === "red" ? "帅" : "将") && piece.color === color) {
+                if (piece && piece.name === (color === "red" ? "å¸…" : "å°†") && piece.color === color) {
                     return { x, y };
                 }
             }
@@ -471,7 +466,7 @@ class XiangqiGame {
 
         directions.forEach(([dx, dy]) => {
             let nx = x, ny = y;
-            let jumpCount = 0; // Đếm số quân đã nhảy qua (bệ pháo)
+            let jumpCount = 0; // Äáº¿m sá»‘ quÃ¢n Ä‘Ã£ nháº£y qua (bá»‡ phÃ¡o)
 
             while (this.isValidPosition(nx + dx, ny + dy)) {
                 nx += dx;
@@ -479,23 +474,23 @@ class XiangqiGame {
                 const pieceAt = this.board[ny][nx];
 
                 if (jumpCount === 0) {
-                    // Chưa nhảy qua quân nào: có thể di chuyển đến ô trống
+                    // ChÆ°a nháº£y qua quÃ¢n nÃ o: cÃ³ thá»ƒ di chuyá»ƒn Ä‘áº¿n Ã´ trá»‘ng
                     if (!pieceAt) {
                         moves.push([nx, ny]);
                     } else {
-                        // Gặp quân đầu tiên: tăng jumpCount
+                        // Gáº·p quÃ¢n Ä‘áº§u tiÃªn: tÄƒng jumpCount
                         jumpCount++;
                     }
                 } else if (jumpCount === 1) {
-                    // Đã nhảy qua một quân: kiểm tra ô đích
+                    // ÄÃ£ nháº£y qua má»™t quÃ¢n: kiá»ƒm tra Ã´ Ä‘Ã­ch
                     if (pieceAt) {
-                        // Nếu ô đích có quân và là quân địch, có thể ăn
+                        // Náº¿u Ã´ Ä‘Ã­ch cÃ³ quÃ¢n vÃ  lÃ  quÃ¢n Ä‘á»‹ch, cÃ³ thá»ƒ Äƒn
                         if (pieceAt.color !== color) {
                             moves.push([nx, ny]);
                         }
-                        break; // Dù có ăn được hay không, dừng lại sau khi gặp quân thứ hai
+                        break; // DÃ¹ cÃ³ Äƒn Ä‘Æ°á»£c hay khÃ´ng, dá»«ng láº¡i sau khi gáº·p quÃ¢n thá»© hai
                     }
-                    // Nếu ô trống, không thể di chuyển tiếp (Pháo không di chuyển qua bệ pháo mà không ăn)
+                    // Náº¿u Ã´ trá»‘ng, khÃ´ng thá»ƒ di chuyá»ƒn tiáº¿p (PhÃ¡o khÃ´ng di chuyá»ƒn qua bá»‡ phÃ¡o mÃ  khÃ´ng Äƒn)
                 }
             }
         });
@@ -586,13 +581,13 @@ class XiangqiGame {
         const move = this.moveHistory[this.currentMoveIndex];
         if (!move) return false;
 
-        // Khôi phục trạng thái bàn cờ
+        // KhÃ´i phá»¥c tráº¡ng thÃ¡i bÃ n cá»
         const piece = this.board[move.toY][move.toX];
         this.board[move.fromY][move.fromX] = piece;
-        this.board[move.toY][move.toX] = move.capturedPiece; // Khôi phục quân cờ bị ăn (nếu có)
-        this.currentTurn = move.currentTurn; // Khôi phục lượt chơi
-        // Giảm moveCount nếu quay lại từ đỏ về đen
-        if (previousTurn === "red" && this.currentTurn === "black") {
+        this.board[move.toY][move.toX] = move.capturedPiece; // KhÃ´i phá»¥c quÃ¢n cá» bá»‹ Äƒn (náº¿u cÃ³)
+        this.currentTurn = move.currentTurn; // KhÃ´i phá»¥c lÆ°á»£t chÆ¡i
+        // Giáº£m moveCount náº¿u quay láº¡i tá»« Ä‘á» vá» Ä‘en
+        if (this.currentTurn === "black" && this.moveCount > 1) {
             this.moveCount--;
         }
         this.currentMoveIndex--;
@@ -607,13 +602,13 @@ class XiangqiGame {
         const move = this.moveHistory[this.currentMoveIndex];
         if (!move) return false;
 
-        // Áp dụng lại nước đi
+        // Ãp dá»¥ng láº¡i nÆ°á»›c Ä‘i
         const piece = this.board[move.fromY][move.fromX];
         this.board[move.toY][move.toX] = piece;
         this.board[move.fromY][move.fromX] = null;
         const previousTurn = this.currentTurn;
         this.currentTurn = this.currentTurn === "red" ? "black" : "red";
-        // Tăng moveCount nếu đi từ đen sang đỏ
+        // TÄƒng moveCount náº¿u Ä‘i tá»« Ä‘en sang Ä‘á»
         if (previousTurn === "black" && this.currentTurn === "red") {
             this.moveCount++;
         }
@@ -626,7 +621,7 @@ class XiangqiGame {
         this.currentTurn = "red";
         this.moveHistory = [];
         this.currentMoveIndex = -1;
-        this.moveCount = 1; // Đặt lại moveCount
+        this.moveCount = 1; // Äáº·t láº¡i moveCount
         return true;
     }
 
@@ -635,7 +630,7 @@ class XiangqiGame {
         this.currentTurn = "red";
         this.moveHistory = [];
         this.currentMoveIndex = -1;
-        this.moveCount = 1; // Đặt lại moveCount
+        this.moveCount = 1; // Äáº·t láº¡i moveCount
         this.setupInitialPosition();
         this.saveInitialBoard();
         return true;
@@ -653,10 +648,10 @@ class XiangqiGame {
             }
             try {
                 const notation = this.getMoveNotation(move);
-                return { moveNotation: notation };
+                return { ...move, moveNotation: notation };
             } catch (err) {
                 console.error(`Error processing move ${index}:`, move, err);
-                return { moveNotation: "Error" };
+                return { ...move, moveNotation: "Error" };
             }
         });
     }
@@ -676,7 +671,7 @@ class XiangqiGame {
             this.currentMoveIndex = data.currentMoveIndex || -1;
             this.initialBoard = data.initialBoard || null;
 
-            // Đặt lại bàn cờ về trạng thái ban đầu
+            // Äáº·t láº¡i bÃ n cá» vá» tráº¡ng thÃ¡i ban Ä‘áº§u
             if (this.initialBoard) {
                 this.board = this.initialBoard.map(row => row.map(cell => (cell ? { ...cell } : null)));
             } else {
@@ -686,7 +681,7 @@ class XiangqiGame {
             }
             this.currentTurn = "red";
 
-            // Áp dụng lại các nước đi
+            // Ãp dá»¥ng láº¡i cÃ¡c nÆ°á»›c Ä‘i
             for (let i = 0; i <= this.currentMoveIndex; i++) {
                 const move = this.moveHistory[i];
                 if (move) {
@@ -703,29 +698,29 @@ class XiangqiGame {
         }
     }
 
-    // Chuyển đổi tên quân cờ sang ký hiệu ngắn gọn
+    // Chuyá»ƒn Ä‘á»•i tÃªn quÃ¢n cá» sang kÃ½ hiá»‡u ngáº¯n gá»n
     getPieceNotation(piece) {
         if (!piece) return "";
         const notationMap = {
-            "兵": "P", "卒": "P", // Tốt
-            "炮": "C", "砲": "C", // Pháo
-            "馬": "N", "马": "N", // Mã
-            "象": "B", "相": "B", // Tượng
-            "車": "R", "车": "R", // Xe
-            "仕": "A", "士": "A", // Sĩ
-            "帅": "K", "将": "K"  // Tướng/Vua
+            "å…µ": "P", "å’": "P", // Tá»‘t
+            "ç‚®": "C", "ç ²": "C", // PhÃ¡o
+            "é¦¬": "N", "é©¬": "N", // MÃ£
+            "è±¡": "B", "ç›¸": "B", // TÆ°á»£ng
+            "è»Š": "R", "è½¦": "R", // Xe
+            "ä»•": "A", "å£«": "A", // SÄ©
+            "å¸…": "K", "å°†": "K"  // TÆ°á»›ng/Vua
         };
         return notationMap[piece.name] || piece.name;
     }
 
-    // Chuyển đổi tọa độ (x, y) thành định dạng C2=5
+    // Chuyá»ƒn Ä‘á»•i tá»a Ä‘á»™ (x, y) thÃ nh Ä‘á»‹nh dáº¡ng C2=5
     getPositionNotation(x, y) {
-        const col = x + 1; // Cột từ 1 đến 9 (x từ 0 đến 8)
-        const row = 10 - y; // Hàng từ 1 đến 10 (y từ 0 đến 9, đảo ngược)
+        const col = x + 1; // Cá»™t tá»« 1 Ä‘áº¿n 9 (x tá»« 0 Ä‘áº¿n 8)
+        const row = 10 - y; // HÃ ng tá»« 1 Ä‘áº¿n 10 (y tá»« 0 Ä‘áº¿n 9, Ä‘áº£o ngÆ°á»£c)
         return `${col}.${row}`;
     }
 
-    // Tìm tất cả các quân cùng loại trên cùng một cột
+    // TÃ¬m táº¥t cáº£ cÃ¡c quÃ¢n cÃ¹ng loáº¡i trÃªn cÃ¹ng má»™t cá»™t
     getPiecesInColumn(pieceName, col, color) {
         const pieces = [];
         for (let y = 0; y < 10; y++) {
@@ -736,7 +731,7 @@ class XiangqiGame {
         }
         return pieces;
     }
-    // Tạo ký hiệu nước đi (C2+2, -C+2, v.v.)
+    // Táº¡o kÃ½ hiá»‡u nÆ°á»›c Ä‘i (C2+2, -C+2, v.v.)
     getMoveNotation(move) {
         if (!move || typeof move.fromX === 'undefined' || typeof move.fromY === 'undefined' ||
             typeof move.toX === 'undefined' || typeof move.toY === 'undefined') {
@@ -744,7 +739,7 @@ class XiangqiGame {
             return "Invalid Move";
         }
 
-        // Ưu tiên sử dụng move.piece, nếu không có thì lấy từ this.board
+        // Æ¯u tiÃªn sá»­ dá»¥ng move.piece, náº¿u khÃ´ng cÃ³ thÃ¬ láº¥y tá»« this.board
         let piece = move.piece;
         if (!piece) {
             console.warn('No piece information in move object, attempting to fetch from board:', move);
@@ -754,9 +749,8 @@ class XiangqiGame {
                 return "Unknown Move";
             }
         }
-        // Sử dụng ký hiệu Latin thay vì tên Trung Quốc để tránh lỗi hiển thị
+        // Sá»­ dá»¥ng kÃ½ hiá»‡u Latin thay vÃ¬ tÃªn Trung Quá»‘c Ä‘á»ƒ trÃ¡nh lá»—i hiá»ƒn thá»‹
         const fenSymbol = this.pieceToFen(piece) || piece.name;
-        console.log(`Processing move: ${fenSymbol} (${piece.color}) from (${move.fromX}, ${move.fromY}) to (${move.toX}, ${move.toY})`);
         const pieceNotation = this.getPieceNotation(piece);
         if (!pieceNotation) return "Invalid Piece";
 
@@ -768,7 +762,7 @@ class XiangqiGame {
         let moveSymbol = "";
         let moveDistance = 0;
 
-        if (["馬", "马", "象", "相", "仕", "士"].includes(piece.name)) {
+        if (["é¦¬", "é©¬", "è±¡", "ç›¸", "ä»•", "å£«"].includes(piece.name)) {
             moveSymbol = deltaY > 0 ? (piece.color === "red" ? "-" : "+") : (piece.color === "red" ? "+" : "-");
             moveDistance = toCol;
         } else {

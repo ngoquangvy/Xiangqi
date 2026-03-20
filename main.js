@@ -131,7 +131,6 @@ function startEngine(enginePath) {
             mainWindow.webContents.send('engine-output', data.toString());
         }
         const output = data.toString();
-        console.log(`Engine output: ${output}`); // Log chi tiết
         if (output.includes('readyok') && mainWindow) {
             mainWindow.webContents.send('engine-ready');
         }
@@ -271,7 +270,6 @@ ipcMain.handle('get-engines', () => {
 
 ipcMain.handle('add-engine', async (event, enginePath) => {
     try {
-        console.log(`Testing engine: ${enginePath}`);
         const protocol = await detectEngineProtocol(enginePath);
         if (protocol === 'unknown') {
             return { success: false, error: 'Engine does not support UCI or UCCI' };
@@ -292,7 +290,6 @@ ipcMain.handle('add-engine', async (event, enginePath) => {
         };
         engines.push(newEngine);
         await saveEngines();
-        console.log(`Engine added: ${name} (${protocol}) at ${enginePath}`);
         startEngine(enginePath);
         return { success: true };
     } catch (err) {
@@ -471,7 +468,6 @@ ipcMain.handle('get-move-notation', (event, fromX, fromY, toX, toY) => {
 ipcMain.on('analyze-position', (event, fen) => {
     if (engineProcess && engineProcess.stdin && !engineProcess.killed) {
         try {
-            console.log(`Analyzing FEN: ${fen}`);
             engineProcess.stdin.write(`position fen ${fen}\n`);
             const selectedEngine = engines.find(e => e.path === engineProcess.spawnargs[0]) || { options: {} };
             if (engineProtocol === 'uci') {
