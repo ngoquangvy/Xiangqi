@@ -33,6 +33,7 @@ contextBridge.exposeInMainWorld('XiangqiGameAPI', {
     importFen: (fen) => ipcRenderer.invoke('import-fen', fen),
     updateEngine: (index, updatedEngine) => ipcRenderer.invoke('update-engine', index, updatedEngine),
     simulatePV: (fen, pvMoves, stepLimit) => ipcRenderer.invoke('simulate-pv', fen, pvMoves, stepLimit),
+    formatPV: (fen, pvMoves) => ipcRenderer.invoke('format-pv', fen, pvMoves),
     onEngineOutput: (callback) => {
         engineOutputCallback = callback;
     }

@@ -451,48 +451,21 @@
 
 // note
         async formatPrincipalVariation(pvMoves) {
-            if (!pvMoves || pvMoves.length === 0) return '-';
+            if (!pvMoves || pvMoves.length === 0) return { moves: [], formatted: '-' };
 
-            const formattedMoves = [];
-            let moveNumber = 1;
-            let isRedTurn = true; // note
-
-// note
-            const originalFen = await window.XiangqiGameAPI.getFen();
-
-// note
-            for (let i = 0; i < pvMoves.length; i++) {
-                const move = pvMoves[i];
-                const [fromX, fromY, toX, toY] = this.parseUCIMove(move);
-
-// note
-                const notation = await window.XiangqiGameAPI.getMoveNotation(fromX, fromY, toX, toY);
-
-// note
-                await window.XiangqiGameAPI.move(fromX, fromY, toX, toY);
-
-                formattedMoves.push(notation);
-                if (i % 2 === 1) {
-                    moveNumber++;
+            try {
+                const fen = await window.XiangqiGameAPI.getFen();
+                const result = await window.XiangqiGameAPI.formatPV(fen, pvMoves);
+                if (!result || !Array.isArray(result.moves)) {
+                    return { moves: [], formatted: '-' };
                 }
-                isRedTurn = !isRedTurn;
+                return result;
+            } catch (err) {
+                console.error('Error formatting PV:', err);
+                return { moves: [], formatted: '-' };
             }
-
-// note
-            await window.XiangqiGameAPI.importFen(originalFen);
-
-// note
-            const result = [];
-            for (let i = 0; i < formattedMoves.length; i += 2) {
-                const redMove = formattedMoves[i];
-                const blackMove = formattedMoves[i + 1] || '...';
-                result.push(`${i / 2 + 1}. ${redMove} ${blackMove}`);
-            }
-
-            return { moves: formattedMoves, formatted: result.join(', ') };
         }
 
-// note
         parseUCIMove(move) {
             const fromX = move.charCodeAt(0) - 97; // note
             const fromY = 9 - parseInt(move[1]); // note

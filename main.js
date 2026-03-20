@@ -257,6 +257,45 @@ ipcMain.handle('simulate-pv', async (event, fen, pvMoves, stepLimit) => {
     }
 });
 
+
+ipcMain.handle('format-pv', async (event, fen, pvMoves) => {
+    try {
+        const tempGame = new XiangqiGame();
+        tempGame.importFen(fen);
+
+        const notations = [];
+        for (const move of pvMoves || []) {
+            if (!/^[a-i][0-9][a-i][0-9]$/.test(move)) continue;
+
+            const fromX = move.charCodeAt(0) - 97;
+            const fromY = 9 - parseInt(move[1], 10);
+            const toX = move.charCodeAt(2) - 97;
+            const toY = 9 - parseInt(move[3], 10);
+
+            const piece = tempGame.getPiece(fromX, fromY);
+            const success = tempGame.move(fromX, fromY, toX, toY);
+            if (!success) break;
+
+            const lastMove = tempGame.moveHistory[tempGame.moveHistory.length - 1];
+            const notation = lastMove?.moveNotation || tempGame.getMoveNotation({
+                fromX, fromY, toX, toY, piece: piece ? { ...piece } : null
+            });
+            notations.push(notation || move);
+        }
+
+        const lines = [];
+        for (let i = 0; i < notations.length; i += 2) {
+            const redMove = notations[i];
+            const blackMove = notations[i + 1] || '...';
+            lines.push((i / 2 + 1) + '. ' + redMove + ' ' + blackMove);
+        }
+
+        return { moves: notations, formatted: lines.join(', ') };
+    } catch (err) {
+        console.error('Error formatting PV:', err);
+        return { moves: [], formatted: '-' };
+    }
+});
 ipcMain.handle('import-fen', (event, fen) => {
     if (typeof gameInstance.importFen !== 'function') {
         throw new Error('importFen is not a function');
