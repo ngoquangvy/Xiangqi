@@ -35,6 +35,7 @@ class XiangqiGame {
         if (!symbol) return null;
         return piece.color === "red" ? symbol.toUpperCase() : symbol.toLowerCase();
     }
+    // Rebuild board state from FEN and reset replay pointers for that new state.
     importFen(fen) {
         try {
             const parts = fen.split(' ');
@@ -97,6 +98,7 @@ class XiangqiGame {
 
             this.currentTurn = turn === 'w' ? 'red' : 'black';
             this.moveCount = moveNumber;
+            // Importing a fresh FEN intentionally clears current game history.
             this.moveHistory = [];
             this.currentMoveIndex = -1;
             this.fenBoardSnapshot = null;
@@ -556,6 +558,7 @@ class XiangqiGame {
         return true;
     }
 
+    // Return history entries with both notation and coordinates for UI replay/navigation.
     getMoveHistory() {
         if (!this.moveHistory || !Array.isArray(this.moveHistory)) {
             console.error('Move history is not initialized or invalid:', this.moveHistory);

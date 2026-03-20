@@ -418,6 +418,7 @@
         }
 
         // Keep UI analysis read-only: delegate PV formatting to main process temp game.
+        // Ask main process to format PV on a temp board so this renderer never mutates live game state.
         async formatPrincipalVariation(pvMoves) {
             if (!pvMoves || pvMoves.length === 0) return { moves: [], formatted: '-' };
 
@@ -788,6 +789,7 @@
             }, 5000);
         }
 
+        // Refresh move list from main-process source of truth after each game-state change.
         async updateMoveHistory() {
             const moveList = document.getElementById('move-list');
             if (!moveList) {

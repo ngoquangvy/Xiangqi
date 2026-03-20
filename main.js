@@ -208,6 +208,7 @@ function startEngine(enginePath) {
     }
 }
 
+// Simulate PV on a temporary game to preview board states without touching the live game.
 ipcMain.handle('simulate-pv', async (event, fen, pvMoves, stepLimit) => {
     try {
         const tempGame = new XiangqiGame();
@@ -257,6 +258,7 @@ ipcMain.handle('format-pv', async (event, fen, pvMoves) => {
         tempGame.importFen(fen);
 
         const notations = [];
+        // Translate PV into notation using only tempGame state to keep live history intact.
         for (const move of pvMoves || []) {
             if (!/^[a-i][0-9][a-i][0-9]$/.test(move)) continue;
 

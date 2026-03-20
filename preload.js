@@ -32,6 +32,7 @@ contextBridge.exposeInMainWorld('XiangqiGameAPI', {
     setProtocol: (protocol) => { engineProtocol = protocol; },
     importFen: (fen) => ipcRenderer.invoke('import-fen', fen),
     updateEngine: (index, updatedEngine) => ipcRenderer.invoke('update-engine', index, updatedEngine),
+    // Returns simulated board snapshots from a temporary game instance in main process.
     simulatePV: (fen, pvMoves, stepLimit) => ipcRenderer.invoke('simulate-pv', fen, pvMoves, stepLimit),
     // Formats PV on the main-process temp board to avoid resetting move history.
     formatPV: (fen, pvMoves) => ipcRenderer.invoke('format-pv', fen, pvMoves),
