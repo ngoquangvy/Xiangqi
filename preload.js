@@ -1,4 +1,4 @@
-﻿const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer } = require('electron');
 
 let engineProtocol = 'uci';
 let engineOutputCallback = null;

@@ -1,9 +1,9 @@
-// main.js
+// note
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs').promises;
 const { spawn } = require('child_process');
-const fsSync = require('fs'); // Để kiểm tra file tồn tại
+const fsSync = require('fs'); // note
 
 const XiangqiGame = require(path.join(__dirname, 'game.js'));
 
@@ -60,7 +60,7 @@ async function loadEngines() {
         }));
     } catch (err) {
         console.error('Error loading engines:', err.message);
-        // Kiểm tra xem file Pikafish có tồn tại không
+// note
         if (fsSync.existsSync(defaultEngine.path)) {
             engines = [defaultEngine];
             await saveEngines();
@@ -106,7 +106,7 @@ function startEngine(enginePath) {
         engineProcess = null;
     }
 
-    // Kiểm tra xem file engine có tồn tại không
+// note
     if (!fsSync.existsSync(enginePath)) {
         console.error(`Engine file does not exist at ${enginePath}`);
         if (mainWindow) {
@@ -213,27 +213,27 @@ function startEngine(enginePath) {
 
 ipcMain.handle('simulate-pv', async (event, fen, pvMoves, stepLimit) => {
     try {
-        // Tạo một instance tạm thời của XiangqiGame
+// note
         const tempGame = new XiangqiGame();
 
-        // Khôi phục trạng thái bàn cờ từ FEN
+// note
         tempGame.importFen(fen);
 
-        // Danh sách lưu các trạng thái bàn cờ sau mỗi nước đi
+// note
         const boardStates = [];
 
-        // Lưu trạng thái ban đầu
+// note
         boardStates.push({
             board: tempGame.board.map(row => row.map(cell => (cell ? { ...cell } : null))),
             currentTurn: tempGame.currentTurn,
             moveCount: tempGame.moveCount
         });
 
-        // Mô phỏng các nước đi trong chuỗi PV đến stepLimit
+// note
         for (let i = 0; i < pvMoves.length && i < stepLimit; i++) {
             const move = pvMoves[i];
-            const fromX = move.charCodeAt(0) - 97; // 'a' = 0, 'i' = 8
-            const fromY = 9 - parseInt(move[1]);   // '0' = 9, '9' = 0
+            const fromX = move.charCodeAt(0) - 97; // note
+            const fromY = 9 - parseInt(move[1]); // note
             const toX = move.charCodeAt(2) - 97;
             const toY = 9 - parseInt(move[3]);
 

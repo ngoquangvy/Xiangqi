@@ -1,4 +1,4 @@
-﻿(function () {
+(function () {
     const canvas = document.getElementById("boardCanvas");
     const ctx = canvas ? canvas.getContext("2d") : null;
     const piecesContainer = document.getElementById("pieces");
@@ -25,23 +25,23 @@
             this.imageWidthScale = 1.02;
             this.imageHeightScale = 1.02;
             this.isFlipped = false;
-            this.lastMove = null; // LÆ°u nÆ°á»›c Ä‘i vá»«a thá»±c hiá»‡n (Ä‘á»‹nh dáº¡ng "R1+1")
-            this.lastMoveRaw = null; // LÆ°u nÆ°á»›c Ä‘i vá»«a thá»±c hiá»‡n (Ä‘á»‹nh dáº¡ng "b2e2")
-            this.lastMovePositions = null; // LÆ°u vá»‹ trÃ­ from/to cá»§a nÆ°á»›c Ä‘i cuá»‘i cÃ¹ng
-            this.selectedEngineIndex = 0; // Engine hiá»‡n táº¡i Ä‘Æ°á»£c chá»n
+            this.lastMove = null; // note
+            this.lastMoveRaw = null; // note
+            this.lastMovePositions = null; // note
+            this.selectedEngineIndex = 0; // note
             this.engineProtocol = window.XiangqiGameAPI.getProtocol();
-            this.currentPVIndex = null; // Chá»‰ sá»‘ cá»§a hÃ ng PV hiá»‡n táº¡i trong báº£ng gá»£i Ã½
-            this.simulationStates = []; // LÆ°u danh sÃ¡ch tráº¡ng thÃ¡i bÃ n cá» tá»« mÃ´ phá»ng
-            this.originalFen = null; // LÆ°u FEN ban Ä‘áº§u trÆ°á»›c khi mÃ´ phá»ng
-            this.lastMovePositions = null; // ÄÃ£ cÃ³, lÆ°u nÆ°á»›c Ä‘i cuá»‘i cÃ¹ng trong cháº¿ Ä‘á»™ chÆ¡i thÃ´ng thÆ°á»ng
-            this.lastSimulatedMove = null; // ThÃªm thuá»™c tÃ­nh má»›i Ä‘á»ƒ lÆ°u nÆ°á»›c Ä‘i vá»«a mÃ´ phá»ng
-            this.moveHistory = []; // ThÃªm máº£ng Ä‘á»ƒ lÆ°u lá»‹ch sá»­ nÆ°á»›c Ä‘i
-            this.analysisTimeout = null; // Biáº¿n Ä‘á»ƒ lÆ°u timeout
-            this.maxAnalysisTime = null; // Thá»i gian chá» tá»‘i Ä‘a (Ä‘Æ°á»£c tÃ­nh dá»±a trÃªn cÃ i Ä‘áº·t engine)
-            this.isAnalyzing = false; // Tráº¡ng thÃ¡i phÃ¢n tÃ­ch
+            this.currentPVIndex = null; // note
+            this.simulationStates = []; // note
+            this.originalFen = null; // note
+            this.lastMovePositions = null; // note
+            this.lastSimulatedMove = null; // note
+            this.moveHistory = []; // note
+            this.analysisTimeout = null; // note
+            this.maxAnalysisTime = null; // note
+            this.isAnalyzing = false; // note
 
 
-            // Láº¯ng nghe dá»¯ liá»‡u tá»« engine
+// note
             window.XiangqiGameAPI.onEngineOutput((data) => {
                 this.handleEngineOutput(data);
             });
@@ -73,7 +73,7 @@
             this.offsetY = -24;
             this.scale = 0.87;
 
-            // Gá»i cÃ¡c phÆ°Æ¡ng thá»©c sau khi window.XiangqiGameAPI Ä‘Ã£ Ä‘Æ°á»£c khá»Ÿi táº¡o
+// note
             this.updateBoardDisplay();
             this.renderBoardNumbers();
             this.renderPieces(this.offsetX, this.offsetY, this.scale);
@@ -82,17 +82,17 @@
         }
         async analyzeCurrentPosition() {
             try {
-                // Hiá»ƒn thá»‹ "Loading" trong báº£ng gá»£i Ã½
+// note
                 this.suggestionsBody.innerHTML = '<tr><td colspan="8" style="text-align: center;">Loading...</td></tr>';
                 this.isAnalyzing = true;
 
-                // Láº¥y cÃ i Ä‘áº·t engine hiá»‡n táº¡i Ä‘á»ƒ xÃ¡c Ä‘á»‹nh thá»i gian tá»‘i Ä‘a
+// note
                 const engines = await window.XiangqiGameAPI.getEngines();
                 const selectedEngine = engines[this.selectedEngineIndex] || { options: {} };
-                const depth = selectedEngine.options?.depth || 20; // Máº·c Ä‘á»‹nh depth = 20 náº¿u khÃ´ng cÃ³
-                this.maxAnalysisTime = (depth * 1000) + 1000; // Thá»i gian tá»‘i Ä‘a = (depth * 1s) + 1s
+                const depth = selectedEngine.options?.depth || 20; // note
+                this.maxAnalysisTime = (depth * 1000) + 1000; // note
 
-                // Thiáº¿t láº­p timeout Ä‘á»ƒ kiá»ƒm tra náº¿u engine khÃ´ng pháº£n há»“i
+// note
                 if (this.analysisTimeout) clearTimeout(this.analysisTimeout);
                 this.analysisTimeout = setTimeout(() => {
                     if (this.isAnalyzing) {
@@ -133,8 +133,8 @@
 
         async convertMoveToNotation(move) {
             if (!move || move.length !== 4) return move;
-            const fromX = move.charCodeAt(0) - 97; // 'a' = 0, 'i' = 8
-            const fromY = 9 - parseInt(move[1]);   // '0' = 9, '9' = 0 (Ä‘áº£o ngÆ°á»£c cho cá» TÆ°á»›ng)
+            const fromX = move.charCodeAt(0) - 97; // note
+            const fromY = 9 - parseInt(move[1]); // note
             const toX = move.charCodeAt(2) - 97;
             const toY = 9 - parseInt(move[3]);
             try {
@@ -147,10 +147,10 @@
         }
 
         async handleEngineOutput(data) {
-            this.engineProtocol = window.XiangqiGameAPI.getProtocol(); // Cáº­p nháº­t giao thá»©c
-            // Äáº£m báº£o data lÃ  chuá»—i
+            this.engineProtocol = window.XiangqiGameAPI.getProtocol(); // note
+// note
             if (typeof data !== 'string') {
-                // console.warn('Engine output is not a string:', data);
+// note
                 if (typeof data === 'object') {
                     data = JSON.stringify(data);
                 } else {
@@ -186,9 +186,9 @@
                             const nodes = nodesIndex !== -1 ? parseInt(parts[nodesIndex + 1]) : '-';
                             const time = timeIndex !== -1 ? (parseInt(parts[timeIndex + 1]) / 1000).toFixed(2) : '-';
 
-                            // Láº¥y chuá»—i PV vÃ  lá»c cÃ¡c nÆ°á»›c Ä‘i há»£p lá»‡
+// note
                             pvMoves = parts.slice(pvIndex + 1);
-                            pvMoves = pvMoves.filter(move => /^[a-i][0-9][a-i][0-9]$/.test(move)); // Chá»‰ giá»¯ cÃ¡c nÆ°á»›c Ä‘i cÃ³ Ä‘á»‹nh dáº¡ng há»£p lá»‡ (vÃ­ dá»¥: h0g2)
+                            pvMoves = pvMoves.filter(move => /^[a-i][0-9][a-i][0-9]$/.test(move)); // note
                             suggestions.push({ move, score: scoreValue, rank, note, depth, nodes, time, pv: pvMoves });
                         }
                     } else if (this.engineProtocol === 'ucci' && line.includes('move')) {
@@ -209,7 +209,7 @@
                     } else {
                         this.suggestionsBody.innerHTML = '<tr><td colspan="8" style="text-align: center;">No suggestions available</td></tr>';
                     }
-                    // Khi nháº­n Ä‘Æ°á»£c bestmove, káº¿t thÃºc phÃ¢n tÃ­ch
+// note
                     if (this.analysisTimeout) clearTimeout(this.analysisTimeout);
                     this.isAnalyzing = false;
                 }
@@ -226,7 +226,7 @@
                     const pvMoves = pvResult.moves;
 
                     const row = document.createElement('tr');
-                    row.dataset.rowIndex = rowIndex; // LÆ°u chá»‰ sá»‘ hÃ ng Ä‘á»ƒ xÃ¡c Ä‘á»‹nh PV
+                    row.dataset.rowIndex = rowIndex; // note
                     row.innerHTML = `
                         <td>${moveNotation} (${s.move})</td>
                         <td>${s.score}</td>
@@ -241,7 +241,7 @@
                     const moveCell = row.querySelector('td:first-child');
                     moveCell.dataset.move = s.move;
 
-                    // Hover: ÄÃ¡nh dáº¥u nÆ°á»›c Ä‘i (giá»¯ nguyÃªn)
+// note
                     moveCell.addEventListener("mouseenter", async () => {
                         const [fromX, fromY, toX, toY] = this.parseUCIMove(s.move);
                         await this.highlightMove(fromX, fromY, toX, toY, "hover-move");
@@ -250,11 +250,11 @@
                         this.clearHoverHighlights();
                     });
 
-                    // Táº¡o cÃ¡c kÃ½ hiá»‡u cÃ³ thá»ƒ nháº¥p trong cá»™t Principal Variation
+// note
                     const pvCell = row.querySelector('.pv-cell');
                     const pvParts = pvNotation.split(', ');
                     pvParts.forEach((part, partIndex) => {
-                        const movesInPart = part.split(' ').slice(1); // Bá» sá»‘ thá»© tá»± (vÃ­ dá»¥: "1." -> ["P7+1", "N8+7"])
+                        const movesInPart = part.split(' ').slice(1); // note
                         movesInPart.forEach((move, moveIndex) => {
                             if (move !== '...') {
                                 const moveSpan = document.createElement('span');
@@ -262,15 +262,15 @@
                                 moveSpan.style.cursor = 'pointer';
                                 moveSpan.style.marginRight = '5px';
                                 moveSpan.style.textDecoration = 'underline';
-                                moveSpan.dataset.step = (partIndex * 2 + moveIndex + 1).toString(); // Sá»‘ bÆ°á»›c tá»« Ä‘áº§u chuá»—i
+                                moveSpan.dataset.step = (partIndex * 2 + moveIndex + 1).toString(); // note
                                 moveSpan.addEventListener('click', async () => {
                                     document.querySelectorAll('.highlighted-move').forEach(span => {
                                         span.classList.remove('highlighted-move');
                                     });
 
-                                    // ThÃªm lá»›p highlighted-move cho kÃ½ hiá»‡u vá»«a Ä‘Æ°á»£c nháº¥p
+// note
                                     moveSpan.classList.add('highlighted-move');
-                                    // Gá»i hÃ m simulateToStep Ä‘á»ƒ mÃ´ phá»ng nÆ°á»›c Ä‘i
+// note
                                     const step = parseInt(moveSpan.dataset.step);
                                     await this.simulateToStep(rowIndex, s.pv, step);
                                 });
@@ -288,58 +288,58 @@
                 }
             }
 
-            // Hiá»ƒn thá»‹ nÃºt Reset náº¿u Ä‘ang mÃ´ phá»ng
+// note
             if (this.currentPVIndex !== null) {
                 this.showResetButton();
             }
         }
 
         async resetSimulation() {
-            // KhÃ´i phá»¥c tráº¡ng thÃ¡i ban Ä‘áº§u tá»« FEN
-            // if (this.originalFen) {
-            //     await window.XiangqiGameAPI.importFen(this.originalFen);
-            // }
+// note
+// note
+// note
+// note
 
-            // Äáº·t láº¡i tráº¡ng thÃ¡i mÃ´ phá»ng
+// note
             this.currentPVIndex = null;
             this.simulationStates = [];
             this.originalFen = null;
-            this.lastSimulatedMove = null; // XÃ³a highlight cá»§a nÆ°á»›c Ä‘i mÃ´ phá»ng
+            this.lastSimulatedMove = null; // note
 
-            // XÃ³a lá»›p highlighted-move khá»i táº¥t cáº£ cÃ¡c kÃ½ hiá»‡u trong cá»™t PV
+// note
             document.querySelectorAll('.highlighted-move').forEach(span => {
                 span.classList.remove('highlighted-move');
             });
 
-            // XÃ³a nÃºt Reset
+// note
             const controls = document.getElementById('simulation-controls');
             if (controls) {
                 controls.remove();
             }
 
-            // Cáº­p nháº­t láº¡i giao diá»‡n
+// note
             await this.renderPieces(this.offsetX, this.offsetY, this.scale);
             await this.updateMoveHistory();
         }
 
         async simulateToStep(rowIndex, pvMoves, step) {
-            // Náº¿u nháº¥p vÃ o má»™t Principal Variation khÃ¡c, xÃ³a tráº¡ng thÃ¡i hiá»‡n táº¡i
+// note
             if (this.currentPVIndex !== rowIndex) {
                 this.currentPVIndex = rowIndex;
                 this.simulationStates = [];
                 this.originalFen = null;
             }
 
-            // Láº¥y FEN hiá»‡n táº¡i cá»§a bÃ n cá»
+// note
             this.originalFen = await window.XiangqiGameAPI.getFen();
 
-            // Kiá»ƒm tra chuá»—i pvMoves
+// note
             if (!pvMoves || !Array.isArray(pvMoves) || pvMoves.length === 0 || step < 1 || step > pvMoves.length) {
                 console.warn('Invalid pvMoves or step:', { pvMoves, step });
                 return;
             }
 
-            // Gá»i simulatePV Ä‘á»ƒ mÃ´ phá»ng Ä‘áº¿n bÆ°á»›c Ä‘Æ°á»£c chá»‰ Ä‘á»‹nh
+// note
             try {
                 this.simulationStates = await window.XiangqiGameAPI.simulatePV(this.originalFen, pvMoves, step);
                 if (this.simulationStates.length === 0) {
@@ -351,20 +351,20 @@
                 return;
             }
 
-            // XÃ¡c Ä‘á»‹nh nÆ°á»›c Ä‘i cuá»‘i cÃ¹ng trong chuá»—i mÃ´ phá»ng (tÆ°Æ¡ng á»©ng vá»›i bÆ°á»›c step)
+// note
             if (pvMoves && pvMoves.length >= step) {
-                const lastMove = pvMoves[step - 1]; // NÆ°á»›c Ä‘i cuá»‘i cÃ¹ng trong chuá»—i (step báº¯t Ä‘áº§u tá»« 1)
+                const lastMove = pvMoves[step - 1]; // note
                 const [fromX, fromY, toX, toY] = this.parseUCIMove(lastMove);
-                this.lastSimulatedMove = { fromX, fromY, toX, toY }; // LÆ°u nÆ°á»›c Ä‘i vá»«a mÃ´ phá»ng
+                this.lastSimulatedMove = { fromX, fromY, toX, toY }; // note
             } else {
-                this.lastSimulatedMove = null; // Náº¿u khÃ´ng cÃ³ nÆ°á»›c Ä‘i, Ä‘áº·t láº¡i
+                this.lastSimulatedMove = null; // note
             }
 
-            // Hiá»ƒn thá»‹ tráº¡ng thÃ¡i bÃ n cá» táº¡i bÆ°á»›c cuá»‘i cÃ¹ng
+// note
             const lastState = this.simulationStates[this.simulationStates.length - 1];
-            this.renderSimulationStep(lastState); // Bá» await vÃ¬ renderSimulationStep khÃ´ng cÃ²n lÃ  async
+            this.renderSimulationStep(lastState); // note
 
-            // Hiá»ƒn thá»‹ nÃºt Reset
+// note
             this.showResetButton();
         }
 
@@ -374,7 +374,7 @@
                 return;
             }
 
-            // Cáº­p nháº­t bÃ n cá» vá»›i tráº¡ng thÃ¡i mÃ´ phá»ng
+// note
             piecesContainer.innerHTML = "";
             for (let y = 0; y < 10; y++) {
                 for (let x = 0; x < 9; x++) {
@@ -402,7 +402,7 @@
 
                         div.dataset.x = x;
                         div.dataset.y = y;
-                        // Highlight nÆ°á»›c Ä‘i vá»«a mÃ´ phá»ng
+// note
                         if (this.lastSimulatedMove &&
                             ((x === this.lastSimulatedMove.fromX && y === this.lastSimulatedMove.fromY) ||
                                 (x === this.lastSimulatedMove.toX && y === this.lastSimulatedMove.toY))) {
@@ -412,13 +412,13 @@
                     }
                 }
             }
-            // Highlight vá»‹ trÃ­ trá»‘ng cá»§a nÆ°á»›c Ä‘i vá»«a mÃ´ phá»ng (náº¿u cÃ³)
+// note
             if (this.lastSimulatedMove) {
                 const { fromX, fromY, toX, toY } = this.lastSimulatedMove;
-                if (!state.board[fromY][fromX]) { // Náº¿u vá»‹ trÃ­ "from" trá»‘ng
+                if (!state.board[fromY][fromX]) { // note
                     this.highlightPosition(fromX, fromY, "last-move");
                 }
-                if (!state.board[toY][toX]) { // Náº¿u vá»‹ trÃ­ "to" trá»‘ng
+                if (!state.board[toY][toX]) { // note
                     this.highlightPosition(toX, toY, "last-move");
                 }
             }
@@ -449,26 +449,26 @@
             }
         }
 
-        // HÃ m Ä‘á»‹nh dáº¡ng chuá»—i PV giá»‘ng Move History
+// note
         async formatPrincipalVariation(pvMoves) {
             if (!pvMoves || pvMoves.length === 0) return '-';
 
             const formattedMoves = [];
             let moveNumber = 1;
-            let isRedTurn = true; // Äá» Ä‘i trÆ°á»›c
+            let isRedTurn = true; // note
 
-            // LÆ°u tráº¡ng thÃ¡i hiá»‡n táº¡i cá»§a bÃ n cá»
+// note
             const originalFen = await window.XiangqiGameAPI.getFen();
 
-            // MÃ´ phá»ng tá»«ng nÆ°á»›c Ä‘i trong chuá»—i PV
+// note
             for (let i = 0; i < pvMoves.length; i++) {
                 const move = pvMoves[i];
                 const [fromX, fromY, toX, toY] = this.parseUCIMove(move);
 
-                // Chuyá»ƒn Ä‘á»•i nÆ°á»›c Ä‘i thÃ nh kÃ½ hiá»‡u cá» TÆ°á»›ng
+// note
                 const notation = await window.XiangqiGameAPI.getMoveNotation(fromX, fromY, toX, toY);
 
-                // Thá»±c hiá»‡n nÆ°á»›c Ä‘i trÃªn bÃ n cá» chÃ­nh (táº¡m thá»i)
+// note
                 await window.XiangqiGameAPI.move(fromX, fromY, toX, toY);
 
                 formattedMoves.push(notation);
@@ -478,10 +478,10 @@
                 isRedTurn = !isRedTurn;
             }
 
-            // KhÃ´i phá»¥c tráº¡ng thÃ¡i ban Ä‘áº§u cá»§a bÃ n cá»
+// note
             await window.XiangqiGameAPI.importFen(originalFen);
 
-            // Äá»‹nh dáº¡ng chuá»—i PV
+// note
             const result = [];
             for (let i = 0; i < formattedMoves.length; i += 2) {
                 const redMove = formattedMoves[i];
@@ -492,10 +492,10 @@
             return { moves: formattedMoves, formatted: result.join(', ') };
         }
 
-        // HÃ m há»— trá»£ phÃ¢n tÃ­ch nÆ°á»›c Ä‘i UCI (b2e2 -> tá»a Ä‘á»™ bÃ n cá»)
+// note
         parseUCIMove(move) {
-            const fromX = move.charCodeAt(0) - 97; // 'a' = 0, 'i' = 8
-            const fromY = 9 - parseInt(move[1]);   // '0' = 9, '9' = 0
+            const fromX = move.charCodeAt(0) - 97; // note
+            const fromY = 9 - parseInt(move[1]); // note
             const toX = move.charCodeAt(2) - 97;
             const toY = 9 - parseInt(move[3]);
             return [fromX, fromY, toX, toY];
@@ -505,7 +505,7 @@
             this.evaluationBody.innerHTML = '';
             const row = document.createElement('tr');
             row.innerHTML = `
-                <td>${evalData.move}</td> <!-- ÄÃ£ Ä‘Æ°á»£c gÃ¡n thÃ nh Ä‘á»‹nh dáº¡ng "R1+1" trong handleEngineOutput -->
+                <td>${evalData.move}</td>
                 <td>${evalData.rank}</td>
                 <td>${evalData.note}</td>
             `;
@@ -517,13 +517,13 @@
             if (boardImage) {
                 if (this.useImageBoard) {
                     boardImage.style.display = "block";
-                    const baseWidth = 8 * this.cellWidth + 70; // Khá»›p vá»›i canvas.style.width
-                    const baseHeight = 9 * this.cellHeight + 70; // Khá»›p vá»›i canvas.style.height
+                    const baseWidth = 8 * this.cellWidth + 70; // note
+                    const baseHeight = 9 * this.cellHeight + 70; // note
                     boardImage.style.width = `${baseWidth * this.imageWidthScale}px`;
                     boardImage.style.height = `${baseHeight * this.imageHeightScale}px`;
                     boardImage.style.position = "absolute";
-                    boardImage.style.top = "-4px";// LÃªn
-                    boardImage.style.left = "-3px";//Xuá»‘ng
+                    boardImage.style.top = "-4px"; // note
+                    boardImage.style.left = "-3px"; // note
                     if (this.ctx && this.canvas) {
                         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
                     } else {
@@ -542,7 +542,7 @@
                 }
                 this.drawBoard();
             }
-            // LuÃ´n gá»i renderBoardNumbers Ä‘á»ƒ Ä‘áº£m báº£o sá»‘ thá»© tá»± Ä‘Æ°á»£c váº½ láº¡i
+// note
             this.renderBoardNumbers();
         }
 
@@ -555,27 +555,27 @@
             const ctx = this.ctx;
             const canvas = this.canvas;
 
-            // XÃ³a canvas
+// note
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Äáº·t lá» Ä‘á»ƒ cÄƒn giá»¯a bÃ n cá»
+// note
             const marginX = 23;
             const marginY = 21;
             ctx.translate(marginX, marginY);
 
-            // Äáº·t kiá»ƒu váº½
+// note
             ctx.strokeStyle = "black";
             ctx.lineWidth = 1;
 
-            // Váº½ cÃ¡c Ä‘Æ°á»ng dá»c (9 cá»™t)
+// note
             for (let i = 0; i < 9; i++) {
                 ctx.beginPath();
                 if (i === 0 || i === 8) {
-                    // ÄÆ°á»ng dá»c Ä‘áº§y Ä‘á»§ cho cá»™t 0 vÃ  8
+// note
                     ctx.moveTo(i * this.cellWidth, 0);
                     ctx.lineTo(i * this.cellWidth, 9 * this.cellHeight);
                 } else {
-                    // ÄÆ°á»ng dá»c bá»‹ ngáº¯t á»Ÿ giá»¯a (hÃ ng 4 vÃ  5) Ä‘á»ƒ táº¡o sÃ´ng
+// note
                     ctx.moveTo(i * this.cellWidth, 0);
                     ctx.lineTo(i * this.cellWidth, 4 * this.cellHeight);
                     ctx.moveTo(i * this.cellWidth, 5 * this.cellHeight);
@@ -584,7 +584,7 @@
                 ctx.stroke();
             }
 
-            // Váº½ cÃ¡c Ä‘Æ°á»ng ngang (10 hÃ ng)
+// note
             for (let i = 0; i < 10; i++) {
                 ctx.beginPath();
                 ctx.moveTo(0, i * this.cellHeight);
@@ -592,19 +592,19 @@
                 ctx.stroke();
             }
 
-            // Váº½ Ä‘Æ°á»ng chÃ©o trong cung
+// note
             this.drawPalaceDiagonals();
 
-            // Váº½ cÃ¡c Ä‘iá»ƒm Ä‘Ã¡nh dáº¥u cho Tá»‘t vÃ  PhÃ¡o
+// note
             this.drawPawnAndCannonDots();
 
-            // Váº½ khu vá»±c "sÃ´ng" vÃ  chá»¯ "æ¥š æ²³ - æ±‰ ç•Œ"
+// note
             ctx.font = "20px 'Noto Sans SC', Arial, sans-serif";
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
-            ctx.fillText("æ¥š æ²³ - æ±‰ ç•Œ", 4 * this.cellWidth, 4.5 * this.cellHeight);
+            ctx.fillText("\u695A \u6CB3 - \u6C49 \u754C", 4 * this.cellWidth, 4.5 * this.cellHeight);
 
-            // KhÃ´i phá»¥c tá»a Ä‘á»™
+// note
             ctx.translate(-marginX, -marginY);
         }
 
@@ -615,11 +615,11 @@
             topNumbers.innerHTML = "";
             bottomNumbers.innerHTML = "";
 
-            // Giá»¯ nguyÃªn thá»© tá»± cÃ¡c sá»‘, khÃ´ng Ä‘áº£o ngÆ°á»£c khi isFlipped
+// note
             const labels1 = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
             const labels2 = ["9", "8", "7", "6", "5", "4", "3", "2", "1"];
 
-            // Hiá»ƒn thá»‹ sá»‘ á»Ÿ phÃ­a trÃªn
+// note
             labels1.forEach(labels1 => {
                 const span = document.createElement("span");
                 span.textContent = labels1;
@@ -629,7 +629,7 @@
                 topNumbers.appendChild(span);
             });
 
-            // Hiá»ƒn thá»‹ sá»‘ á»Ÿ phÃ­a dÆ°á»›i
+// note
             labels2.forEach(labels2 => {
                 const span = document.createElement("span");
                 span.textContent = labels2;
@@ -694,8 +694,8 @@
 
                         const displayX = this.isFlipped ? (8 - x) : x;
                         const displayY = this.isFlipped ? (9 - y) : y;
-                        const marginX = 23; // Pháº£i khá»›p vá»›i marginX trong drawBoard
-                        const marginY = 21; // Pháº£i khá»›p vá»›i marginY trong drawBoard
+                        const marginX = 23; // note
+                        const marginY = 21; // note
                         const baseLeft = displayX * this.cellWidth * this.pieceSpacing + marginX;
                         const baseTop = displayY * this.cellHeight * this.pieceSpacing + marginY;
                         div.style.left = `${(baseLeft + offsetX)}px`;
@@ -708,7 +708,7 @@
                         div.dataset.y = y;
                         div.addEventListener("click", () => this.handlePieceClick(x, y));
 
-                        // ÄÃ¡nh dáº¥u nÆ°á»›c Ä‘i cuá»‘i cÃ¹ng
+// note
                         if (this.lastMovePositions &&
                             ((x === this.lastMovePositions.fromX && y === this.lastMovePositions.fromY) ||
                                 (x === this.lastMovePositions.toX && y === this.lastMovePositions.toY))) {
@@ -719,7 +719,7 @@
                     }
                 }
             }
-            // ÄÃ¡nh dáº¥u vá»‹ trÃ­ trá»‘ng cá»§a nÆ°á»›c Ä‘i cuá»‘i cÃ¹ng (náº¿u cÃ³)
+// note
             if (this.lastMovePositions) {
                 const { fromX, fromY, toX, toY } = this.lastMovePositions;
                 if (!await window.XiangqiGameAPI.getPiece(fromX, fromY)) {
@@ -728,7 +728,7 @@
             }
         }
 
-        // HÃ m há»— trá»£ Ä‘Ã¡nh dáº¥u vá»‹ trÃ­ trá»‘ng
+// note
         highlightPosition(x, y, className) {
             const marker = document.createElement("div");
             marker.className = `piece ${className}`;
@@ -765,10 +765,10 @@
 
                 const displayX = this.isFlipped ? (8 - mx) : mx;
                 const displayY = this.isFlipped ? (9 - my) : my;
-                const marginX = 23; // Pháº£i khá»›p vá»›i marginX trong drawBoard
-                const marginY = 21; // Pháº£i khá»›p vá»›i marginY trong drawBoard
-                const baseLeft = displayX * this.cellWidth * this.pieceSpacing + marginX; // Sá»­ dá»¥ng displayX
-                const baseTop = displayY * this.cellHeight * this.pieceSpacing + marginY; // Sá»­ dá»¥ng displayY
+                const marginX = 23; // note
+                const marginY = 21; // note
+                const baseLeft = displayX * this.cellWidth * this.pieceSpacing + marginX; // note
+                const baseTop = displayY * this.cellHeight * this.pieceSpacing + marginY; // note
                 marker.style.left = `${(baseLeft + offsetX)}px`;
                 marker.style.top = `${(baseTop + offsetY)}px`;
 
@@ -803,18 +803,18 @@
                 if (isLegalMove) {
                     const success = await window.XiangqiGameAPI.move(fromX, fromY, x, y);
                     if (success) {
-                        this.lastMovePositions = { fromX, fromY, toX: x, toY: y }; // LÆ°u nÆ°á»›c Ä‘i cuá»‘i cÃ¹ng
+                        this.lastMovePositions = { fromX, fromY, toX: x, toY: y }; // note
                         await this.renderPieces(this.offsetX, this.offsetY, this.scale);
                         const moveHistory = await window.XiangqiGameAPI.getMoveHistory();
                         const lastMoveEntry = moveHistory[moveHistory.length - 1];
-                        this.lastMove = lastMoveEntry ? lastMoveEntry.moveNotation : null; // "R1+1"
-                        this.lastMoveRaw = `${String.fromCharCode(97 + fromX)}${10 - fromY}${String.fromCharCode(97 + x)}${10 - y}`; // "b2e2"
+                        this.lastMove = lastMoveEntry ? lastMoveEntry.moveNotation : null; // note
+                        this.lastMoveRaw = `${String.fromCharCode(97 + fromX)}${10 - fromY}${String.fromCharCode(97 + x)}${10 - y}`; // note
                         await this.updateMoveHistory();
                         if (await window.XiangqiGameAPI.isKingInCheck(currentTurn)) {
                             console.log("King is in check!");
                         }
                         await this.checkForCheckmate();
-                        this.suggestionsBody.innerHTML = ''; // XÃ³a báº£ng gá»£i Ã½ nÆ°á»›c Ä‘i ngay sau khi di chuyá»ƒn
+                        this.suggestionsBody.innerHTML = ''; // note
                         await this.analyzeCurrentPosition();
                     }
                     this.clearHighlights();
@@ -902,14 +902,14 @@
             }
             this.highlightPosition(toX, toY, className);
         }
-        // HÃ m xÃ³a Ä‘Ã¡nh dáº¥u hover
+// note
         clearHoverHighlights() {
             document.querySelectorAll(".hover-move").forEach(el => el.classList.remove("hover-move"));
         }
 
-        // HÃ m chuyá»ƒn bÃ n cá» vá» tráº¡ng thÃ¡i sau nÆ°á»›c Ä‘i (cÆ¡ báº£n)
+// note
         async goToMove(index) {
-            await window.XiangqiGameAPI.resetToInitial(); // Äáº·t láº¡i tráº¡ng thÃ¡i ban Ä‘áº§u
+            await window.XiangqiGameAPI.resetToInitial(); // note
             const moves = await window.XiangqiGameAPI.getMoveHistory();
             for (let i = 0; i <= index; i++) {
                 const move = moves[i];
@@ -977,7 +977,7 @@
             const threadsInput = document.getElementById("edit-engine-threads");
             const skillLevelInput = document.getElementById("edit-engine-skill-level");
 
-            // Kiá»ƒm tra cÃ¡c pháº§n tá»­
+// note
             if (!modal || !overlay || !form || !cancelBtn || !nameInput || !hashInput || !multipvInput || !depthInput || !threadsInput || !skillLevelInput) {
                 console.error('One or more modal elements are missing:', {
                     modal: !!modal,
@@ -995,7 +995,7 @@
                 return;
             }
 
-            // Äiá»n thÃ´ng tin hiá»‡n táº¡i cá»§a engine vÃ o form
+// note
             nameInput.value = engine.name;
             hashInput.value = engine.options?.hash || 128;
             multipvInput.value = engine.options?.multipv || 6;
@@ -1003,19 +1003,19 @@
             threadsInput.value = engine.options?.threads || 1;
             skillLevelInput.value = engine.options?.skillLevel || 20;
 
-            // Hiá»ƒn thá»‹ modal vá»›i hiá»‡u á»©ng fade-in
+// note
             modal.classList.add("show");
             overlay.classList.add("show");
 
-            // ÄÃ³ng modal khi nháº¥n vÃ o overlay
+// note
             const closeModal = () => {
                 modal.classList.remove("show");
                 overlay.classList.remove("show");
-                overlay.removeEventListener("click", closeModal); // XÃ³a sá»± kiá»‡n sau khi Ä‘Ã³ng
+                overlay.removeEventListener("click", closeModal); // note
             };
             overlay.addEventListener("click", closeModal);
 
-            // Xá»­ lÃ½ khi submit form
+// note
             form.onsubmit = async (e) => {
                 e.preventDefault();
                 const updatedEngine = {
@@ -1038,22 +1038,22 @@
                         this.analyzeCurrentPosition();
                     }
                     this.updateEngineList();
-                    closeModal(); // ÄÃ³ng modal khi lÆ°u thÃ nh cÃ´ng
+                    closeModal(); // note
                 } else {
                     alert("Failed to update engine.");
                 }
             };
 
-            // Xá»­ lÃ½ khi nháº¥n Cancel
+// note
             cancelBtn.onclick = () => {
-                closeModal(); // ÄÃ³ng modal khi nháº¥n Cancel
+                closeModal(); // note
             };
         }
 
         setupControls() {
             const controlsBtn = document.getElementById("controls-btn");
             const controlsMenu = document.getElementById("controls-menu");
-            // NÃºt Engine
+// note
             const engineBtn = document.getElementById("engine-btn");
             const engineMenu = document.getElementById("engine-menu");
             const addEngineBtn = document.getElementById("add-engine-btn");
@@ -1084,7 +1084,7 @@
                     } else {
                         alert(`Failed to add engine: ${result.error}`);
                     }
-                    engineFileInput.value = ""; // Reset input
+                    engineFileInput.value = ""; // note
                 }
             });
             window.XiangqiGameAPI.on('engine-output', (data) => {
@@ -1096,19 +1096,19 @@
                 alert(`Engine error: ${error}`);
             });
 
-            // Hiá»ƒn thá»‹/áº©n menu khi nháº¥p vÃ o nÃºt "Controls"
+// note
             controlsBtn.addEventListener("click", () => {
                 controlsMenu.style.display = controlsMenu.style.display === "none" ? "block" : "none";
             });
 
-            // ÄÃ³ng menu khi nháº¥p ra ngoÃ i
+// note
             document.addEventListener("click", (event) => {
                 if (!controlsBtn.contains(event.target) && !controlsMenu.contains(event.target)) {
                     controlsMenu.style.display = "none";
                 }
             });
 
-            // NÃºt Undo
+// note
             const undoBtn = document.getElementById("undo-btn");
             undoBtn.addEventListener("click", async () => {
                 const success = await window.XiangqiGameAPI.undo();
@@ -1117,11 +1117,11 @@
                     this.selectedPiece = null;
                     await this.renderPieces(this.offsetX, this.offsetY, this.scale);
                     await this.updateMoveHistory();
-                    controlsMenu.style.display = "none"; // ÄÃ³ng menu
+                    controlsMenu.style.display = "none"; // note
                 }
             });
 
-            // NÃºt Redo
+// note
             const redoBtn = document.getElementById("redo-btn");
             redoBtn.addEventListener("click", async () => {
                 const success = await window.XiangqiGameAPI.redo();
@@ -1130,11 +1130,11 @@
                     this.selectedPiece = null;
                     await this.renderPieces(this.offsetX, this.offsetY, this.scale);
                     await this.updateMoveHistory();
-                    controlsMenu.style.display = "none"; // ÄÃ³ng menu
+                    controlsMenu.style.display = "none"; // note
                 }
             });
 
-            // NÃºt Reset to Initial
+// note
             const resetInitialBtn = document.getElementById("reset-initial-btn");
             resetInitialBtn.addEventListener("click", async () => {
                 const success = await window.XiangqiGameAPI.resetToInitial();
@@ -1143,25 +1143,25 @@
                     this.selectedPiece = null;
                     await this.renderPieces(this.offsetX, this.offsetY, this.scale);
                     await this.updateMoveHistory();
-                    controlsMenu.style.display = "none"; // ÄÃ³ng menu
+                    controlsMenu.style.display = "none"; // note
                 }
             });
 
-            // NÃºt Reset Game
+// note
             const resetGameBtn = document.getElementById("reset-game-btn");
             resetGameBtn.addEventListener("click", async () => {
                 const success = await window.XiangqiGameAPI.resetGame();
                 if (success) {
                     this.clearHighlights();
                     this.selectedPiece = null;
-                    this.moveHistory = []; // Äáº·t láº¡i lá»‹ch sá»­ nÆ°á»›c Ä‘i
+                    this.moveHistory = []; // note
                     await this.renderPieces(this.offsetX, this.offsetY, this.scale);
                     await this.updateMoveHistory();
-                    controlsMenu.style.display = "none"; // ÄÃ³ng menu
+                    controlsMenu.style.display = "none"; // note
                 }
             });
 
-            // NÃºt Export Game
+// note
             const exportGameBtn = document.getElementById("export-game-btn");
             exportGameBtn.addEventListener("click", async () => {
                 const gameData = await window.XiangqiGameAPI.exportGame();
@@ -1172,15 +1172,15 @@
                 a.download = 'xiangqi-game.json';
                 a.click();
                 URL.revokeObjectURL(url);
-                controlsMenu.style.display = "none"; // ÄÃ³ng menu
+                controlsMenu.style.display = "none"; // note
             });
 
-            // NÃºt Import Game
+// note
             const importGameBtn = document.getElementById("import-game-btn");
             const importGameFile = document.getElementById("import-game-file");
             importGameBtn.addEventListener("click", () => {
                 importGameFile.click();
-                controlsMenu.style.display = "none"; // ÄÃ³ng menu ngay khi má»Ÿ file picker
+                controlsMenu.style.display = "none"; // note
             });
 
             importGameFile.addEventListener("change", async (event) => {
@@ -1198,13 +1198,13 @@
                         } else {
                             alert('Failed to import game.');
                         }
-                        controlsMenu.style.display = "none"; // ÄÃ³ng menu sau khi import
+                        controlsMenu.style.display = "none"; // note
                     };
                     reader.readAsText(file);
                 }
             });
 
-            // NÃºt Flip Board
+// note
             const flipBoardBtn = document.getElementById("flip-board-btn");
             flipBoardBtn.addEventListener("click", async () => {
                 this.isFlipped = !this.isFlipped;
@@ -1215,22 +1215,22 @@
                     const [x, y] = this.selectedPiece;
                     await this.highlightMoves(x, y, this.offsetX, this.offsetY, this.scale);
                 }
-                controlsMenu.style.display = "none"; // ÄÃ³ng menu
+                controlsMenu.style.display = "none"; // note
             });
 
-            // Chá»n loáº¡i bÃ n cá» (khÃ´ng náº±m trong menu)
+// note
             const boardTypeSelect = document.getElementById("board-type");
             boardTypeSelect.addEventListener("change", () => {
                 this.useImageBoard = boardTypeSelect.value === "image";
                 this.updateBoardDisplay();
             });
 
-            //NÃºt load cho báº£ng suggest
+// note
             const loadSuggestionsBtn = document.getElementById("load-suggestions-btn");
             if (loadSuggestionsBtn) {
                 loadSuggestionsBtn.addEventListener("click", async () => {
-                    this.suggestionsBody.innerHTML = ''; // XÃ³a báº£ng gá»£i Ã½ trÆ°á»›c khi táº£i láº¡i
-                    await this.analyzeCurrentPosition(); // Gá»­i bÃ n cá» hiá»‡n táº¡i Ä‘áº¿n engine Ä‘á»ƒ phÃ¢n tÃ­ch láº¡i
+                    this.suggestionsBody.innerHTML = ''; // note
+                    await this.analyzeCurrentPosition(); // note
                 });
             } else {
                 console.warn('Load Suggestions button not found in DOM');
@@ -1242,5 +1242,6 @@
         new XiangqiUI();
     });
 })();
+
 
 
