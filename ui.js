@@ -25,23 +25,22 @@
             this.imageWidthScale = 1.02;
             this.imageHeightScale = 1.02;
             this.isFlipped = false;
-            this.lastMove = null; // note
-            this.lastMoveRaw = null; // note
-            this.lastMovePositions = null; // note
-            this.selectedEngineIndex = 0; // note
+            this.lastMove = null;
+            this.lastMoveRaw = null;
+            this.lastMovePositions = null;
+            this.selectedEngineIndex = 0;
             this.engineProtocol = window.XiangqiGameAPI.getProtocol();
-            this.currentPVIndex = null; // note
-            this.simulationStates = []; // note
-            this.originalFen = null; // note
-            this.lastMovePositions = null; // note
-            this.lastSimulatedMove = null; // note
-            this.moveHistory = []; // note
-            this.analysisTimeout = null; // note
-            this.maxAnalysisTime = null; // note
-            this.isAnalyzing = false; // note
+            this.currentPVIndex = null;
+            this.simulationStates = [];
+            this.originalFen = null;
+            this.lastMovePositions = null;
+            this.lastSimulatedMove = null;
+            this.moveHistory = [];
+            this.analysisTimeout = null;
+            this.maxAnalysisTime = null;
+            this.isAnalyzing = false;
 
 
-// note
             window.XiangqiGameAPI.onEngineOutput((data) => {
                 this.handleEngineOutput(data);
             });
@@ -73,7 +72,6 @@
             this.offsetY = -24;
             this.scale = 0.87;
 
-// note
             this.updateBoardDisplay();
             this.renderBoardNumbers();
             this.renderPieces(this.offsetX, this.offsetY, this.scale);
@@ -82,17 +80,14 @@
         }
         async analyzeCurrentPosition() {
             try {
-// note
                 this.suggestionsBody.innerHTML = '<tr><td colspan="8" style="text-align: center;">Loading...</td></tr>';
                 this.isAnalyzing = true;
 
-// note
                 const engines = await window.XiangqiGameAPI.getEngines();
                 const selectedEngine = engines[this.selectedEngineIndex] || { options: {} };
-                const depth = selectedEngine.options?.depth || 20; // note
-                this.maxAnalysisTime = (depth * 1000) + 1000; // note
+                const depth = selectedEngine.options?.depth || 20;
+                this.maxAnalysisTime = (depth * 1000) + 1000;
 
-// note
                 if (this.analysisTimeout) clearTimeout(this.analysisTimeout);
                 this.analysisTimeout = setTimeout(() => {
                     if (this.isAnalyzing) {
@@ -133,8 +128,8 @@
 
         async convertMoveToNotation(move) {
             if (!move || move.length !== 4) return move;
-            const fromX = move.charCodeAt(0) - 97; // note
-            const fromY = 9 - parseInt(move[1]); // note
+            const fromX = move.charCodeAt(0) - 97;
+            const fromY = 9 - parseInt(move[1]);
             const toX = move.charCodeAt(2) - 97;
             const toY = 9 - parseInt(move[3]);
             try {
@@ -147,10 +142,8 @@
         }
 
         async handleEngineOutput(data) {
-            this.engineProtocol = window.XiangqiGameAPI.getProtocol(); // note
-// note
+            this.engineProtocol = window.XiangqiGameAPI.getProtocol();
             if (typeof data !== 'string') {
-// note
                 if (typeof data === 'object') {
                     data = JSON.stringify(data);
                 } else {
@@ -186,9 +179,8 @@
                             const nodes = nodesIndex !== -1 ? parseInt(parts[nodesIndex + 1]) : '-';
                             const time = timeIndex !== -1 ? (parseInt(parts[timeIndex + 1]) / 1000).toFixed(2) : '-';
 
-// note
                             pvMoves = parts.slice(pvIndex + 1);
-                            pvMoves = pvMoves.filter(move => /^[a-i][0-9][a-i][0-9]$/.test(move)); // note
+                            pvMoves = pvMoves.filter(move => /^[a-i][0-9][a-i][0-9]$/.test(move));
                             suggestions.push({ move, score: scoreValue, rank, note, depth, nodes, time, pv: pvMoves });
                         }
                     } else if (this.engineProtocol === 'ucci' && line.includes('move')) {
@@ -209,7 +201,6 @@
                     } else {
                         this.suggestionsBody.innerHTML = '<tr><td colspan="8" style="text-align: center;">No suggestions available</td></tr>';
                     }
-// note
                     if (this.analysisTimeout) clearTimeout(this.analysisTimeout);
                     this.isAnalyzing = false;
                 }
@@ -226,7 +217,7 @@
                     const pvMoves = pvResult.moves;
 
                     const row = document.createElement('tr');
-                    row.dataset.rowIndex = rowIndex; // note
+                    row.dataset.rowIndex = rowIndex;
                     row.innerHTML = `
                         <td>${moveNotation} (${s.move})</td>
                         <td>${s.score}</td>
@@ -241,7 +232,6 @@
                     const moveCell = row.querySelector('td:first-child');
                     moveCell.dataset.move = s.move;
 
-// note
                     moveCell.addEventListener("mouseenter", async () => {
                         const [fromX, fromY, toX, toY] = this.parseUCIMove(s.move);
                         await this.highlightMove(fromX, fromY, toX, toY, "hover-move");
@@ -250,11 +240,10 @@
                         this.clearHoverHighlights();
                     });
 
-// note
                     const pvCell = row.querySelector('.pv-cell');
                     const pvParts = pvNotation.split(', ');
                     pvParts.forEach((part, partIndex) => {
-                        const movesInPart = part.split(' ').slice(1); // note
+                        const movesInPart = part.split(' ').slice(1);
                         movesInPart.forEach((move, moveIndex) => {
                             if (move !== '...') {
                                 const moveSpan = document.createElement('span');
@@ -262,15 +251,13 @@
                                 moveSpan.style.cursor = 'pointer';
                                 moveSpan.style.marginRight = '5px';
                                 moveSpan.style.textDecoration = 'underline';
-                                moveSpan.dataset.step = (partIndex * 2 + moveIndex + 1).toString(); // note
+                                moveSpan.dataset.step = (partIndex * 2 + moveIndex + 1).toString();
                                 moveSpan.addEventListener('click', async () => {
                                     document.querySelectorAll('.highlighted-move').forEach(span => {
                                         span.classList.remove('highlighted-move');
                                     });
 
-// note
                                     moveSpan.classList.add('highlighted-move');
-// note
                                     const step = parseInt(moveSpan.dataset.step);
                                     await this.simulateToStep(rowIndex, s.pv, step);
                                 });
@@ -288,58 +275,45 @@
                 }
             }
 
-// note
             if (this.currentPVIndex !== null) {
                 this.showResetButton();
             }
         }
 
         async resetSimulation() {
-// note
-// note
-// note
-// note
 
-// note
             this.currentPVIndex = null;
             this.simulationStates = [];
             this.originalFen = null;
-            this.lastSimulatedMove = null; // note
+            this.lastSimulatedMove = null;
 
-// note
             document.querySelectorAll('.highlighted-move').forEach(span => {
                 span.classList.remove('highlighted-move');
             });
 
-// note
             const controls = document.getElementById('simulation-controls');
             if (controls) {
                 controls.remove();
             }
 
-// note
             await this.renderPieces(this.offsetX, this.offsetY, this.scale);
             await this.updateMoveHistory();
         }
 
         async simulateToStep(rowIndex, pvMoves, step) {
-// note
             if (this.currentPVIndex !== rowIndex) {
                 this.currentPVIndex = rowIndex;
                 this.simulationStates = [];
                 this.originalFen = null;
             }
 
-// note
             this.originalFen = await window.XiangqiGameAPI.getFen();
 
-// note
             if (!pvMoves || !Array.isArray(pvMoves) || pvMoves.length === 0 || step < 1 || step > pvMoves.length) {
                 console.warn('Invalid pvMoves or step:', { pvMoves, step });
                 return;
             }
 
-// note
             try {
                 this.simulationStates = await window.XiangqiGameAPI.simulatePV(this.originalFen, pvMoves, step);
                 if (this.simulationStates.length === 0) {
@@ -351,20 +325,17 @@
                 return;
             }
 
-// note
             if (pvMoves && pvMoves.length >= step) {
-                const lastMove = pvMoves[step - 1]; // note
+                const lastMove = pvMoves[step - 1];
                 const [fromX, fromY, toX, toY] = this.parseUCIMove(lastMove);
-                this.lastSimulatedMove = { fromX, fromY, toX, toY }; // note
+                this.lastSimulatedMove = { fromX, fromY, toX, toY };
             } else {
-                this.lastSimulatedMove = null; // note
+                this.lastSimulatedMove = null;
             }
 
-// note
             const lastState = this.simulationStates[this.simulationStates.length - 1];
-            this.renderSimulationStep(lastState); // note
+            this.renderSimulationStep(lastState);
 
-// note
             this.showResetButton();
         }
 
@@ -374,7 +345,6 @@
                 return;
             }
 
-// note
             piecesContainer.innerHTML = "";
             for (let y = 0; y < 10; y++) {
                 for (let x = 0; x < 9; x++) {
@@ -402,7 +372,6 @@
 
                         div.dataset.x = x;
                         div.dataset.y = y;
-// note
                         if (this.lastSimulatedMove &&
                             ((x === this.lastSimulatedMove.fromX && y === this.lastSimulatedMove.fromY) ||
                                 (x === this.lastSimulatedMove.toX && y === this.lastSimulatedMove.toY))) {
@@ -412,13 +381,12 @@
                     }
                 }
             }
-// note
             if (this.lastSimulatedMove) {
                 const { fromX, fromY, toX, toY } = this.lastSimulatedMove;
-                if (!state.board[fromY][fromX]) { // note
+                if (!state.board[fromY][fromX]) {
                     this.highlightPosition(fromX, fromY, "last-move");
                 }
-                if (!state.board[toY][toX]) { // note
+                if (!state.board[toY][toX]) {
                     this.highlightPosition(toX, toY, "last-move");
                 }
             }
@@ -449,7 +417,7 @@
             }
         }
 
-// note
+        // Keep UI analysis read-only: delegate PV formatting to main process temp game.
         async formatPrincipalVariation(pvMoves) {
             if (!pvMoves || pvMoves.length === 0) return { moves: [], formatted: '-' };
 
@@ -467,8 +435,8 @@
         }
 
         parseUCIMove(move) {
-            const fromX = move.charCodeAt(0) - 97; // note
-            const fromY = 9 - parseInt(move[1]); // note
+            const fromX = move.charCodeAt(0) - 97;
+            const fromY = 9 - parseInt(move[1]);
             const toX = move.charCodeAt(2) - 97;
             const toY = 9 - parseInt(move[3]);
             return [fromX, fromY, toX, toY];
@@ -490,13 +458,13 @@
             if (boardImage) {
                 if (this.useImageBoard) {
                     boardImage.style.display = "block";
-                    const baseWidth = 8 * this.cellWidth + 70; // note
-                    const baseHeight = 9 * this.cellHeight + 70; // note
+                    const baseWidth = 8 * this.cellWidth + 70;
+                    const baseHeight = 9 * this.cellHeight + 70;
                     boardImage.style.width = `${baseWidth * this.imageWidthScale}px`;
                     boardImage.style.height = `${baseHeight * this.imageHeightScale}px`;
                     boardImage.style.position = "absolute";
-                    boardImage.style.top = "-4px"; // note
-                    boardImage.style.left = "-3px"; // note
+                    boardImage.style.top = "-4px";
+                    boardImage.style.left = "-3px";
                     if (this.ctx && this.canvas) {
                         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
                     } else {
@@ -515,7 +483,6 @@
                 }
                 this.drawBoard();
             }
-// note
             this.renderBoardNumbers();
         }
 
@@ -528,27 +495,21 @@
             const ctx = this.ctx;
             const canvas = this.canvas;
 
-// note
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-// note
             const marginX = 23;
             const marginY = 21;
             ctx.translate(marginX, marginY);
 
-// note
             ctx.strokeStyle = "black";
             ctx.lineWidth = 1;
 
-// note
             for (let i = 0; i < 9; i++) {
                 ctx.beginPath();
                 if (i === 0 || i === 8) {
-// note
                     ctx.moveTo(i * this.cellWidth, 0);
                     ctx.lineTo(i * this.cellWidth, 9 * this.cellHeight);
                 } else {
-// note
                     ctx.moveTo(i * this.cellWidth, 0);
                     ctx.lineTo(i * this.cellWidth, 4 * this.cellHeight);
                     ctx.moveTo(i * this.cellWidth, 5 * this.cellHeight);
@@ -557,7 +518,6 @@
                 ctx.stroke();
             }
 
-// note
             for (let i = 0; i < 10; i++) {
                 ctx.beginPath();
                 ctx.moveTo(0, i * this.cellHeight);
@@ -565,19 +525,15 @@
                 ctx.stroke();
             }
 
-// note
             this.drawPalaceDiagonals();
 
-// note
             this.drawPawnAndCannonDots();
 
-// note
             ctx.font = "20px 'Noto Sans SC', Arial, sans-serif";
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
             ctx.fillText("\u695A \u6CB3 - \u6C49 \u754C", 4 * this.cellWidth, 4.5 * this.cellHeight);
 
-// note
             ctx.translate(-marginX, -marginY);
         }
 
@@ -588,11 +544,9 @@
             topNumbers.innerHTML = "";
             bottomNumbers.innerHTML = "";
 
-// note
             const labels1 = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
             const labels2 = ["9", "8", "7", "6", "5", "4", "3", "2", "1"];
 
-// note
             labels1.forEach(labels1 => {
                 const span = document.createElement("span");
                 span.textContent = labels1;
@@ -602,7 +556,6 @@
                 topNumbers.appendChild(span);
             });
 
-// note
             labels2.forEach(labels2 => {
                 const span = document.createElement("span");
                 span.textContent = labels2;
@@ -667,8 +620,8 @@
 
                         const displayX = this.isFlipped ? (8 - x) : x;
                         const displayY = this.isFlipped ? (9 - y) : y;
-                        const marginX = 23; // note
-                        const marginY = 21; // note
+                        const marginX = 23;
+                        const marginY = 21;
                         const baseLeft = displayX * this.cellWidth * this.pieceSpacing + marginX;
                         const baseTop = displayY * this.cellHeight * this.pieceSpacing + marginY;
                         div.style.left = `${(baseLeft + offsetX)}px`;
@@ -681,7 +634,6 @@
                         div.dataset.y = y;
                         div.addEventListener("click", () => this.handlePieceClick(x, y));
 
-// note
                         if (this.lastMovePositions &&
                             ((x === this.lastMovePositions.fromX && y === this.lastMovePositions.fromY) ||
                                 (x === this.lastMovePositions.toX && y === this.lastMovePositions.toY))) {
@@ -692,7 +644,6 @@
                     }
                 }
             }
-// note
             if (this.lastMovePositions) {
                 const { fromX, fromY, toX, toY } = this.lastMovePositions;
                 if (!await window.XiangqiGameAPI.getPiece(fromX, fromY)) {
@@ -701,7 +652,6 @@
             }
         }
 
-// note
         highlightPosition(x, y, className) {
             const marker = document.createElement("div");
             marker.className = `piece ${className}`;
@@ -738,10 +688,10 @@
 
                 const displayX = this.isFlipped ? (8 - mx) : mx;
                 const displayY = this.isFlipped ? (9 - my) : my;
-                const marginX = 23; // note
-                const marginY = 21; // note
-                const baseLeft = displayX * this.cellWidth * this.pieceSpacing + marginX; // note
-                const baseTop = displayY * this.cellHeight * this.pieceSpacing + marginY; // note
+                const marginX = 23;
+                const marginY = 21;
+                const baseLeft = displayX * this.cellWidth * this.pieceSpacing + marginX;
+                const baseTop = displayY * this.cellHeight * this.pieceSpacing + marginY;
                 marker.style.left = `${(baseLeft + offsetX)}px`;
                 marker.style.top = `${(baseTop + offsetY)}px`;
 
@@ -776,18 +726,18 @@
                 if (isLegalMove) {
                     const success = await window.XiangqiGameAPI.move(fromX, fromY, x, y);
                     if (success) {
-                        this.lastMovePositions = { fromX, fromY, toX: x, toY: y }; // note
+                        this.lastMovePositions = { fromX, fromY, toX: x, toY: y };
                         await this.renderPieces(this.offsetX, this.offsetY, this.scale);
                         const moveHistory = await window.XiangqiGameAPI.getMoveHistory();
                         const lastMoveEntry = moveHistory[moveHistory.length - 1];
-                        this.lastMove = lastMoveEntry ? lastMoveEntry.moveNotation : null; // note
-                        this.lastMoveRaw = `${String.fromCharCode(97 + fromX)}${10 - fromY}${String.fromCharCode(97 + x)}${10 - y}`; // note
+                        this.lastMove = lastMoveEntry ? lastMoveEntry.moveNotation : null;
+                        this.lastMoveRaw = `${String.fromCharCode(97 + fromX)}${10 - fromY}${String.fromCharCode(97 + x)}${10 - y}`;
                         await this.updateMoveHistory();
                         if (await window.XiangqiGameAPI.isKingInCheck(currentTurn)) {
                             console.log("King is in check!");
                         }
                         await this.checkForCheckmate();
-                        this.suggestionsBody.innerHTML = ''; // note
+                        this.suggestionsBody.innerHTML = '';
                         await this.analyzeCurrentPosition();
                     }
                     this.clearHighlights();
@@ -875,14 +825,12 @@
             }
             this.highlightPosition(toX, toY, className);
         }
-// note
         clearHoverHighlights() {
             document.querySelectorAll(".hover-move").forEach(el => el.classList.remove("hover-move"));
         }
 
-// note
         async goToMove(index) {
-            await window.XiangqiGameAPI.resetToInitial(); // note
+            await window.XiangqiGameAPI.resetToInitial();
             const moves = await window.XiangqiGameAPI.getMoveHistory();
             for (let i = 0; i <= index; i++) {
                 const move = moves[i];
@@ -950,7 +898,6 @@
             const threadsInput = document.getElementById("edit-engine-threads");
             const skillLevelInput = document.getElementById("edit-engine-skill-level");
 
-// note
             if (!modal || !overlay || !form || !cancelBtn || !nameInput || !hashInput || !multipvInput || !depthInput || !threadsInput || !skillLevelInput) {
                 console.error('One or more modal elements are missing:', {
                     modal: !!modal,
@@ -968,7 +915,6 @@
                 return;
             }
 
-// note
             nameInput.value = engine.name;
             hashInput.value = engine.options?.hash || 128;
             multipvInput.value = engine.options?.multipv || 6;
@@ -976,19 +922,16 @@
             threadsInput.value = engine.options?.threads || 1;
             skillLevelInput.value = engine.options?.skillLevel || 20;
 
-// note
             modal.classList.add("show");
             overlay.classList.add("show");
 
-// note
             const closeModal = () => {
                 modal.classList.remove("show");
                 overlay.classList.remove("show");
-                overlay.removeEventListener("click", closeModal); // note
+                overlay.removeEventListener("click", closeModal);
             };
             overlay.addEventListener("click", closeModal);
 
-// note
             form.onsubmit = async (e) => {
                 e.preventDefault();
                 const updatedEngine = {
@@ -1011,22 +954,20 @@
                         this.analyzeCurrentPosition();
                     }
                     this.updateEngineList();
-                    closeModal(); // note
+                    closeModal();
                 } else {
                     alert("Failed to update engine.");
                 }
             };
 
-// note
             cancelBtn.onclick = () => {
-                closeModal(); // note
+                closeModal();
             };
         }
 
         setupControls() {
             const controlsBtn = document.getElementById("controls-btn");
             const controlsMenu = document.getElementById("controls-menu");
-// note
             const engineBtn = document.getElementById("engine-btn");
             const engineMenu = document.getElementById("engine-menu");
             const addEngineBtn = document.getElementById("add-engine-btn");
@@ -1057,7 +998,7 @@
                     } else {
                         alert(`Failed to add engine: ${result.error}`);
                     }
-                    engineFileInput.value = ""; // note
+                    engineFileInput.value = "";
                 }
             });
             window.XiangqiGameAPI.on('engine-output', (data) => {
@@ -1069,19 +1010,16 @@
                 alert(`Engine error: ${error}`);
             });
 
-// note
             controlsBtn.addEventListener("click", () => {
                 controlsMenu.style.display = controlsMenu.style.display === "none" ? "block" : "none";
             });
 
-// note
             document.addEventListener("click", (event) => {
                 if (!controlsBtn.contains(event.target) && !controlsMenu.contains(event.target)) {
                     controlsMenu.style.display = "none";
                 }
             });
 
-// note
             const undoBtn = document.getElementById("undo-btn");
             undoBtn.addEventListener("click", async () => {
                 const success = await window.XiangqiGameAPI.undo();
@@ -1090,11 +1028,10 @@
                     this.selectedPiece = null;
                     await this.renderPieces(this.offsetX, this.offsetY, this.scale);
                     await this.updateMoveHistory();
-                    controlsMenu.style.display = "none"; // note
+                    controlsMenu.style.display = "none";
                 }
             });
 
-// note
             const redoBtn = document.getElementById("redo-btn");
             redoBtn.addEventListener("click", async () => {
                 const success = await window.XiangqiGameAPI.redo();
@@ -1103,11 +1040,10 @@
                     this.selectedPiece = null;
                     await this.renderPieces(this.offsetX, this.offsetY, this.scale);
                     await this.updateMoveHistory();
-                    controlsMenu.style.display = "none"; // note
+                    controlsMenu.style.display = "none";
                 }
             });
 
-// note
             const resetInitialBtn = document.getElementById("reset-initial-btn");
             resetInitialBtn.addEventListener("click", async () => {
                 const success = await window.XiangqiGameAPI.resetToInitial();
@@ -1116,25 +1052,23 @@
                     this.selectedPiece = null;
                     await this.renderPieces(this.offsetX, this.offsetY, this.scale);
                     await this.updateMoveHistory();
-                    controlsMenu.style.display = "none"; // note
+                    controlsMenu.style.display = "none";
                 }
             });
 
-// note
             const resetGameBtn = document.getElementById("reset-game-btn");
             resetGameBtn.addEventListener("click", async () => {
                 const success = await window.XiangqiGameAPI.resetGame();
                 if (success) {
                     this.clearHighlights();
                     this.selectedPiece = null;
-                    this.moveHistory = []; // note
+                    this.moveHistory = [];
                     await this.renderPieces(this.offsetX, this.offsetY, this.scale);
                     await this.updateMoveHistory();
-                    controlsMenu.style.display = "none"; // note
+                    controlsMenu.style.display = "none";
                 }
             });
 
-// note
             const exportGameBtn = document.getElementById("export-game-btn");
             exportGameBtn.addEventListener("click", async () => {
                 const gameData = await window.XiangqiGameAPI.exportGame();
@@ -1145,15 +1079,14 @@
                 a.download = 'xiangqi-game.json';
                 a.click();
                 URL.revokeObjectURL(url);
-                controlsMenu.style.display = "none"; // note
+                controlsMenu.style.display = "none";
             });
 
-// note
             const importGameBtn = document.getElementById("import-game-btn");
             const importGameFile = document.getElementById("import-game-file");
             importGameBtn.addEventListener("click", () => {
                 importGameFile.click();
-                controlsMenu.style.display = "none"; // note
+                controlsMenu.style.display = "none";
             });
 
             importGameFile.addEventListener("change", async (event) => {
@@ -1171,13 +1104,12 @@
                         } else {
                             alert('Failed to import game.');
                         }
-                        controlsMenu.style.display = "none"; // note
+                        controlsMenu.style.display = "none";
                     };
                     reader.readAsText(file);
                 }
             });
 
-// note
             const flipBoardBtn = document.getElementById("flip-board-btn");
             flipBoardBtn.addEventListener("click", async () => {
                 this.isFlipped = !this.isFlipped;
@@ -1188,22 +1120,20 @@
                     const [x, y] = this.selectedPiece;
                     await this.highlightMoves(x, y, this.offsetX, this.offsetY, this.scale);
                 }
-                controlsMenu.style.display = "none"; // note
+                controlsMenu.style.display = "none";
             });
 
-// note
             const boardTypeSelect = document.getElementById("board-type");
             boardTypeSelect.addEventListener("change", () => {
                 this.useImageBoard = boardTypeSelect.value === "image";
                 this.updateBoardDisplay();
             });
 
-// note
             const loadSuggestionsBtn = document.getElementById("load-suggestions-btn");
             if (loadSuggestionsBtn) {
                 loadSuggestionsBtn.addEventListener("click", async () => {
-                    this.suggestionsBody.innerHTML = ''; // note
-                    await this.analyzeCurrentPosition(); // note
+                    this.suggestionsBody.innerHTML = '';
+                    await this.analyzeCurrentPosition();
                 });
             } else {
                 console.warn('Load Suggestions button not found in DOM');
@@ -1215,6 +1145,7 @@
         new XiangqiUI();
     });
 })();
+
 
 
 

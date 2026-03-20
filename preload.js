@@ -33,6 +33,7 @@ contextBridge.exposeInMainWorld('XiangqiGameAPI', {
     importFen: (fen) => ipcRenderer.invoke('import-fen', fen),
     updateEngine: (index, updatedEngine) => ipcRenderer.invoke('update-engine', index, updatedEngine),
     simulatePV: (fen, pvMoves, stepLimit) => ipcRenderer.invoke('simulate-pv', fen, pvMoves, stepLimit),
+    // Formats PV on the main-process temp board to avoid resetting move history.
     formatPV: (fen, pvMoves) => ipcRenderer.invoke('format-pv', fen, pvMoves),
     onEngineOutput: (callback) => {
         engineOutputCallback = callback;
@@ -60,3 +61,4 @@ ipcRenderer.on('engine-error', (event, error) => {
     console.error('Engine error:', error);
     window.dispatchEvent(new CustomEvent('engine-error', { detail: error }));
 });
+

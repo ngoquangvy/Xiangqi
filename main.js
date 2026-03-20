@@ -1,9 +1,8 @@
-// note
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs').promises;
 const { spawn } = require('child_process');
-const fsSync = require('fs'); // note
+const fsSync = require('fs');
 
 const XiangqiGame = require(path.join(__dirname, 'game.js'));
 
@@ -60,7 +59,6 @@ async function loadEngines() {
         }));
     } catch (err) {
         console.error('Error loading engines:', err.message);
-// note
         if (fsSync.existsSync(defaultEngine.path)) {
             engines = [defaultEngine];
             await saveEngines();
@@ -106,7 +104,6 @@ function startEngine(enginePath) {
         engineProcess = null;
     }
 
-// note
     if (!fsSync.existsSync(enginePath)) {
         console.error(`Engine file does not exist at ${enginePath}`);
         if (mainWindow) {
@@ -213,27 +210,22 @@ function startEngine(enginePath) {
 
 ipcMain.handle('simulate-pv', async (event, fen, pvMoves, stepLimit) => {
     try {
-// note
         const tempGame = new XiangqiGame();
 
-// note
         tempGame.importFen(fen);
 
-// note
         const boardStates = [];
 
-// note
         boardStates.push({
             board: tempGame.board.map(row => row.map(cell => (cell ? { ...cell } : null))),
             currentTurn: tempGame.currentTurn,
             moveCount: tempGame.moveCount
         });
 
-// note
         for (let i = 0; i < pvMoves.length && i < stepLimit; i++) {
             const move = pvMoves[i];
-            const fromX = move.charCodeAt(0) - 97; // note
-            const fromY = 9 - parseInt(move[1]); // note
+            const fromX = move.charCodeAt(0) - 97;
+            const fromY = 9 - parseInt(move[1]);
             const toX = move.charCodeAt(2) - 97;
             const toY = 9 - parseInt(move[3]);
 
@@ -258,6 +250,7 @@ ipcMain.handle('simulate-pv', async (event, fen, pvMoves, stepLimit) => {
 });
 
 
+// Format PV using a temporary game state so renderer analysis never mutates live history.
 ipcMain.handle('format-pv', async (event, fen, pvMoves) => {
     try {
         const tempGame = new XiangqiGame();

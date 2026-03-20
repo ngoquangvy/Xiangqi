@@ -1,19 +1,17 @@
-// note
 const ROWS = 10;
 const COLS = 9;
 
 class XiangqiGame {
     constructor() {
         this.currentTurn = "red";
-        this.moveHistory = []; // note
-        this.currentMoveIndex = -1; // note
+        this.moveHistory = [];
+        this.currentMoveIndex = -1;
         this.initialBoard = null;
         this.board = Array(ROWS).fill().map(() => Array(COLS).fill(null));
-        this.moveCount = 1; // note
+        this.moveCount = 1;
         this.setupInitialPosition();
         this.saveInitialBoard();
-        this.fenBoardSnapshot = null; // note
-// note
+        this.fenBoardSnapshot = null;
         this.fenMap = {
             "\u8eca": "r",
             "\u99Ac": "n",
@@ -31,12 +29,10 @@ class XiangqiGame {
         };
     }
 
-// note
     pieceToFen(piece) {
         if (!piece) return null;
         let symbol = this.fenMap[piece.name];
         if (!symbol) return null;
-// note
         return piece.color === "red" ? symbol.toUpperCase() : symbol.toLowerCase();
     }
     importFen(fen) {
@@ -83,7 +79,6 @@ class XiangqiGame {
                         if (pieceName) {
                             const color = char === char.toUpperCase() ? "red" : "black";
                             this.board[y][x] = { name: pieceName, color };
-// note
                             if (pieceName === "\u5e05" && color === "red") kingRedCount++;
                             if (pieceName === "\u5c06" && color === "black") kingBlackCount++;
                             x++;
@@ -95,7 +90,6 @@ class XiangqiGame {
                 }
             }
 
-// note
             if (kingRedCount !== 1 || kingBlackCount !== 1) {
                 console.error(`Invalid FEN: Red kings: ${kingRedCount}, Black kings: ${kingBlackCount}`);
                 return false;
@@ -140,9 +134,7 @@ class XiangqiGame {
         });
     }
     exportFen() {
-// note
         this.fenBoardSnapshot = this.board.map(row => row.map(cell => (cell ? { ...cell } : null)));
-// note
         let fen = '';
         for (let y = 0; y < ROWS; y++) {
             let emptyCount = 0;
@@ -155,13 +147,12 @@ class XiangqiGame {
                         fen += emptyCount;
                         emptyCount = 0;
                     }
-// note
                     const fenSymbol = this.pieceToFen(piece);
                     if (fenSymbol) {
                         fen += fenSymbol;
                     } else {
                         console.warn(`Unknown piece at (${x}, ${y}):`, piece);
-                        fen += '?'; // note
+                        fen += '?';
                     }
                 }
             }
@@ -172,7 +163,6 @@ class XiangqiGame {
         return fen;
     }
 
-// note
     getPieceForNotation(x, y) {
         if (this.fenBoardSnapshot && this.fenBoardSnapshot[y] && this.fenBoardSnapshot[y][x]) {
             return this.fenBoardSnapshot[y][x];
@@ -184,23 +174,7 @@ class XiangqiGame {
         this.initialBoard = this.board.map(row => row.map(cell => (cell ? { ...cell } : null)));
     }
 
-// note
-// note
-// note
-// note
-// note
-// note
-// note
-// note
-// note
 
-// note
-// note
-// note
-// note
-// note
-// note
-// note
 
     getPiece(x, y) {
         if (!this.board || !Array.isArray(this.board) || !this.board[y] || !this.isValidPosition(x, y)) {
@@ -235,23 +209,20 @@ class XiangqiGame {
         const capturedPiece = this.board[toY][toX];
         if (capturedPiece && capturedPiece.name === (piece.color === "red" ? "\u5c06" : "\u5e05")) {
             console.warn(`Attempted to capture opponent's king at (${toX}, ${toY})`);
-            return false; // note
+            return false;
         }
 
-// note
         this.moveHistory = this.moveHistory.slice(0, this.currentMoveIndex + 1);
-        const fenBefore = this.exportFen(); // note
+        const fenBefore = this.exportFen();
         this.board[toY][toX] = piece;
         this.board[fromY][fromX] = null;
 
-// note
         if (this.isKingInCheck(piece.color)) {
             this.board[fromY][fromX] = piece;
             this.board[toY][toX] = capturedPiece;
             return false;
         }
 
-// note
         const fenAfter = this.exportFen();
         const moveEntry = {
             fromX,
@@ -260,8 +231,8 @@ class XiangqiGame {
             toY,
             capturedPiece,
             currentTurn: this.currentTurn,
-            piece: { name: piece.name, color: piece.color }, // note
-            fen: fenAfter // note
+            piece: { name: piece.name, color: piece.color },
+            fen: fenAfter
         };
         this.moveHistory.push(moveEntry);
 
@@ -274,28 +245,11 @@ class XiangqiGame {
         return true;
     }
 
-// note
-// note
-// note
 
-// note
-// note
 
-// note
-// note
-// note
 
-// note
-// note
-// note
-// note
-// note
 
-// note
-// note
-// note
 
-// note
     getRawMoves(x, y) {
         const piece = this.getPiece(x, y);
         if (!piece) return [];
@@ -314,43 +268,23 @@ class XiangqiGame {
         return moves;
     }
 
-// note
-// note
-// note
 
-// note
-// note
-// note
-// note
-// note
-// note
 
-// note
-// note
-// note
 
-// note
-// note
-// note
     getLegalMoves(x, y) {
         const piece = this.getPiece(x, y);
         if (!piece) return [];
 
-// note
         const rawMoves = this.getRawMoves(x, y);
 
-// note
         const legalMoves = rawMoves.filter(([toX, toY]) => {
-// note
             const originalPiece = this.board[y][x];
             const targetPiece = this.board[toY][toX];
             this.board[toY][toX] = originalPiece;
             this.board[y][x] = null;
 
-// note
             const inCheck = this.isKingInCheck(piece.color);
 
-// note
             this.board[y][x] = originalPiece;
             this.board[toY][toX] = targetPiece;
 
@@ -368,7 +302,6 @@ class XiangqiGame {
             for (let x = 0; x < COLS; x++) {
                 const piece = this.board[y][x];
                 if (piece && piece.color === enemyColor) {
-// note
                     const moves = this.getRawMoves(x, y);
                     if (moves.some(([mx, my]) => mx === kingPos.x && my === kingPos.y)) {
                         return true;
@@ -381,20 +314,16 @@ class XiangqiGame {
     }
 
     isCheckmate(color) {
-// note
-// note
         if (!this.isKingInCheck(color)) {
             return false;
         }
 
-// note
         for (let y = 0; y < ROWS; y++) {
             for (let x = 0; x < COLS; x++) {
                 const piece = this.getPiece(x, y);
                 if (piece && piece.color === color) {
                     const moves = this.getLegalMoves(x, y);
                     for (const [toX, toY] of moves) {
-// note
                         const originalPiece = this.board[y][x];
                         const targetPiece = this.board[toY][toX];
                         this.board[toY][toX] = originalPiece;
@@ -402,19 +331,18 @@ class XiangqiGame {
 
                         const stillInCheck = this.isKingInCheck(color);
 
-// note
                         this.board[y][x] = originalPiece;
                         this.board[toY][toX] = targetPiece;
 
                         if (!stillInCheck) {
-                            return false; // note
+                            return false;
                         }
                     }
                 }
             }
         }
 
-        return true; // note
+        return true;
     }
 
     findKing(color) {
@@ -466,7 +394,7 @@ class XiangqiGame {
 
         directions.forEach(([dx, dy]) => {
             let nx = x, ny = y;
-            let jumpCount = 0; // note
+            let jumpCount = 0;
 
             while (this.isValidPosition(nx + dx, ny + dy)) {
                 nx += dx;
@@ -474,23 +402,18 @@ class XiangqiGame {
                 const pieceAt = this.board[ny][nx];
 
                 if (jumpCount === 0) {
-// note
                     if (!pieceAt) {
                         moves.push([nx, ny]);
                     } else {
-// note
                         jumpCount++;
                     }
                 } else if (jumpCount === 1) {
-// note
                     if (pieceAt) {
-// note
                         if (pieceAt.color !== color) {
                             moves.push([nx, ny]);
                         }
-                        break; // note
+                        break;
                     }
-// note
                 }
             }
         });
@@ -581,12 +504,11 @@ class XiangqiGame {
         const move = this.moveHistory[this.currentMoveIndex];
         if (!move) return false;
 
-// note
         const piece = this.board[move.toY][move.toX];
         this.board[move.fromY][move.fromX] = piece;
-        this.board[move.toY][move.toX] = move.capturedPiece; // note
-        this.currentTurn = move.currentTurn; // note
-// note
+        this.board[move.toY][move.toX] = move.capturedPiece;
+        this.currentTurn = move.currentTurn;
+        // moveCount increases after black moves, so undo black turn should decrement it.
         if (this.currentTurn === "black" && this.moveCount > 1) {
             this.moveCount--;
         }
@@ -602,13 +524,11 @@ class XiangqiGame {
         const move = this.moveHistory[this.currentMoveIndex];
         if (!move) return false;
 
-// note
         const piece = this.board[move.fromY][move.fromX];
         this.board[move.toY][move.toX] = piece;
         this.board[move.fromY][move.fromX] = null;
         const previousTurn = this.currentTurn;
         this.currentTurn = this.currentTurn === "red" ? "black" : "red";
-// note
         if (previousTurn === "black" && this.currentTurn === "red") {
             this.moveCount++;
         }
@@ -621,7 +541,7 @@ class XiangqiGame {
         this.currentTurn = "red";
         this.moveHistory = [];
         this.currentMoveIndex = -1;
-        this.moveCount = 1; // note
+        this.moveCount = 1;
         return true;
     }
 
@@ -630,7 +550,7 @@ class XiangqiGame {
         this.currentTurn = "red";
         this.moveHistory = [];
         this.currentMoveIndex = -1;
-        this.moveCount = 1; // note
+        this.moveCount = 1;
         this.setupInitialPosition();
         this.saveInitialBoard();
         return true;
@@ -648,6 +568,7 @@ class XiangqiGame {
             }
             try {
                 const notation = this.getMoveNotation(move);
+                // Keep coordinates in history entries so replay and jump-to-move stay stable.
                 return { ...move, moveNotation: notation };
             } catch (err) {
                 console.error(`Error processing move ${index}:`, move, err);
@@ -671,7 +592,6 @@ class XiangqiGame {
             this.currentMoveIndex = data.currentMoveIndex || -1;
             this.initialBoard = data.initialBoard || null;
 
-// note
             if (this.initialBoard) {
                 this.board = this.initialBoard.map(row => row.map(cell => (cell ? { ...cell } : null)));
             } else {
@@ -681,7 +601,6 @@ class XiangqiGame {
             }
             this.currentTurn = "red";
 
-// note
             for (let i = 0; i <= this.currentMoveIndex; i++) {
                 const move = this.moveHistory[i];
                 if (move) {
@@ -698,7 +617,6 @@ class XiangqiGame {
         }
     }
 
-// note
     getPieceNotation(piece) {
         if (!piece) return "";
         const notationMap = {
@@ -713,14 +631,12 @@ class XiangqiGame {
         return notationMap[piece.name] || piece.name;
     }
 
-// note
     getPositionNotation(x, y) {
-        const col = x + 1; // note
-        const row = 10 - y; // note
+        const col = x + 1;
+        const row = 10 - y;
         return `${col}.${row}`;
     }
 
-// note
     getPiecesInColumn(pieceName, col, color) {
         const pieces = [];
         for (let y = 0; y < 10; y++) {
@@ -731,7 +647,6 @@ class XiangqiGame {
         }
         return pieces;
     }
-// note
     getMoveNotation(move) {
         if (!move || typeof move.fromX === 'undefined' || typeof move.fromY === 'undefined' ||
             typeof move.toX === 'undefined' || typeof move.toY === 'undefined') {
@@ -739,7 +654,6 @@ class XiangqiGame {
             return "Invalid Move";
         }
 
-// note
         let piece = move.piece;
         if (!piece) {
             console.warn('No piece information in move object, attempting to fetch from board:', move);
@@ -749,7 +663,6 @@ class XiangqiGame {
                 return "Unknown Move";
             }
         }
-// note
         const fenSymbol = this.pieceToFen(piece) || piece.name;
         const pieceNotation = this.getPieceNotation(piece);
         if (!pieceNotation) return "Invalid Piece";
@@ -792,4 +705,5 @@ class XiangqiGame {
 }
 
 module.exports = XiangqiGame;
+
 
