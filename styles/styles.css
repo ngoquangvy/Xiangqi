@@ -1,13 +1,13 @@
-/* styles.css */
+﻿/* styles.css */
 body {
     margin: 0;
     padding: 10px;
     background-color: #f0f0f0;
-    /* Đổi màu nền để không còn màu tím */
+    
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    /* Căn lề trái */
+    
     width: 100%;
     box-sizing: border-box;
 }
@@ -22,19 +22,19 @@ body {
     border: none;
     border-radius: 3px;
     width: 100%;
-    /* Nút trong menu chiếm toàn bộ chiều rộng */
+    
 }
 
 #controls-menu {
     z-index: 10;
-    /* Đảm bảo menu hiển thị trên các phần tử khác */
+    
 }
 
 #engine-container {
     display: flex;
     flex-direction: column;
     width: 400px;
-    /* Tăng từ 300px lên 400px */
+    
     margin-left: 20px;
 }
 
@@ -44,7 +44,7 @@ body {
     align-items: flex-start;
     width: 100%;
     max-width: 950px;
-    /* Khớp với chiều ngang cửa sổ */
+    
 }
 
 #move-suggestions {
@@ -169,12 +169,12 @@ canvas {
     opacity: 1;
 }
 
-/* Bàn cờ */
+
 #boardCanvas,
 #board-image,
 #pieces {
     margin-left: 0;
-    /* Đảm bảo bàn cờ căn lề trái */
+    
 }
 
 
@@ -194,7 +194,7 @@ canvas {
     width: 100%;
     border-collapse: collapse;
     table-layout: auto;
-    /* Thay vì fixed, để các cột tự điều chỉnh theo nội dung */
+    
 }
 
 #move-suggestions th,
@@ -203,9 +203,9 @@ canvas {
     padding: 5px;
     text-align: left;
     min-width: 50px;
-    /* Đảm bảo mỗi cột có chiều rộng tối thiểu */
+    
     white-space: nowrap;
-    /* Giữ nội dung trên một dòng */
+    
 }
 
 #move-suggestions th {
@@ -249,16 +249,16 @@ th {
 
 .last-move {
     /* background-color: rgba(255, 165, 0, 0.5) !important; */
-    /* Màu cam nhạt */
+    
     border: 2px solid orange;
-    /* Viền cam */
+    
     border-radius: 50%;
 }
 
 .hover-move {
-    /* background-color: rgba(0, 255, 0, 0.3) !important; Màu xanh nhạt */
+    
     border: 2px solid green;
-    /* Viền xanh */
+    
     border-radius: 50%;
 }
 
@@ -270,7 +270,7 @@ th {
     padding: 10px;
     background-color: #f9f9f9;
     width: 100px;
-    /* Giảm từ 200px xuống 100px */
+    
 }
 
 #move-history ul {
@@ -282,11 +282,11 @@ th {
 #move-history li {
     padding: 5px 0;
     white-space: nowrap;
-    /* Giữ nội dung trên một dòng */
+    
     overflow: hidden;
-    /* Ẩn phần dư */
+    
     text-overflow: ellipsis;
-    /* Thêm dấu "..." nếu nội dung bị cắt */
+    
 }
 
 #xiangqi-board {
@@ -359,13 +359,13 @@ th {
 
 .highlighted-move {
     background-color: #ffeb3b;
-    /* Màu nền vàng nhạt để làm nổi bật */
+    
     color: #000;
-    /* Màu chữ đen để dễ đọc */
+    
     padding: 2px 4px;
-    /* Thêm khoảng đệm để trông đẹp hơn */
+    
     border-radius: 3px;
-    /* Bo góc nhẹ */
+    
 }
 
 #pieces {
@@ -482,3 +482,44 @@ th {
     z-index: 1;
     background-color: white;
 }
+#board-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 12px;
+    width: 100%;
+}
+
+.action-btn {
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    min-width: 128px;
+    padding: 8px 12px;
+    transition: filter 0.2s ease, transform 0.15s ease;
+}
+
+.action-btn:hover {
+    filter: brightness(1.05);
+}
+
+.action-btn:active {
+    transform: translateY(1px);
+}
+
+.action-neutral {
+    background: #2f6fdf;
+}
+
+.action-warning {
+    background: #d18f14;
+}
+
+.action-danger {
+    background: #cc3a3a;
+}
+

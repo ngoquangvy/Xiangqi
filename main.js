@@ -1,11 +1,31 @@
-// main.js
+﻿// main.js
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs').promises;
 const { spawn } = require('child_process');
-const fsSync = require('fs'); // Để kiểm tra file tồn tại
+const fsSync = require('fs');
 
 const XiangqiGame = require(path.join(__dirname, 'game.js'));
+
+const safeLog = (...args) => {
+    try {
+        console.log(...args);
+    } catch (err) {
+        if (!err || err.code !== 'EPIPE') {
+            throw err;
+        }
+    }
+};
+
+const safeError = (...args) => {
+    try {
+        console.error(...args);
+    } catch (err) {
+        if (!err || err.code !== 'EPIPE') {
+            throw err;
+        }
+    }
+};
 
 let gameInstance = new XiangqiGame();
 let mainWindow;
@@ -39,7 +59,7 @@ async function createWindow() {
     });
 
     await mainWindow.loadFile('index.html').catch(err => {
-        console.error('Error loading index.html:', err);
+        safeError('Error loading index.html:', err);
     });
 }
 
@@ -59,13 +79,12 @@ async function loadEngines() {
             }
         }));
     } catch (err) {
-        console.error('Error loading engines:', err.message);
-        // Kiểm tra xem file Pikafish có tồn tại không
+        safeError('Error loading engines:', err.message);
         if (fsSync.existsSync(defaultEngine.path)) {
             engines = [defaultEngine];
             await saveEngines();
         } else {
-            console.error(`Default engine not found at ${defaultEngine.path}`);
+            safeError(`Default engine not found at ${defaultEngine.path}`);
             engines = [];
         }
     }
@@ -75,7 +94,7 @@ async function saveEngines() {
     try {
         await fs.writeFile(enginesFile, JSON.stringify(engines, null, 2), 'utf8');
     } catch (err) {
-        console.error('Error saving engines:', err.message);
+        safeError('Error saving engines:', err.message);
     }
 }
 
@@ -105,10 +124,8 @@ function startEngine(enginePath) {
         engineProcess.kill();
         engineProcess = null;
     }
-
-    // Kiểm tra xem file engine có tồn tại không
     if (!fsSync.existsSync(enginePath)) {
-        console.error(`Engine file does not exist at ${enginePath}`);
+        safeError(`Engine file does not exist at ${enginePath}`);
         if (mainWindow) {
             mainWindow.webContents.send('engine-error', `Engine file does not exist at ${enginePath}`);
         }
@@ -116,10 +133,10 @@ function startEngine(enginePath) {
     }
 
     try {
-        console.log(`Starting engine: ${enginePath}`);
+        safeLog(`Starting engine: ${enginePath}`);
         engineProcess = spawn(enginePath);
     } catch (err) {
-        console.error(`Failed to start engine at ${enginePath}: ${err.message}`);
+        safeError(`Failed to start engine at ${enginePath}: ${err.message}`);
         if (mainWindow) {
             mainWindow.webContents.send('engine-error', `Failed to start engine: ${err.message}`);
         }
@@ -131,21 +148,21 @@ function startEngine(enginePath) {
             mainWindow.webContents.send('engine-output', data.toString());
         }
         const output = data.toString();
-        console.log(`Engine output: ${output}`); // Log chi tiết
+        safeLog(`Engine output: ${output}`);
         if (output.includes('readyok') && mainWindow) {
             mainWindow.webContents.send('engine-ready');
         }
     });
 
     engineProcess.stderr.on('data', (data) => {
-        console.error(`Engine error from ${enginePath}: ${data}`);
+        safeError(`Engine error from ${enginePath}: ${data}`);
         if (mainWindow) {
             mainWindow.webContents.send('engine-error', `Engine error: ${data}`);
         }
     });
 
     engineProcess.on('error', (err) => {
-        console.error(`Engine process error: ${err.message}`);
+        safeError(`Engine process error: ${err.message}`);
         if (mainWindow) {
             mainWindow.webContents.send('engine-error', `Engine process error: ${err.message}`);
         }
@@ -153,14 +170,14 @@ function startEngine(enginePath) {
     });
 
     engineProcess.on('close', (code) => {
-        console.log(`Engine ${enginePath} exited with code ${code}`);
+        safeLog(`Engine ${enginePath} exited with code ${code}`);
         if (mainWindow) {
             mainWindow.webContents.send('engine-error', `Engine exited with code ${code}`);
         }
         engineProcess = null;
 
         if (code !== 0) {
-            console.log('Engine crashed, switching to default engine (Pikafish)...');
+            safeLog('Engine crashed, switching to default engine (Pikafish)...');
             setTimeout(() => {
                 const pikafishIndex = engines.findIndex(e => e.name === defaultEngine.name);
                 if (pikafishIndex !== -1) {
@@ -176,7 +193,7 @@ function startEngine(enginePath) {
                         mainWindow.webContents.send('engine-switched', engines.length - 1);
                     }
                 } else {
-                    console.error('Default engine not available.');
+                    safeError('Default engine not available.');
                     if (mainWindow) {
                         mainWindow.webContents.send('engine-error', 'No valid engines available.');
                     }
@@ -214,23 +231,14 @@ function startEngine(enginePath) {
 
 ipcMain.handle('simulate-pv', async (event, fen, pvMoves, stepLimit) => {
     try {
-        // Tạo một instance tạm thời của XiangqiGame
         const tempGame = new XiangqiGame();
-
-        // Khôi phục trạng thái bàn cờ từ FEN
         tempGame.importFen(fen);
-
-        // Danh sách lưu các trạng thái bàn cờ sau mỗi nước đi
         const boardStates = [];
-
-        // Lưu trạng thái ban đầu
         boardStates.push({
             board: tempGame.board.map(row => row.map(cell => (cell ? { ...cell } : null))),
             currentTurn: tempGame.currentTurn,
             moveCount: tempGame.moveCount
         });
-
-        // Mô phỏng các nước đi trong chuỗi PV đến stepLimit
         for (let i = 0; i < pvMoves.length && i < stepLimit; i++) {
             const move = pvMoves[i];
             const fromX = move.charCodeAt(0) - 97; // 'a' = 0, 'i' = 8
@@ -253,7 +261,7 @@ ipcMain.handle('simulate-pv', async (event, fen, pvMoves, stepLimit) => {
 
         return boardStates;
     } catch (err) {
-        console.error('Error simulating PV:', err);
+        safeError('Error simulating PV:', err);
         return [];
     }
 });
@@ -292,7 +300,7 @@ ipcMain.handle('format-pv', async (event, fen, pvMoves) => {
 
         return { moves: notations, formatted: lines.join(', ') };
     } catch (err) {
-        console.error('Error formatting PV:', err);
+        safeError('Error formatting PV:', err);
         return { moves: [], formatted: '-' };
     }
 });
@@ -310,7 +318,7 @@ ipcMain.handle('get-engines', () => {
 
 ipcMain.handle('add-engine', async (event, enginePath) => {
     try {
-        console.log(`Testing engine: ${enginePath}`);
+        safeLog(`Testing engine: ${enginePath}`);
         const protocol = await detectEngineProtocol(enginePath);
         if (protocol === 'unknown') {
             return { success: false, error: 'Engine does not support UCI or UCCI' };
@@ -331,11 +339,11 @@ ipcMain.handle('add-engine', async (event, enginePath) => {
         };
         engines.push(newEngine);
         await saveEngines();
-        console.log(`Engine added: ${name} (${protocol}) at ${enginePath}`);
+        safeLog(`Engine added: ${name} (${protocol}) at ${enginePath}`);
         startEngine(enginePath);
         return { success: true };
     } catch (err) {
-        console.error(`Error adding engine: ${err.message}`);
+        safeError(`Error adding engine: ${err.message}`);
         return { success: false, error: err.message };
     }
 });
@@ -479,7 +487,7 @@ ipcMain.handle('import-game', (event, gameData) => {
 
 ipcMain.handle('get-move-notation', (event, fromX, fromY, toX, toY) => {
     if (!gameInstance.board || !Array.isArray(gameInstance.board)) {
-        console.error('Game board is not initialized:', gameInstance.board);
+        safeError('Game board is not initialized:', gameInstance.board);
         return "Error: Board not initialized";
     }
     const ROWS = 10;
@@ -493,14 +501,20 @@ ipcMain.handle('get-move-notation', (event, fromX, fromY, toX, toY) => {
     let piece = gameInstance.getPiece(fromX, fromY);
     if (!piece) {
         console.warn('No piece found at position for move notation:', { fromX, fromY, toX, toY });
-        const pastMove = gameInstance.moveHistory.find(move =>
-            move.fromX === fromX && move.fromY === fromY && move.toX === toX && move.toY === toY
+
+        // Prefer the most recent matching move record when board state has advanced
+        const reversedHistory = [...(gameInstance.moveHistory || [])].reverse();
+        const pastMove = reversedHistory.find(move =>
+            move.fromX === fromX && move.fromY === fromY && move.toX === toX && move.toY === toY && move.piece
         );
         if (pastMove && pastMove.piece) {
             piece = pastMove.piece;
-        } else {
-            return "Unknown Move";
         }
+    }
+
+    if (!piece) {
+        // Fallback placeholder to avoid "Unknown Move" spam in UI tables.
+        return `${String.fromCharCode(97 + fromX)}${10 - fromY}-${String.fromCharCode(97 + toX)}${10 - toY}`;
     }
 
     const move = { fromX, fromY, toX, toY, piece: { ...piece } };
@@ -510,7 +524,10 @@ ipcMain.handle('get-move-notation', (event, fromX, fromY, toX, toY) => {
 ipcMain.on('analyze-position', (event, fen) => {
     if (engineProcess && engineProcess.stdin && !engineProcess.killed) {
         try {
-            console.log(`Analyzing FEN: ${fen}`);
+            safeLog(`Analyzing FEN: ${fen}`);
+            if (engineProtocol === 'uci' || engineProtocol === 'ucci') {
+                engineProcess.stdin.write('stop\n');
+            }
             engineProcess.stdin.write(`position fen ${fen}\n`);
             const selectedEngine = engines.find(e => e.path === engineProcess.spawnargs[0]) || { options: {} };
             if (engineProtocol === 'uci') {
@@ -527,7 +544,7 @@ ipcMain.on('analyze-position', (event, fen) => {
                 }
             }
         } catch (err) {
-            console.error(`Error writing to engine: ${err.message}`);
+            safeError(`Error writing to engine: ${err.message}`);
             if (mainWindow) {
                 mainWindow.webContents.send('engine-error', `Error writing to engine: ${err.message}`);
             }
@@ -548,13 +565,13 @@ app.whenReady().then(async () => {
         startEngine(engines[0].path);
         mainWindow.webContents.send('update-protocol', engineProtocol);
     } else {
-        console.error('No engines available to start.');
+        safeError('No engines available to start.');
         if (mainWindow) {
             mainWindow.webContents.send('engine-error', 'No engines available. Please add a valid engine.');
         }
     }
 }).catch(err => {
-    console.error('Error starting app:', err);
+    safeError('Error starting app:', err);
 });
 
 app.on('window-all-closed', () => {
@@ -562,6 +579,8 @@ app.on('window-all-closed', () => {
 });
 
 process.on('SIGINT', () => {
-    console.log('Received SIGINT. Exiting gracefully...');
+    safeLog('Received SIGINT. Exiting gracefully...');
     app.quit();
 });
+
+

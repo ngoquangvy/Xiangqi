@@ -1,8 +1,8 @@
-// preload.js
+﻿// preload.js
 const { contextBridge, ipcRenderer } = require('electron');
 
 let engineProtocol = 'uci';
-let engineOutputCallback = null; // Lưu callback từ ui.js
+let engineOutputCallback = null;
 
 
 contextBridge.exposeInMainWorld('XiangqiGameAPI', {
@@ -30,21 +30,19 @@ contextBridge.exposeInMainWorld('XiangqiGameAPI', {
     addEngine: (path) => ipcRenderer.invoke('add-engine', path),
     removeEngine: (index) => ipcRenderer.invoke('remove-engine', index),
     selectEngine: (index) => ipcRenderer.invoke('select-engine', index),
-    on: (channel, callback) => ipcRenderer.on(channel, callback), // Để nhận engine-error
-    getProtocol: () => engineProtocol, // Để ui.js truy cập
-    setProtocol: (protocol) => { engineProtocol = protocol; }, // Đồng bộ từ main.js
+    on: (channel, callback) => ipcRenderer.on(channel, callback),
+    getProtocol: () => engineProtocol,
+    setProtocol: (protocol) => { engineProtocol = protocol; },
     importFen: (fen) => ipcRenderer.invoke('import-fen', fen),
     updateEngine: (index, updatedEngine) => ipcRenderer.invoke('update-engine', index, updatedEngine),
     simulatePV: (fen, pvMoves, stepLimit) => ipcRenderer.invoke('simulate-pv', fen, pvMoves, stepLimit),
     formatPV: (fen, pvMoves) => ipcRenderer.invoke('format-pv', fen, pvMoves),
 
     onEngineOutput: (callback) => {
-        engineOutputCallback = callback; // Lưu callback từ ui.js
+        engineOutputCallback = callback;
     },
     onEngineReady: (callback) => ipcRenderer.on('engine-ready', (event) => callback()),
 });
-
-// Nhận cập nhật giao thức từ main.js
 ipcRenderer.on('update-protocol', (event, protocol) => {
     engineProtocol = protocol || 'uci';
     console.log(`Protocol updated to: ${engineProtocol}`);
@@ -52,7 +50,7 @@ ipcRenderer.on('update-protocol', (event, protocol) => {
 
 ipcRenderer.on('engine-output', (event, data) => {
     if (engineOutputCallback) {
-        engineOutputCallback(data); // Chỉ gọi nếu callback đã được đăng ký
+        engineOutputCallback(data);
     } else {
         console.log('UI not ready, engine output received but not processed:', data);
     }
@@ -66,4 +64,5 @@ ipcRenderer.on('engine-error', (event, error) => {
     console.error('Engine error:', error);
     window.dispatchEvent(new CustomEvent('engine-error', { detail: error }));
 });
+
 

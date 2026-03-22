@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -7,22 +7,18 @@
     <meta http-equiv="Content-Security-Policy"
         content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';">
     <title>Chinese Chess</title>
-    <link rel="stylesheet" href="styles/styles.css"> <!-- Liên kết tới file CSS mới -->
+    <link rel="stylesheet" href="styles/styles.css"> 
 
 </head>
 
 <body>
     <div id="main-container" style="display: flex; flex-direction: row;">
-        <!-- Nút điều khiển và lịch sử nước đi -->
+        
         <div id="container">
             <div id="controls">
                 <button id="controls-btn">Controls</button>
                 <div id="controls-menu"
                     style="display: none; position: absolute; background: white; border: 1px solid #ccc; padding: 5px;">
-                    <button id="undo-btn">Undo</button>
-                    <button id="redo-btn">Redo</button>
-                    <button id="reset-initial-btn">Reset to Initial</button>
-                    <button id="reset-game-btn">Reset Game</button>
                     <button id="export-game-btn">Export Game</button>
                     <button id="import-game-btn">Import Game</button>
                     <button id="flip-board-btn">Flip Board</button>
@@ -42,7 +38,7 @@
             </div>
         </div>
 
-        <!-- Bàn cờ -->
+        
         <div id="board-section">
             <div id="adjustments">
                 <label>Board Type:
@@ -64,11 +60,17 @@
                 </div>
             </div>
             <div id="bottom-numbers" style="text-align: center;"></div>
+            <div id="board-actions">
+                <button id="undo-btn" class="action-btn action-neutral">Undo</button>
+                <button id="redo-btn" class="action-btn action-neutral">Redo</button>
+                <button id="reset-initial-btn" class="action-btn action-warning">Reset to Initial</button>
+                <button id="reset-game-btn" class="action-btn action-danger">Reset Game</button>
+            </div>
         </div>
 
-        <!-- Các bảng engine (di chuyển sang bên phải) -->
+        
         <div id="engine-container">
-            <button id="load-suggestions-btn">Load Suggestions</button> <!-- Thêm nút Load -->
+            <button id="load-suggestions-btn">Load Suggestions</button> 
             <table id="move-suggestions">
                 <thead>
                     <tr>
@@ -86,7 +88,7 @@
             </table>
 
             <div id="move-evaluation">
-                <h3>Đánh giá nước vừa đi</h3>
+                <h3>Move Evaluation</h3>
                 <table>
                     <thead>
                         <tr>
@@ -101,7 +103,7 @@
         </div>
     </div>
 
-    <!-- Modal chỉnh sửa engine -->
+    
     <div id="modal-overlay"></div>
     <div id="edit-engine-modal">
         <form id="edit-engine-form">
@@ -126,3 +128,4 @@
 </body>
 
 </html>
+

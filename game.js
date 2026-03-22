@@ -194,6 +194,10 @@ class XiangqiGame {
     //     this.currentStep++;
     // }
 
+    getBoardSnapshot() {
+        return this.board.map(row => row.map(cell => (cell ? { ...cell } : null)));
+    }
+
     getPiece(x, y) {
         if (!this.board || !Array.isArray(this.board) || !this.board[y] || !this.isValidPosition(x, y)) {
             console.error(`Invalid board state or position: x=${x}, y=${y}, board=`, this.board);
