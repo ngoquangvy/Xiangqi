@@ -21,8 +21,10 @@
                     style="display: none; position: absolute; background: white; border: 1px solid #ccc; padding: 5px;">
                     <button id="export-game-btn">Export Game</button>
                     <button id="import-game-btn">Import Game</button>
+                    <button id="import-book-btn">Import Book</button>
                     <button id="flip-board-btn">Flip Board</button>
                     <input type="file" id="import-game-file" style="display: none;" accept=".json">
+                    <input type="file" id="import-book-file" style="display: none;" accept=".json,.pgn,.xob">
                 </div>
                 <button id="engine-btn">Engine</button>
                 <div id="engine-menu"
@@ -70,18 +72,16 @@
 
         
         <div id="engine-container">
-            <button id="load-suggestions-btn">Load Suggestions</button> 
+            <button id="load-suggestions-btn">Load Suggestions</button>
             <table id="move-suggestions">
                 <thead>
                     <tr>
                         <th>Move</th>
-                        <th>Score</th>
-                        <th>Rank</th>
                         <th>Note</th>
+                        <th>Rank</th>
                         <th>Depth</th>
-                        <th>Nodes</th>
-                        <th>Time</th>
-                        <th>Principal Variation</th> 
+                        <th>Book</th>
+                        <th>Principal Variation</th>
                     </tr>
                 </thead>
                 <tbody id="suggestions-body"></tbody>
@@ -102,8 +102,6 @@
             </div>
         </div>
     </div>
-
-    
     <div id="modal-overlay"></div>
     <div id="edit-engine-modal">
         <form id="edit-engine-form">
@@ -128,4 +126,14 @@
 </body>
 
 </html>
+
+
+
+
+
+
+
+
+
+
 

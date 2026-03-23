@@ -37,6 +37,10 @@
             this.lastSimulatedMove = null;
             this.moveHistory = [];
             this.pendingSuggestions = new Map(); // Buffer info lines until bestmove
+            this.bookData = { positions: {} };
+            this.currentFen = null;
+            this.currentBookCandidates = [];
+            this.latestSuggestionRows = [];
             window.XiangqiGameAPI.onEngineOutput((data) => {
                 this.handleEngineOutput(data);
             });
@@ -72,15 +76,159 @@
             this.renderPieces(this.offsetX, this.offsetY, this.scale);
             this.setupControls();
             this.updateMoveHistory();
+            this.loadBookData();
         }
         async analyzeCurrentPosition() {
             try {
                 const fen = await window.XiangqiGameAPI.getFen();
+                this.currentFen = fen;
                 this.pendingSuggestions.clear();
                 window.XiangqiGameAPI.analyzePosition(fen);
             } catch (err) {
                 console.error('Error analyzing position:', err);
             }
+        }
+
+        async loadBookData() {
+            try {
+                const response = await fetch(`assets/books/opening-book.json?ts=${Date.now()}`);
+                if (!response.ok) {
+                    this.bookData = { positions: {} };
+                    return;
+                }
+                const data = await response.json();
+                this.bookData = data || { positions: {} };
+            } catch (err) {
+                this.bookData = { positions: {} };
+            }
+        }
+
+        getBookCandidatesForFen(fen) {
+            if (!fen || !this.bookData || !this.bookData.positions) {
+                return [];
+            }
+            const list = this.bookData.positions[fen];
+            if (!Array.isArray(list)) {
+                return [];
+            }
+            return list.map(item => {
+                const move = (item.move || '').trim();
+                const pv = Array.isArray(item.pv) ? item.pv.filter(m => /^[a-i][0-9][a-i][0-9]$/.test(m)) : [];
+                const score = typeof item.score === 'number' ? item.score : null;
+                return { move, pv, score };
+            }).filter(item => /^[a-i][0-9][a-i][0-9]$/.test(item.move));
+        }
+
+        formatEngineScore(score) {
+            if (typeof score !== 'number' || Number.isNaN(score)) {
+                return null;
+            }
+            const cp = score / 100;
+            return `${cp >= 0 ? '+' : ''}${cp.toFixed(2)}E`;
+        }
+
+        formatBookScore(score) {
+            if (typeof score !== 'number' || Number.isNaN(score)) {
+                return null;
+            }
+            return `${score >= 0 ? '+' : ''}${score.toFixed(2)}B`;
+        }
+
+        formatNoteHtml(noteParts) {
+            const parts = [];
+            if (noteParts && noteParts.book) {
+                parts.push(`<span class="note-book">${noteParts.book}</span>`);
+            }
+            if (noteParts && noteParts.engine) {
+                if (parts.length > 0) {
+                    parts.push('<span class="note-sep"> </span>');
+                }
+                parts.push(`<span class="note-engine">${noteParts.engine}</span>`);
+            }
+            return parts.length > 0 ? parts.join('') : '-';
+        }
+
+        renderMoveSpans(cell, notations, onClick) {
+            const shown = Array.isArray(notations) ? notations : [];
+            shown.forEach((notation, idx) => {
+                const moveSpan = document.createElement('span');
+                moveSpan.textContent = notation;
+                moveSpan.style.cursor = 'pointer';
+                moveSpan.style.marginRight = '6px';
+                moveSpan.style.textDecoration = 'underline';
+                moveSpan.dataset.step = (idx + 1).toString();
+                moveSpan.addEventListener('click', async () => {
+                    document.querySelectorAll('.highlighted-move').forEach(span => {
+                        span.classList.remove('highlighted-move');
+                    });
+                    moveSpan.classList.add('highlighted-move');
+                    const step = parseInt(moveSpan.dataset.step);
+                    await onClick(step);
+                    const leftPadding = 90;
+                    const targetLeft = Math.max(0, moveSpan.offsetLeft - leftPadding);
+                    cell.scrollTo({ left: targetLeft, behavior: 'smooth' });
+                });
+                cell.appendChild(moveSpan);
+            });
+        }
+
+        toUCIMove(fromX, fromY, toX, toY) {
+            const fileFrom = String.fromCharCode(97 + fromX);
+            const rankFrom = 9 - fromY;
+            const fileTo = String.fromCharCode(97 + toX);
+            const rankTo = 9 - toY;
+            return `${fileFrom}${rankFrom}${fileTo}${rankTo}`;
+        }
+
+        getSuggestedMoveSets() {
+            const engineMoves = new Set();
+            const bookMoves = new Set();
+
+            if (Array.isArray(this.latestSuggestionRows)) {
+                this.latestSuggestionRows.forEach(row => {
+                    if (row && row.engine && row.engine.move) {
+                        engineMoves.add(row.engine.move);
+                    }
+                    if (row && row.book && row.book.move) {
+                        bookMoves.add(row.book.move);
+                    }
+                });
+            }
+
+            if (bookMoves.size === 0 && Array.isArray(this.currentBookCandidates)) {
+                this.currentBookCandidates.forEach(item => {
+                    if (item && item.move) {
+                        bookMoves.add(item.move);
+                    }
+                });
+            }
+
+            return { engineMoves, bookMoves };
+        }
+
+        applySuggestionHighlightStyle(marker, hasEngine, hasBook) {
+            marker.style.setProperty("opacity", "1", "important");
+            if (hasEngine && hasBook) {
+                marker.style.setProperty("background", "linear-gradient(135deg, rgba(38,117,59,0.24) 0%, rgba(38,117,59,0.24) 48%, rgba(36,82,184,0.24) 52%, rgba(36,82,184,0.24) 100%)", "important");
+                marker.style.setProperty("border", "2px solid #2452b8", "important");
+                marker.style.setProperty("box-shadow", "inset 0 0 0 2px #26753b", "important");
+                return;
+            }
+            if (hasEngine) {
+                marker.style.setProperty("background-color", "rgba(36,82,184,0.18)", "important");
+                marker.style.setProperty("border", "2px solid #2452b8", "important");
+                marker.style.removeProperty("box-shadow");
+                return;
+            }
+            if (hasBook) {
+                marker.style.setProperty("background-color", "rgba(38,117,59,0.18)", "important");
+                marker.style.setProperty("border", "2px solid #26753b", "important");
+                marker.style.removeProperty("box-shadow");
+                return;
+            }
+            marker.style.setProperty("background-color", "transparent", "important");
+            marker.style.setProperty("border", "2px solid #d4a017", "important");
+            marker.style.removeProperty("box-shadow");
         }
         async makeMove(fromX, fromY, toX, toY) {
             const moveResult = await window.XiangqiGameAPI.move(fromX, fromY, toX, toY);
@@ -179,73 +327,108 @@
 
         async updateSuggestionsTable(suggestions) {
             this.suggestionsBody.innerHTML = '';
-            for (const [rowIndex, s] of suggestions.entries()) {
+
+            const fen = this.currentFen || await window.XiangqiGameAPI.getFen();
+            const bookCandidates = this.getBookCandidatesForFen(fen);
+            this.currentBookCandidates = bookCandidates;
+
+            const engineByMove = new Map();
+            suggestions.forEach(s => {
                 if (s && s.move) {
-                    const moveNotation = await this.convertMoveToNotation(s.move);
-                    const pvResult = await this.formatPrincipalVariation(s.pv);
-                    const pvNotation = pvResult.formatted;
-                    const pvMoves = pvResult.moves;
-
-                    const row = document.createElement('tr');
-                    row.dataset.rowIndex = rowIndex;
-                    row.innerHTML = `
-                        <td>${moveNotation} (${s.move})</td>
-                        <td>${s.score}</td>
-                        <td>${s.rank}</td>
-                        <td>${s.note}</td>
-                        <td>${s.depth}</td>
-                        <td>${s.nodes}</td>
-                        <td>${s.time} s</td>
-                        <td class="pv-cell"></td>
-                    `;
-
-                    const moveCell = row.querySelector('td:first-child');
-                    moveCell.dataset.move = s.move;
-                    moveCell.addEventListener("mouseenter", async () => {
-                        const [fromX, fromY, toX, toY] = this.parseUCIMove(s.move);
-                        await this.highlightMove(fromX, fromY, toX, toY, "hover-move");
-                    });
-                    moveCell.addEventListener("mouseleave", () => {
-                        this.clearHoverHighlights();
-                    });
-                    const pvCell = row.querySelector('.pv-cell');
-                    const pvParts = pvNotation.split(', ');
-                    pvParts.forEach((part, partIndex) => {
-                        const movesInPart = part.split(' ').slice(1);
-                        movesInPart.forEach((move, moveIndex) => {
-                            if (move !== '...') {
-                                const moveSpan = document.createElement('span');
-                                moveSpan.textContent = move;
-                                moveSpan.style.cursor = 'pointer';
-                                moveSpan.style.marginRight = '5px';
-                                moveSpan.style.textDecoration = 'underline';
-                                moveSpan.dataset.step = (partIndex * 2 + moveIndex + 1).toString();
-                                moveSpan.addEventListener('click', async () => {
-                                    document.querySelectorAll('.highlighted-move').forEach(span => {
-                                        span.classList.remove('highlighted-move');
-                                    });
-                                    moveSpan.classList.add('highlighted-move');
-                                    const step = parseInt(moveSpan.dataset.step);
-                                    await this.simulateToStep(rowIndex, s.pv, step);
-                                });
-                                pvCell.appendChild(moveSpan);
-                            }
-                        });
-                        if (partIndex < pvParts.length - 1) {
-                            pvCell.appendChild(document.createTextNode(', '));
-                        }
-                    });
-
-                    this.suggestionsBody.appendChild(row);
-                } else {
-                    console.warn('Invalid suggestion object:', s);
+                    engineByMove.set(s.move, s);
                 }
+            });
+
+            const bookByMove = new Map();
+            bookCandidates.forEach(b => {
+                if (b && b.move) {
+                    bookByMove.set(b.move, b);
+                }
+            });
+
+            const rows = [];
+            for (const s of suggestions) {
+                if (!s || !s.move) {
+                    continue;
+                }
+                rows.push({ engine: s, book: bookByMove.get(s.move) || null });
             }
+
+            for (const b of bookCandidates) {
+                if (!b || !b.move || engineByMove.has(b.move)) {
+                    continue;
+                }
+                rows.push({ engine: null, book: b });
+            }
+
+            this.latestSuggestionRows = rows;
+
+            for (const [rowIndex, rowData] of rows.entries()) {
+                const engine = rowData.engine;
+                const book = rowData.book;
+                const primaryMove = engine ? engine.move : (book ? book.move : null);
+                if (!primaryMove) {
+                    continue;
+                }
+
+                const moveNotation = await this.convertMoveToNotation(primaryMove);
+                const enginePvMoves = engine && Array.isArray(engine.pv) ? engine.pv : [];
+                const bookPvMoves = book && Array.isArray(book.pv) ? book.pv : [];
+
+                const enginePvResult = await this.formatPrincipalVariation(enginePvMoves);
+                const enginePvNotations = Array.isArray(enginePvResult.moves) ? enginePvResult.moves : [];
+
+                const bookMovesForRender = bookPvMoves.length > 0 ? bookPvMoves : [primaryMove];
+                const bookPvResult = await this.formatPrincipalVariation(bookMovesForRender);
+                const bookNotations = Array.isArray(bookPvResult.moves) ? bookPvResult.moves : [];
+
+                const noteParts = {
+                    book: this.formatBookScore(book ? book.score : null),
+                    engine: this.formatEngineScore(engine ? engine.score : null)
+                };
+
+                const row = document.createElement('tr');
+                row.dataset.rowIndex = rowIndex;
+                if (!engine && book) {
+                    row.classList.add('row-book-only');
+                }
+
+                row.innerHTML = `
+                    <td>${moveNotation} (${primaryMove})</td>
+                    <td class="note-cell">${this.formatNoteHtml(noteParts)}</td>
+                    <td>${engine ? engine.rank : '-'}</td>
+                    <td>${engine ? engine.depth : '-'}</td>
+                    <td class="book-cell"></td>
+                    <td class="pv-cell"></td>
+                `;
+
+                const moveCell = row.querySelector('td:first-child');
+                moveCell.dataset.move = primaryMove;
+                moveCell.addEventListener('mouseenter', async () => {
+                    const [fromX, fromY, toX, toY] = this.parseUCIMove(primaryMove);
+                    await this.highlightMove(fromX, fromY, toX, toY, 'hover-move');
+                });
+                moveCell.addEventListener('mouseleave', () => {
+                    this.clearHoverHighlights();
+                });
+
+                const bookCell = row.querySelector('.book-cell');
+                this.renderMoveSpans(bookCell, bookNotations, async (step) => {
+                    await this.simulateToStep(rowIndex, bookMovesForRender, step);
+                });
+
+                const pvCell = row.querySelector('.pv-cell');
+                this.renderMoveSpans(pvCell, enginePvNotations, async (step) => {
+                    await this.simulateToStep(rowIndex, enginePvMoves, step);
+                });
+
+                this.suggestionsBody.appendChild(row);
+            }
+
             if (this.currentPVIndex !== null) {
                 this.showResetButton();
             }
         }
-
         async resetSimulation() {
             // if (this.originalFen) {
             //     await window.XiangqiGameAPI.importFen(this.originalFen);
@@ -640,12 +823,16 @@
         async highlightMoves(x, y, offsetX = 0, offsetY = 0, scale = 1) {
             this.clearHighlights();
             const moves = await window.XiangqiGameAPI.getLegalMoves(x, y);
+            const { engineMoves, bookMoves } = this.getSuggestedMoveSets();
+
             moves.forEach(([mx, my]) => {
                 const marker = document.createElement("div");
                 marker.className = "piece highlight";
-                marker.style.setProperty("background-color", "transparent", "important");
-                marker.style.setProperty("opacity", "1", "important");
-                marker.style.setProperty("border", "2px solid #d4a017", "important");
+
+                const moveUci = this.toUCIMove(x, y, mx, my);
+                const hasEngine = engineMoves.has(moveUci);
+                const hasBook = bookMoves.has(moveUci);
+                this.applySuggestionHighlightStyle(marker, hasEngine, hasBook);
 
                 marker.style.width = `${this.cellWidth}px`;
                 marker.style.height = `${this.cellHeight}px`;
@@ -667,7 +854,6 @@
                 piecesContainer.appendChild(marker);
             });
         }
-
         async handlePieceClick(x, y) {
             if (this.currentPVIndex !== null) {
                 alert('Please reset the simulation before interacting with the board.');
@@ -1104,6 +1290,32 @@
                     reader.readAsText(file);
                 }
             });
+            const importBookBtn = document.getElementById("import-book-btn");
+            const importBookFile = document.getElementById("import-book-file");
+            if (importBookBtn && importBookFile) {
+                importBookBtn.addEventListener("click", () => {
+                    importBookFile.click();
+                    controlsMenu.style.display = "none";
+                });
+
+                importBookFile.addEventListener("change", async (event) => {
+                    const file = event.target.files[0];
+                    if (!file) {
+                        return;
+                    }
+                    const result = await window.XiangqiGameAPI.importBookFile(file.path);
+                    if (!result || !result.success) {
+                        alert(`Failed to import book: ${result?.error || 'Unknown error'}`);
+                    } else {
+                        if (result.type === 'json') {
+                            await this.loadBookData();
+                            await this.analyzeCurrentPosition();
+                        }
+                        alert(result.message || 'Book imported.');
+                    }
+                    importBookFile.value = "";
+                });
+            }
             const flipBoardBtn = document.getElementById("flip-board-btn");
             flipBoardBtn.addEventListener("click", async () => {
                 this.isFlipped = !this.isFlipped;
@@ -1128,6 +1340,12 @@
         new XiangqiUI();
     });
 })();
+
+
+
+
+
+
 
 
 

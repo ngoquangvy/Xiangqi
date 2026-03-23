@@ -1,0 +1,36 @@
+﻿{
+  "meta": {
+    "name": "Trial Xiangqi Book",
+    "version": "0.1",
+    "description": "Sample JSON book for UI testing",
+    "source": "engine-seeded + external MRXqOpeningBook downloaded"
+  },
+  "positions": {
+    "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w - - 0 1": [
+      {
+        "move": "h2e2",
+        "score": 0.28,
+        "note": "Popular central cannon setup",
+        "pv": ["h2e2", "b9c7", "c3c4", "g6g5", "b0c2", "h9g7"]
+      },
+      {
+        "move": "b2e2",
+        "score": 0.24,
+        "note": "Symmetric cannon development",
+        "pv": ["b2e2", "b9c7", "b0c2", "c6c5", "a0b0", "a9b9"]
+      },
+      {
+        "move": "g3g4",
+        "score": 0.17,
+        "note": "Pawn pressure on right flank",
+        "pv": ["g3g4", "c6c5", "h0g2", "b9c7", "c0e2", "h9i7"]
+      },
+      {
+        "move": "b0c2",
+        "score": 0.11,
+        "note": "Horse develops with flexibility",
+        "pv": ["b0c2", "c6c5", "h2e2", "h9g7", "h0g2", "i9h9"]
+      }
+    ]
+  }
+}

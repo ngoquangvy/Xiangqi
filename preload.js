@@ -21,6 +21,7 @@ contextBridge.exposeInMainWorld('XiangqiGameAPI', {
     exportGame: () => ipcRenderer.invoke('export-game'),
     setFlipped: (isFlipped) => ipcRenderer.invoke('set-flipped', isFlipped),
     importGame: (gameData) => ipcRenderer.invoke('import-game', gameData),
+    importBookFile: (filePath) => ipcRenderer.invoke('import-book-file', filePath),
     analyzePosition: (fen) => ipcRenderer.send('analyze-position', fen),
     onEngineOutput: (callback) => ipcRenderer.on('engine-output', (event, data) => callback(data)),
     getFen: () => ipcRenderer.invoke('get-fen'),
@@ -64,5 +65,7 @@ ipcRenderer.on('engine-error', (event, error) => {
     console.error('Engine error:', error);
     window.dispatchEvent(new CustomEvent('engine-error', { detail: error }));
 });
+
+
 
 

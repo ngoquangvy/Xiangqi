@@ -33,6 +33,8 @@ let engineProcess;
 let engines = [];
 let engineProtocol = 'uci';
 const enginesFile = path.join(app.getPath('userData'), 'engines.json');
+const VERBOSE_ENGINE_OUTPUT = process.env.XQ_ENGINE_LOG === '1';
+
 const defaultEngine = {
     name: 'Pikafish',
     path: path.join(__dirname, './assets/pikafish-avx2.exe'),
@@ -148,7 +150,9 @@ function startEngine(enginePath) {
             mainWindow.webContents.send('engine-output', data.toString());
         }
         const output = data.toString();
-        safeLog(`Engine output: ${output}`);
+        if (VERBOSE_ENGINE_OUTPUT) {
+            safeLog(`Engine output: ${output}`);
+        }
         if (output.includes('readyok') && mainWindow) {
             mainWindow.webContents.send('engine-ready');
         }
@@ -485,6 +489,84 @@ ipcMain.handle('import-game', (event, gameData) => {
     return gameInstance.importGame(gameData);
 });
 
+
+ipcMain.handle('import-book-file', async (event, sourcePath) => {
+    try {
+        if (!sourcePath || typeof sourcePath !== 'string') {
+            return { success: false, error: 'Invalid book path.' };
+        }
+
+        const ext = path.extname(sourcePath).toLowerCase();
+        const booksRoot = path.join(__dirname, 'assets', 'books');
+        const sourcesRoot = path.join(booksRoot, 'sources');
+        const pgnRoot = path.join(sourcesRoot, 'pgn');
+        const xobRoot = path.join(booksRoot, 'external', 'xob');
+        const jsonRoot = path.join(sourcesRoot, 'json');
+
+        await fs.mkdir(booksRoot, { recursive: true });
+        await fs.mkdir(sourcesRoot, { recursive: true });
+        await fs.mkdir(pgnRoot, { recursive: true });
+        await fs.mkdir(xobRoot, { recursive: true });
+        await fs.mkdir(jsonRoot, { recursive: true });
+
+        const fileName = path.basename(sourcePath);
+        const stamp = Date.now();
+
+        if (ext === '.json') {
+            const raw = await fs.readFile(sourcePath, 'utf8');
+            let parsed;
+            try {
+                parsed = JSON.parse(raw);
+            } catch {
+                return { success: false, error: 'JSON book is not valid JSON.' };
+            }
+
+            if (!parsed || typeof parsed !== 'object' || !parsed.positions || typeof parsed.positions !== 'object') {
+                return { success: false, error: 'JSON book must contain an object field: positions.' };
+            }
+
+            const activePath = path.join(booksRoot, 'opening-book.json');
+            const backupPath = path.join(jsonRoot, `${stamp}-${fileName}`);
+            await fs.writeFile(activePath, JSON.stringify(parsed, null, 2), 'utf8');
+            await fs.writeFile(backupPath, JSON.stringify(parsed, null, 2), 'utf8');
+
+            return {
+                success: true,
+                type: 'json',
+                activePath,
+                storedPath: backupPath,
+                message: 'JSON book imported and activated.'
+            };
+        }
+
+        if (ext === '.pgn') {
+            const targetPath = path.join(pgnRoot, `${stamp}-${fileName}`);
+            await fs.copyFile(sourcePath, targetPath);
+            return {
+                success: true,
+                type: 'pgn',
+                storedPath: targetPath,
+                message: 'PGN imported to sources. Convert to JSON to activate as opening book.'
+            };
+        }
+
+        if (ext === '.xob') {
+            const targetPath = path.join(xobRoot, `${stamp}-${fileName}`);
+            await fs.copyFile(sourcePath, targetPath);
+            return {
+                success: true,
+                type: 'xob',
+                storedPath: targetPath,
+                message: 'XOB imported to external books. Convert to JSON to activate as opening book.'
+            };
+        }
+
+        return { success: false, error: 'Unsupported book format. Use .json, .pgn, or .xob' };
+    } catch (err) {
+        safeError('Error importing book file:', err.message || err);
+        return { success: false, error: `Import failed: ${err.message || err}` };
+    }
+});
 ipcMain.handle('get-move-notation', (event, fromX, fromY, toX, toY) => {
     if (!gameInstance.board || !Array.isArray(gameInstance.board)) {
         safeError('Game board is not initialized:', gameInstance.board);
@@ -582,5 +664,8 @@ process.on('SIGINT', () => {
     safeLog('Received SIGINT. Exiting gracefully...');
     app.quit();
 });
+
+
+
 
 
