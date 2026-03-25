@@ -1,1 +1,6 @@
-node_modules/
+node_modules/in.txt
+out.txt
+runtime-tracking.log
+runtime-tracking.err.log
+test_rect.js
+assets/_download_tmp/

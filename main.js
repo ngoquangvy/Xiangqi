@@ -26,6 +26,12 @@ const safeError = (...args) => {
     }
 };
 
+const debugLog = (...args) => {
+    if (process.env.DEBUG_XIANGQI_ENGINE === '1') {
+        safeLog(...args);
+    }
+};
+
 let gameInstance = new XiangqiGame();
 let mainWindow;
 let engineProcess;
