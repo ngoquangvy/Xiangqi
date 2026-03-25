@@ -1457,6 +1457,7 @@
         async updateEngineList() {
             const engineList = document.getElementById("engine-list");
             engineList.innerHTML = "";
+            this.selectedEngineIndex = await window.XiangqiGameAPI.getSelectedEngineIndex();
             const engines = await window.XiangqiGameAPI.getEngines();
 
             engines.forEach((engine, index) => {

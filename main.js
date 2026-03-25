@@ -37,7 +37,9 @@ let mainWindow;
 let engineProcess;
 let engines = [];
 let engineProtocol = 'uci';
+let selectedEnginePath = null;
 const enginesFile = path.join(app.getPath('userData'), 'engines.json');
+const engineSelectionFile = path.join(app.getPath('userData'), 'engine-selection.json');
 const VERBOSE_ENGINE_OUTPUT = process.env.XQ_ENGINE_LOG === '1';
 
 const defaultEngine = {
@@ -170,6 +172,62 @@ async function saveEngines() {
     } catch (err) {
         safeError('Error saving engines:', err.message);
     }
+}
+
+async function loadSelectedEnginePath() {
+    try {
+        const data = await fs.readFile(engineSelectionFile, 'utf8');
+        const parsed = JSON.parse(data);
+        selectedEnginePath = parsed && typeof parsed.selectedEnginePath === 'string'
+            ? parsed.selectedEnginePath
+            : null;
+    } catch (err) {
+        selectedEnginePath = null;
+    }
+}
+
+async function saveSelectedEnginePath() {
+    try {
+        await fs.writeFile(
+            engineSelectionFile,
+            JSON.stringify({ selectedEnginePath }, null, 2),
+            'utf8'
+        );
+    } catch (err) {
+        safeError('Error saving selected engine:', err.message);
+    }
+}
+
+function getSelectedEngineIndex() {
+    const selectedIndex = engines.findIndex(engine => engine.path === selectedEnginePath);
+    return selectedIndex >= 0 ? selectedIndex : 0;
+}
+
+async function ensureSelectedEngine() {
+    if (engines.length === 0) {
+        selectedEnginePath = null;
+        await saveSelectedEnginePath();
+        return -1;
+    }
+
+    const selectedIndex = engines.findIndex(engine => engine.path === selectedEnginePath);
+    if (selectedIndex >= 0) {
+        return selectedIndex;
+    }
+
+    selectedEnginePath = engines[0].path;
+    await saveSelectedEnginePath();
+    return 0;
+}
+
+async function persistSelectedEngineByIndex(index) {
+    if (index < 0 || index >= engines.length) {
+        return false;
+    }
+
+    selectedEnginePath = engines[index].path;
+    await saveSelectedEnginePath();
+    return true;
 }
 
 
@@ -635,6 +693,7 @@ function startEngine(enginePath) {
                     if (engines[pikafishIndex].options) {
                         engines[pikafishIndex].options.bookFile = null; 
                     }
+                    persistSelectedEngineByIndex(pikafishIndex);
                     startEngine(engines[pikafishIndex].path);
                     if (mainWindow) {
                         mainWindow.webContents.send('engine-switched', pikafishIndex);
@@ -642,6 +701,7 @@ function startEngine(enginePath) {
                 } else if (fsSync.existsSync(defaultEngine.path)) {
                     engines.push(defaultEngine);
                     saveEngines();
+                    persistSelectedEngineByIndex(engines.length - 1);
                     startEngine(defaultEngine.path);
                     if (mainWindow) {
                         mainWindow.webContents.send('engine-switched', engines.length - 1);
@@ -826,6 +886,7 @@ ipcMain.handle('add-engine', async (event, enginePath) => {
         };
         engines.push(newEngine);
         await saveEngines();
+        await persistSelectedEngineByIndex(engines.length - 1);
         debugLog(`Engine added: ${name} (${protocol}) at ${enginePath}`);
         startEngine(enginePath);
         return { success: true };
@@ -837,20 +898,32 @@ ipcMain.handle('add-engine', async (event, enginePath) => {
 
 ipcMain.handle('remove-engine', async (event, index) => {
     if (index >= 0 && index < engines.length) {
+        const removedEngine = engines[index];
         engines.splice(index, 1);
         await saveEngines();
-        if (engines.length > 0) {
-            startEngine(engines[0].path);
-        } else if (engineProcess) {
-            engineProcess.kill();
+
+        if (removedEngine.path === selectedEnginePath) {
+            if (engines.length > 0) {
+                await persistSelectedEngineByIndex(0);
+                startEngine(engines[0].path);
+            } else {
+                selectedEnginePath = null;
+                await saveSelectedEnginePath();
+                if (engineProcess) {
+                    engineProcess.kill();
+                }
+            }
+        } else {
+            await ensureSelectedEngine();
         }
         return true;
     }
     return false;
 });
 
-ipcMain.handle('select-engine', (event, index) => {
+ipcMain.handle('select-engine', async (event, index) => {
     if (index >= 0 && index < engines.length) {
+        await persistSelectedEngineByIndex(index);
         engineProtocol = engines[index].protocol || 'uci';
         startEngine(engines[index].path);
         mainWindow.webContents.send('update-protocol', engineProtocol);
@@ -859,10 +932,19 @@ ipcMain.handle('select-engine', (event, index) => {
     return false;
 });
 
+ipcMain.handle('get-selected-engine-index', async () => {
+    return ensureSelectedEngine();
+});
+
 ipcMain.handle('update-engine', async (event, index, updatedEngine) => {
     if (index >= 0 && index < engines.length) {
+        const previousPath = engines[index].path;
         engines[index] = updatedEngine;
         await saveEngines();
+        if (selectedEnginePath === previousPath) {
+            selectedEnginePath = updatedEngine.path;
+            await saveSelectedEnginePath();
+        }
         return true;
     }
     return false;
@@ -1288,9 +1370,11 @@ ipcMain.on('evaluate-move', (event, fen, moveUci) => {
 app.whenReady().then(async () => {
     await createWindow();
     await loadEngines();
-    if (engines.length > 0) {
-        engineProtocol = engines[0].protocol || 'uci';
-        startEngine(engines[0].path);
+    await loadSelectedEnginePath();
+    const selectedIndex = await ensureSelectedEngine();
+    if (selectedIndex >= 0) {
+        engineProtocol = engines[selectedIndex].protocol || 'uci';
+        startEngine(engines[selectedIndex].path);
         mainWindow.webContents.send('update-protocol', engineProtocol);
     } else {
         safeError('No engines available to start.');

@@ -43,6 +43,7 @@ contextBridge.exposeInMainWorld('XiangqiGameAPI', {
     addEngine: (path) => ipcRenderer.invoke('add-engine', path),
     removeEngine: (index) => ipcRenderer.invoke('remove-engine', index),
     selectEngine: (index) => ipcRenderer.invoke('select-engine', index),
+    getSelectedEngineIndex: () => ipcRenderer.invoke('get-selected-engine-index'),
     on: (channel, callback) => ipcRenderer.on(channel, callback),
     getProtocol: () => engineProtocol,
     setProtocol: (protocol) => { engineProtocol = protocol; },
