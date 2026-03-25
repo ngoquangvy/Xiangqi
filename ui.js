@@ -1012,7 +1012,7 @@
             ctx.fillStyle = boardColor;
             
             // Single horizontal line across the river
-            ctx.fillText("æ¥š æ²³        æ¼¢ ç•Œ", 4 * this.cellWidth, 4.5 * this.cellHeight);
+            ctx.fillText("楚 河 - 汉 界", 4 * this.cellWidth, 4.5 * this.cellHeight);
 
             ctx.translate(-marginX, -marginY);
             ctx.restore();
