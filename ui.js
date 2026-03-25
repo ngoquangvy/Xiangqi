@@ -17,6 +17,8 @@
             this.context = this.canvas.getContext('2d');
             this.suggestionsBody = document.getElementById('suggestions-body');
             this.evaluationBody = document.getElementById('evaluation-body');
+            this.suggestionsStatus = document.getElementById('suggestions-status');
+            this.suggestionStatusTimer = null;
             this.cellWidth = 47;
             this.cellHeight = 48;
             this.pieceSpacing = 1.07;
@@ -29,6 +31,8 @@
             this.lastMoveRaw = null;
             this.lastMovePositions = null;
             this.selectedEngineIndex = 0;
+            this.selectedBookPath = null;
+            this.availableBooks = [];
             this.engineProtocol = window.XiangqiGameAPI.getProtocol();
             this.currentPVIndex = null;
             this.simulationStates = [];
@@ -80,13 +84,59 @@
         }
         async analyzeCurrentPosition() {
             try {
+                // Keep current table visible while engine recalculates.
+                this.clearHoverHighlights();
+                this.setSuggestionLoading(true, 'Analyzing suggestions...');
                 const fen = await window.XiangqiGameAPI.getFen();
                 this.currentFen = fen;
                 this.pendingSuggestions.clear();
                 window.XiangqiGameAPI.analyzePosition(fen);
             } catch (err) {
+                this.setSuggestionLoading(false, 'Analyze failed');
                 console.error('Error analyzing position:', err);
             }
+        }
+
+        setSuggestionLoading(isLoading, message = '') {
+            // Suggestion loading UX policy:
+            // - Keep existing rows visible while engine calculates.
+            // - Show lightweight status text instead of clearing table immediately.
+            // - Disable load button during active run to avoid request spam.
+            const engineContainer = document.getElementById('engine-container');
+            const loadBtn = document.getElementById('load-suggestions-btn');
+            if (this.suggestionStatusTimer) {
+                clearTimeout(this.suggestionStatusTimer);
+                this.suggestionStatusTimer = null;
+            }
+
+            if (engineContainer) {
+                engineContainer.classList.toggle('is-loading', !!isLoading);
+            }
+            if (loadBtn) {
+                loadBtn.disabled = !!isLoading;
+            }
+            if (!this.suggestionsStatus) {
+                return;
+            }
+
+            if (isLoading) {
+                this.suggestionsStatus.textContent = message || 'Analyzing suggestions...';
+                this.suggestionsStatus.classList.add('visible');
+                return;
+            }
+
+            if (message) {
+                this.suggestionsStatus.textContent = message;
+                this.suggestionsStatus.classList.add('visible');
+                this.suggestionStatusTimer = setTimeout(() => {
+                    this.suggestionsStatus.classList.remove('visible');
+                    this.suggestionsStatus.textContent = '';
+                }, 1200);
+                return;
+            }
+
+            this.suggestionsStatus.classList.remove('visible');
+            this.suggestionsStatus.textContent = '';
         }
 
         async loadBookData() {
@@ -115,7 +165,8 @@
                 const move = (item.move || '').trim();
                 const pv = Array.isArray(item.pv) ? item.pv.filter(m => /^[a-i][0-9][a-i][0-9]$/.test(m)) : [];
                 const score = typeof item.score === 'number' ? item.score : null;
-                return { move, pv, score };
+                const note = typeof item.note === 'string' ? item.note.trim() : '';
+                return { move, pv, score, note };
             }).filter(item => /^[a-i][0-9][a-i][0-9]$/.test(item.move));
         }
 
@@ -148,6 +199,15 @@
             return parts.length > 0 ? parts.join('') : '-';
         }
 
+
+        escapeHtml(text) {
+            return String(text)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
         renderMoveSpans(cell, notations, onClick) {
             const shown = Array.isArray(notations) ? notations : [];
             shown.forEach((notation, idx) => {
@@ -317,16 +377,25 @@
                             this.pendingSuggestions.set(1, { move, score: scoreValue, rank: 1, note, depth, nodes, time });
                         }
                     }
-                } else if (line.startsWith('bestmove') && this.pendingSuggestions.size > 0) {
+                } else if (line.startsWith('bestmove')) {
                     const suggestions = Array.from(this.pendingSuggestions.values()).sort((a, b) => a.rank - b.rank);
-                    this.updateSuggestionsTable(suggestions);
+                    if (suggestions.length > 0) {
+                        this.updateSuggestionsTable(suggestions);
+                    } else {
+                        this.setSuggestionLoading(false, 'No suggestion available');
+                    }
                     this.pendingSuggestions.clear();
                 }
             });
         }
 
         async updateSuggestionsTable(suggestions) {
-            this.suggestionsBody.innerHTML = '';
+            // Row model merges two data sources:
+            // - engine suggestions (rank/depth/pv)
+            // - opening book candidates (book pv + note/score)
+            // We align by primary move when possible, then append book-only rows.
+            this.clearHoverHighlights();
+            const fragment = document.createDocumentFragment();
 
             const fen = this.currentFen || await window.XiangqiGameAPI.getFen();
             const bookCandidates = this.getBookCandidatesForFen(fen);
@@ -386,6 +455,7 @@
                     book: this.formatBookScore(book ? book.score : null),
                     engine: this.formatEngineScore(engine ? engine.score : null)
                 };
+                const descriptionText = (book && typeof book.note === 'string' && book.note.trim()) ? book.note.trim() : '-';
 
                 const row = document.createElement('tr');
                 row.dataset.rowIndex = rowIndex;
@@ -398,8 +468,9 @@
                     <td class="note-cell">${this.formatNoteHtml(noteParts)}</td>
                     <td>${engine ? engine.rank : '-'}</td>
                     <td>${engine ? engine.depth : '-'}</td>
-                    <td class="book-cell"></td>
                     <td class="pv-cell"></td>
+                    <td class="book-cell"></td>
+                    <td class="desc-cell" title="${this.escapeHtml(descriptionText)}">${this.escapeHtml(descriptionText)}</td>
                 `;
 
                 const moveCell = row.querySelector('td:first-child');
@@ -411,10 +482,25 @@
                 moveCell.addEventListener('mouseleave', () => {
                     this.clearHoverHighlights();
                 });
-
-                const bookCell = row.querySelector('.book-cell');
-                this.renderMoveSpans(bookCell, bookNotations, async (step) => {
-                    await this.simulateToStep(rowIndex, bookMovesForRender, step);
+                moveCell.addEventListener('click', async () => {
+                    // Play suggestion move as a real move (same flow as board interaction).
+                    // Clicking Move cell commits an actual move (not preview):
+                    // - updates board
+                    // - updates move history
+                    // - triggers re-analysis from new position
+                    if (this.currentPVIndex !== null) {
+                        alert('Please reset the simulation before interacting with the board.');
+                        return;
+                    }
+                    const [fromX, fromY, toX, toY] = this.parseUCIMove(primaryMove);
+                    const moved = await window.XiangqiGameAPI.move(fromX, fromY, toX, toY);
+                    if (!moved) {
+                        return;
+                    }
+                    this.lastMovePositions = { fromX, fromY, toX, toY };
+                    this.clearHighlights();
+                    this.selectedPiece = null;
+                    await this.syncAfterStateChange({ clearSuggestions: false });
                 });
 
                 const pvCell = row.querySelector('.pv-cell');
@@ -422,9 +508,16 @@
                     await this.simulateToStep(rowIndex, enginePvMoves, step);
                 });
 
-                this.suggestionsBody.appendChild(row);
+                const bookCell = row.querySelector('.book-cell');
+                this.renderMoveSpans(bookCell, bookNotations, async (step) => {
+                    await this.simulateToStep(rowIndex, bookMovesForRender, step);
+                });
+
+                fragment.appendChild(row);
             }
 
+            this.suggestionsBody.replaceChildren(fragment);
+            this.setSuggestionLoading(false, suggestions.length > 0 ? `Updated ${suggestions.length} suggestions` : 'No suggestion available');
             if (this.currentPVIndex !== null) {
                 this.showResetButton();
             }
@@ -800,10 +893,12 @@
         highlightPosition(x, y, className) {
             const marker = document.createElement("div");
             marker.className = `piece ${className}`;
+            marker.dataset.overlay = className || 'overlay';
 
             marker.style.width = `${this.cellWidth}px`;
             marker.style.height = `${this.cellHeight}px`;
             marker.style.lineHeight = `${this.cellHeight}px`;
+            marker.style.pointerEvents = "none";
 
             const displayX = this.isFlipped ? (8 - x) : x;
             const displayY = this.isFlipped ? (9 - y) : y;
@@ -907,6 +1002,7 @@
 
         clearHighlights() {
             document.querySelectorAll(".highlight").forEach(el => el.remove());
+            this.clearHoverHighlights();
         }
 
         async checkForCheckmate() {
@@ -937,8 +1033,8 @@
                 gameOverMessage.style.display = "none";
             }, 5000);
         }
-
         async updateMoveHistory() {
+            // Render history as clickable half-moves (red/black) for quick navigation.
             const moveList = document.getElementById('move-list');
             if (!moveList) {
                 console.warn('Move list element not found');
@@ -946,24 +1042,60 @@
             }
 
             const history = await window.XiangqiGameAPI.getMoveHistory();
+            const currentIndex = await window.XiangqiGameAPI.getCurrentMoveIndex();
             this.moveHistory = history.map((move) => move.moveNotation || '-');
 
             moveList.innerHTML = '';
 
             let moveNumber = 1;
             for (let i = 0; i < this.moveHistory.length; i += 2) {
-                const row = document.createElement('tr');
-                const redMove = this.moveHistory[i] || '-';
-                const blackMove = this.moveHistory[i + 1] || '-';
-                row.innerHTML = `
-                    <td>${moveNumber}</td>
-                    <td>${redMove}</td>
-                    <td>${blackMove}</td>
-                `;
-                moveList.appendChild(row);
+                // Each history list item represents one full turn (red + black half-moves).
+                const item = document.createElement('li');
+                item.className = 'move-row';
+
+                const redIndex = i;
+                const blackIndex = i + 1;
+                const redMove = this.moveHistory[redIndex] || '-';
+                const blackMove = this.moveHistory[blackIndex] || '-';
+
+                const numberSpan = document.createElement('span');
+                numberSpan.className = 'move-no';
+                numberSpan.textContent = `${moveNumber}.`;
+
+                const redSpan = document.createElement('span');
+                redSpan.className = 'move-side move-red';
+                redSpan.textContent = redMove;
+                if (redMove !== '-') {
+                    redSpan.classList.add('move-clickable');
+                    if (redIndex === currentIndex) {
+                        redSpan.classList.add('move-current');
+                    }
+                    redSpan.addEventListener('click', async () => {
+                        await this.goToMove(redIndex);
+                    });
+                }
+
+                const blackSpan = document.createElement('span');
+                blackSpan.className = 'move-side move-black';
+                blackSpan.textContent = blackMove;
+                if (blackMove !== '-') {
+                    blackSpan.classList.add('move-clickable');
+                    if (blackIndex === currentIndex) {
+                        blackSpan.classList.add('move-current');
+                    }
+                    blackSpan.addEventListener('click', async () => {
+                        await this.goToMove(blackIndex);
+                    });
+                }
+
+                item.appendChild(numberSpan);
+                item.appendChild(redSpan);
+                item.appendChild(blackSpan);
+                moveList.appendChild(item);
                 moveNumber++;
             }
-        }
+        }
+
         async syncAfterStateChange(options = {}) {
             const reanalyze = options.reanalyze !== false;
             const clearSuggestions = options.clearSuggestions !== false;
@@ -1013,9 +1145,9 @@
             }
         }
         // Ham danh dau nuoc di
-        highlightMove(fromX, fromY, toX, toY, className) {
+        async highlightMove(fromX, fromY, toX, toY, className) {
             this.clearHoverHighlights();
-            const fromPiece = window.XiangqiGameAPI.getPiece(fromX, fromY);
+            const fromPiece = await window.XiangqiGameAPI.getPiece(fromX, fromY);
             if (fromPiece) {
                 const pieceDiv = piecesContainer.querySelector(`[data-x="${fromX}"][data-y="${fromY}"]`);
                 if (pieceDiv) pieceDiv.classList.add(className);
@@ -1026,17 +1158,15 @@
         }
         clearHoverHighlights() {
             document.querySelectorAll(".hover-move").forEach(el => el.classList.remove("hover-move"));
+            document.querySelectorAll('.piece[data-overlay="hover-move"]').forEach(el => el.remove());
         }
         async goToMove(index) {
-            await window.XiangqiGameAPI.resetToInitial();
-            const moves = await window.XiangqiGameAPI.getMoveHistory();
-            for (let i = 0; i <= index; i++) {
-                const move = moves[i];
-                await window.XiangqiGameAPI.move(move.fromX, move.fromY, move.toX, move.toY);
+            // Jump board state to the selected move index from history.
+            const success = await window.XiangqiGameAPI.goToMove(index);
+            if (!success) {
+                return;
             }
-            await this.renderPieces(this.offsetX, this.offsetY, this.scale);
-            await this.updateMoveHistory();
-            await this.analyzeCurrentPosition();
+            await this.syncAfterStateChange({ clearSuggestions: false });
         }
 
         async updateEngineList() {
@@ -1085,6 +1215,60 @@
             });
         }
 
+
+        async updateBookList() {
+            const bookSelect = document.getElementById("book-select");
+            if (!bookSelect) {
+                return;
+            }
+
+            const result = await window.XiangqiGameAPI.getBooks();
+            if (!result || !result.success) {
+                bookSelect.innerHTML = '';
+                const opt = document.createElement('option');
+                opt.textContent = 'Cannot load books';
+                opt.value = '';
+                bookSelect.appendChild(opt);
+                return;
+            }
+
+            const books = Array.isArray(result.books) ? result.books : [];
+            this.availableBooks = books;
+            const active = books.find(b => b.isActive);
+            this.selectedBookPath = active ? active.path : (books[0] ? books[0].path : null);
+
+            bookSelect.innerHTML = '';
+            books.forEach((book) => {
+                const opt = document.createElement('option');
+                opt.value = book.path;
+                opt.textContent = book.isActive ? `${book.name} (active)` : book.name;
+                opt.title = book.path;
+                if (book.path === this.selectedBookPath) {
+                    opt.selected = true;
+                }
+                bookSelect.appendChild(opt);
+            });
+
+            bookSelect.onchange = () => {
+                this.selectedBookPath = bookSelect.value || null;
+            };
+        }
+
+        async convertSelectedBook(language) {
+            if (!this.selectedBookPath) {
+                alert('No book selected.');
+                return;
+            }
+
+            const result = await window.XiangqiGameAPI.convertBookLanguage(this.selectedBookPath, language);
+            if (!result || !result.success) {
+                alert(result?.error || 'Convert failed.');
+                return;
+            }
+
+            alert(result.message || 'Book converted.');
+            await this.updateBookList();
+        }
         showEditEngineForm(index, engine) {
             const modal = document.getElementById("edit-engine-modal");
             const overlay = document.getElementById("modal-overlay");
@@ -1165,17 +1349,67 @@
             const engineMenu = document.getElementById("engine-menu");
             const addEngineBtn = document.getElementById("add-engine-btn");
             const engineFileInput = document.getElementById("engine-file-input");
+            const bookBtn = document.getElementById("book-btn");
+            const bookMenu = document.getElementById("book-menu");
+            const refreshBookBtn = document.getElementById("refresh-book-btn");
+            const convertBookViBtn = document.getElementById("convert-book-vi-btn");
+            const convertBookEnBtn = document.getElementById("convert-book-en-btn");
+            const loadBookBtn = document.getElementById("load-book-btn");
 
             engineBtn.addEventListener("click", () => {
                 engineMenu.style.display = engineMenu.style.display === "none" ? "block" : "none";
                 this.updateEngineList();
             });
 
+            if (bookBtn && bookMenu) {
+                bookBtn.addEventListener("click", async () => {
+                    bookMenu.style.display = bookMenu.style.display === "none" ? "block" : "none";
+                    await this.updateBookList();
+                });
+            }
+
             document.addEventListener("click", (event) => {
                 if (!engineBtn.contains(event.target) && !engineMenu.contains(event.target)) {
                     engineMenu.style.display = "none";
                 }
+                if (bookBtn && bookMenu && !bookBtn.contains(event.target) && !bookMenu.contains(event.target)) {
+                    bookMenu.style.display = "none";
+                }
             });
+
+            if (refreshBookBtn) {
+                refreshBookBtn.addEventListener("click", async () => {
+                    await this.updateBookList();
+                });
+            }
+
+            if (convertBookViBtn) {
+                convertBookViBtn.addEventListener("click", async () => {
+                    await this.convertSelectedBook('vi');
+                });
+            }
+
+            if (convertBookEnBtn) {
+                convertBookEnBtn.addEventListener("click", async () => {
+                    await this.convertSelectedBook('en');
+                });
+            }
+            if (loadBookBtn) {
+                loadBookBtn.addEventListener("click", async () => {
+                    if (!this.selectedBookPath) {
+                        alert('No book selected.');
+                        return;
+                    }
+                    const selected = await window.XiangqiGameAPI.selectBook(this.selectedBookPath);
+                    if (selected && selected.success) {
+                        await this.loadBookData();
+                        await this.analyzeCurrentPosition();
+                        await this.updateBookList();
+                    } else {
+                        alert(selected?.error || 'Failed to load selected book');
+                    }
+                });
+            }
 
             addEngineBtn.addEventListener("click", () => {
                 engineFileInput.click();
@@ -1209,115 +1443,52 @@
                 }
             });
             const undoBtn = document.getElementById("undo-btn");
-            undoBtn.addEventListener("click", async () => {
+            const redoBtn = document.getElementById("redo-btn");
+            const resetInitialBtn = document.getElementById("reset-initial-btn");
+            const resetGameBtn = document.getElementById("reset-game-btn");
+            const flipBoardBtn = document.getElementById("flip-board-btn");
+
+            // Shared action handlers are used by both on-screen buttons and top menu.
+            // do* handlers centralize side-effects so behavior stays identical
+            // regardless of trigger source (button click vs native menu action).
+            const doUndo = async () => {
                 const success = await window.XiangqiGameAPI.undo();
                 if (success) {
                     await this.syncAfterStateChange();
                     controlsMenu.style.display = "none";
                 }
-            });
-            const redoBtn = document.getElementById("redo-btn");
-            redoBtn.addEventListener("click", async () => {
+            };
+            const doRedo = async () => {
                 const success = await window.XiangqiGameAPI.redo();
                 if (success) {
                     await this.syncAfterStateChange();
                     controlsMenu.style.display = "none";
                 }
-            });
-            const resetInitialBtn = document.getElementById("reset-initial-btn");
-            resetInitialBtn.addEventListener("click", async () => {
-                const shouldReset = confirm("Reset board to initial position? This will clear current progress.");
+            };
+            const doResetInitial = async () => {
+                const shouldReset = confirm("Back to start position? History is kept so you can Redo moves from move 1.");
                 if (!shouldReset) {
                     return;
                 }
-
                 const success = await window.XiangqiGameAPI.resetToInitial();
                 if (success) {
                     await this.syncAfterStateChange();
                     controlsMenu.style.display = "none";
                 }
-            });
-            const resetGameBtn = document.getElementById("reset-game-btn");
-            resetGameBtn.addEventListener("click", async () => {
+            };
+            const doResetGame = async () => {
                 const shouldReset = confirm("Reset whole game? Move history and current position will be lost.");
                 if (!shouldReset) {
                     return;
                 }
-
                 const success = await window.XiangqiGameAPI.resetGame();
                 if (success) {
                     this.moveHistory = [];
                     await this.syncAfterStateChange();
                     controlsMenu.style.display = "none";
                 }
-            });
-            const exportGameBtn = document.getElementById("export-game-btn");
-            exportGameBtn.addEventListener("click", async () => {
-                const gameData = await window.XiangqiGameAPI.exportGame();
-                const blob = new Blob([gameData], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = 'xiangqi-game.json';
-                a.click();
-                URL.revokeObjectURL(url);
-                controlsMenu.style.display = "none";
-            });
-            const importGameBtn = document.getElementById("import-game-btn");
-            const importGameFile = document.getElementById("import-game-file");
-            importGameBtn.addEventListener("click", () => {
-                importGameFile.click();
-                controlsMenu.style.display = "none";
-            });
-
-            importGameFile.addEventListener("change", async (event) => {
-                const file = event.target.files[0];
-                if (file) {
-                    const reader = new FileReader();
-                    reader.onload = async (e) => {
-                        const gameData = e.target.result;
-                        const success = await window.XiangqiGameAPI.importGame(gameData);
-                        if (success) {
-                            this.clearHighlights();
-                            this.selectedPiece = null;
-                            await this.renderPieces(this.offsetX, this.offsetY, this.scale);
-                            await this.updateMoveHistory();
-                        } else {
-                            alert('Failed to import game.');
-                        }
-                        controlsMenu.style.display = "none";
-                    };
-                    reader.readAsText(file);
-                }
-            });
-            const importBookBtn = document.getElementById("import-book-btn");
-            const importBookFile = document.getElementById("import-book-file");
-            if (importBookBtn && importBookFile) {
-                importBookBtn.addEventListener("click", () => {
-                    importBookFile.click();
-                    controlsMenu.style.display = "none";
-                });
-
-                importBookFile.addEventListener("change", async (event) => {
-                    const file = event.target.files[0];
-                    if (!file) {
-                        return;
-                    }
-                    const result = await window.XiangqiGameAPI.importBookFile(file.path);
-                    if (!result || !result.success) {
-                        alert(`Failed to import book: ${result?.error || 'Unknown error'}`);
-                    } else {
-                        if (result.type === 'json') {
-                            await this.loadBookData();
-                            await this.analyzeCurrentPosition();
-                        }
-                        alert(result.message || 'Book imported.');
-                    }
-                    importBookFile.value = "";
-                });
-            }
-            const flipBoardBtn = document.getElementById("flip-board-btn");
-            flipBoardBtn.addEventListener("click", async () => {
+            };
+            const doFlipBoard = async () => {
                 this.isFlipped = !this.isFlipped;
                 window.XiangqiGameAPI.setFlipped(this.isFlipped);
                 this.updateBoardDisplay();
@@ -1327,6 +1498,53 @@
                     await this.highlightMoves(x, y, this.offsetX, this.offsetY, this.scale);
                 }
                 controlsMenu.style.display = "none";
+            };
+
+            if (undoBtn) undoBtn.addEventListener("click", doUndo);
+            if (redoBtn) redoBtn.addEventListener("click", doRedo);
+            if (resetInitialBtn) resetInitialBtn.addEventListener("click", doResetInitial);
+            if (resetGameBtn) resetGameBtn.addEventListener("click", doResetGame);
+            if (flipBoardBtn) flipBoardBtn.addEventListener("click", doFlipBoard);
+
+            window.XiangqiGameAPI.on('menu-action', async (_event, action) => {
+                // menu-action channel is the cross-process bridge from main menu.
+                switch (action) {
+                    case 'undo':
+                        await doUndo();
+                        break;
+                    case 'redo':
+                        await doRedo();
+                        break;
+                    case 'reset-initial':
+                        await doResetInitial();
+                        break;
+                    case 'reset-game':
+                        await doResetGame();
+                        break;
+                    case 'flip-board':
+                        await doFlipBoard();
+                        break;
+                    case 'load-suggestions':
+                        loadSuggestionsBtn?.click();
+                        break;
+                    case 'import-game':
+                        importGameBtn.click();
+                        break;
+                    case 'export-game':
+                        exportGameBtn.click();
+                        break;
+                    case 'import-book':
+                        importBookBtn?.click();
+                        break;
+                    case 'open-engine-menu':
+                        engineBtn.click();
+                        break;
+                    case 'open-book-menu':
+                        bookBtn?.click();
+                        break;
+                    default:
+                        break;
+                }
             });
             const boardTypeSelect = document.getElementById("board-type");
             boardTypeSelect.addEventListener("change", () => {
@@ -1340,6 +1558,38 @@
         new XiangqiUI();
     });
 })();
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

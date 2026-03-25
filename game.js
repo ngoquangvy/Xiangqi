@@ -1,4 +1,4 @@
-// game.js
+﻿// game.js
 const ROWS = 10;
 const COLS = 9;
 
@@ -193,10 +193,6 @@ class XiangqiGame {
     //     });
     //     this.currentStep++;
     // }
-
-    getBoardSnapshot() {
-        return this.board.map(row => row.map(cell => (cell ? { ...cell } : null)));
-    }
 
     getPiece(x, y) {
         if (!this.board || !Array.isArray(this.board) || !this.board[y] || !this.isValidPosition(x, y)) {
@@ -552,6 +548,10 @@ class XiangqiGame {
     }
 
     undo() {
+        // Timeline model:
+        // - moveHistory stores full timeline of committed moves.
+        // - currentMoveIndex points to the last applied move in that timeline.
+        // Undo moves pointer backward and restores board from saved move snapshot.
         if (this.currentMoveIndex < 0) return false;
 
         const move = this.moveHistory[this.currentMoveIndex];
@@ -562,7 +562,7 @@ class XiangqiGame {
         this.board[move.fromY][move.fromX] = piece;
         this.board[move.toY][move.toX] = move.capturedPiece; // Khôi phục quân cờ bị ăn (nếu có)
         this.currentTurn = move.currentTurn; // Khôi phục lượt chơi
-        // Giảm moveCount nếu quay lại từ đỏ về đen
+        // Giảm moveCount nếu quay lại lượt đen
         if (this.currentTurn === "black" && this.moveCount > 1) {
             this.moveCount--;
         }
@@ -572,6 +572,7 @@ class XiangqiGame {
     }
 
     redo() {
+        // Redo re-applies exactly one move from timeline (pointer + 1).
         if (this.currentMoveIndex >= this.moveHistory.length - 1) return false;
 
         this.currentMoveIndex++;
@@ -592,10 +593,11 @@ class XiangqiGame {
     }
 
     resetToInitial() {
+        // Reset board view to start, but keep history so Redo still works.
         if (!this.initialBoard) return false;
         this.board = this.initialBoard.map(row => row.map(cell => (cell ? { ...cell } : null)));
         this.currentTurn = "red";
-        this.moveHistory = [];
+        // Keep full history so user can redo from start.
         this.currentMoveIndex = -1;
         this.moveCount = 1; // Đặt lại moveCount
         return true;
@@ -612,7 +614,61 @@ class XiangqiGame {
         return true;
     }
 
+    getCurrentMoveIndex() {
+        return this.currentMoveIndex;
+    }
+
+    goToMove(index) {
+        // Rebuild board from initial position up to selected move index.
+        // goToMove is used by clickable history rows in UI.
+        // It never mutates moveHistory; only recalculates board + timeline pointer.
+        if (!this.initialBoard || !Array.isArray(this.moveHistory)) {
+            return false;
+        }
+        if (typeof index !== "number" || index < -1 || index >= this.moveHistory.length) {
+            return false;
+        }
+
+        this.board = this.initialBoard.map(row => row.map(cell => (cell ? { ...cell } : null)));
+        this.currentTurn = "red";
+        this.currentMoveIndex = -1;
+        this.moveCount = 1;
+
+        for (let i = 0; i <= index; i++) {
+            const move = this.moveHistory[i];
+            if (!move) {
+                return false;
+            }
+
+            let piece = this.board[move.fromY]?.[move.fromX] || null;
+            // Fallback for old history entries: recover piece from saved move payload.
+            if (!piece && move.piece) {
+                piece = { ...move.piece };
+                this.board[move.fromY][move.fromX] = piece;
+            }
+            if (!piece) {
+                return false;
+            }
+
+            this.board[move.toY][move.toX] = piece;
+            this.board[move.fromY][move.fromX] = null;
+
+            const previousTurn = this.currentTurn;
+            this.currentTurn = this.currentTurn === "red" ? "black" : "red";
+            if (previousTurn === "black" && this.currentTurn === "red") {
+                this.moveCount++;
+            }
+            this.currentMoveIndex = i;
+        }
+
+        return true;
+    }
+
     getMoveHistory() {
+        // getMoveHistory returns display-ready data for renderer tables.
+        // Payload includes both notation and raw coordinates:
+        // - notation for display
+        // - coordinates for navigation/highlighting
         if (!this.moveHistory || !Array.isArray(this.moveHistory)) {
             console.error('Move history is not initialized or invalid:', this.moveHistory);
             return [];
@@ -624,6 +680,7 @@ class XiangqiGame {
             }
             try {
                 const notation = this.getMoveNotation(move);
+                // Keep raw coordinates in response so UI can jump directly to a move.
                 return { ...move, moveNotation: notation };
             } catch (err) {
                 console.error(`Error processing move ${index}:`, move, err);

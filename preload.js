@@ -6,6 +6,10 @@ let engineOutputCallback = null;
 
 
 contextBridge.exposeInMainWorld('XiangqiGameAPI', {
+    // Preload is the trust boundary:
+    // - Renderer only sees explicit APIs listed here.
+    // - Main process channels stay private behind these wrappers.
+    // - Keeps UI code decoupled from Electron internals.
     getPiece: (x, y) => ipcRenderer.invoke('get-piece', x, y),
     move: (fromX, fromY, toX, toY) => ipcRenderer.invoke('move-piece', fromX, fromY, toX, toY),
     makeMove: (fromX, fromY, toX, toY) => ipcRenderer.invoke('move-piece', fromX, fromY, toX, toY),
@@ -18,10 +22,16 @@ contextBridge.exposeInMainWorld('XiangqiGameAPI', {
     resetToInitial: () => ipcRenderer.invoke('reset-to-initial'),
     resetGame: () => ipcRenderer.invoke('reset-game'),
     getMoveHistory: () => ipcRenderer.invoke('get-move-history'),
+    // Move-history navigation helpers used by clickable rows in UI.
+    getCurrentMoveIndex: () => ipcRenderer.invoke('get-current-move-index'),
+    goToMove: (index) => ipcRenderer.invoke('go-to-move', index),
     exportGame: () => ipcRenderer.invoke('export-game'),
     setFlipped: (isFlipped) => ipcRenderer.invoke('set-flipped', isFlipped),
     importGame: (gameData) => ipcRenderer.invoke('import-game', gameData),
     importBookFile: (filePath) => ipcRenderer.invoke('import-book-file', filePath),
+    getBooks: () => ipcRenderer.invoke('get-books'),
+    selectBook: (bookPath) => ipcRenderer.invoke('select-book', bookPath),
+    convertBookLanguage: (bookPath, language) => ipcRenderer.invoke('convert-book-language', bookPath, language),
     analyzePosition: (fen) => ipcRenderer.send('analyze-position', fen),
     onEngineOutput: (callback) => ipcRenderer.on('engine-output', (event, data) => callback(data)),
     getFen: () => ipcRenderer.invoke('get-fen'),
@@ -50,6 +60,9 @@ ipcRenderer.on('update-protocol', (event, protocol) => {
 });
 
 ipcRenderer.on('engine-output', (event, data) => {
+    // Dual registration pattern:
+    // - UI may register callback later than first engine output.
+    // - Keep callback in a mutable ref so late listeners still receive data.
     if (engineOutputCallback) {
         engineOutputCallback(data);
     } else {
@@ -65,6 +78,7 @@ ipcRenderer.on('engine-error', (event, error) => {
     console.error('Engine error:', error);
     window.dispatchEvent(new CustomEvent('engine-error', { detail: error }));
 });
+
 
 
 
