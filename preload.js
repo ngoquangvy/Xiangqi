@@ -33,11 +33,13 @@ contextBridge.exposeInMainWorld('XiangqiGameAPI', {
     selectBook: (bookPath) => ipcRenderer.invoke('select-book', bookPath),
     convertBookLanguage: (bookPath, language) => ipcRenderer.invoke('convert-book-language', bookPath, language),
     analyzePosition: (fen) => ipcRenderer.send('analyze-position', fen),
+    evaluateMove: (fen, moveUci) => ipcRenderer.send('evaluate-move', fen, moveUci),
     onEngineOutput: (callback) => ipcRenderer.on('engine-output', (event, data) => callback(data)),
     getFen: () => ipcRenderer.invoke('get-fen'),
     onEngineReady: (callback) => ipcRenderer.on('engine-ready', (event) => callback()),
     getMoveNotation: (fromX, fromY, toX, toY) => ipcRenderer.invoke('get-move-notation', fromX, fromY, toX, toY),
     getEngines: () => ipcRenderer.invoke('get-engines'),
+    browseEngineBook: () => ipcRenderer.invoke('browse-engine-book'),
     addEngine: (path) => ipcRenderer.invoke('add-engine', path),
     removeEngine: (index) => ipcRenderer.invoke('remove-engine', index),
     selectEngine: (index) => ipcRenderer.invoke('select-engine', index),
@@ -56,7 +58,6 @@ contextBridge.exposeInMainWorld('XiangqiGameAPI', {
 });
 ipcRenderer.on('update-protocol', (event, protocol) => {
     engineProtocol = protocol || 'uci';
-    console.log(`Protocol updated to: ${engineProtocol}`);
 });
 
 ipcRenderer.on('engine-output', (event, data) => {
@@ -66,18 +67,17 @@ ipcRenderer.on('engine-output', (event, data) => {
     if (engineOutputCallback) {
         engineOutputCallback(data);
     } else {
-        console.log('UI not ready, engine output received but not processed:', data);
     }
 });
 
-ipcRenderer.on('engine-ready', () => {
-    console.log('Engine is ready');
-});
+ipcRenderer.on('engine-ready', () => {});
 
 ipcRenderer.on('engine-error', (event, error) => {
     console.error('Engine error:', error);
     window.dispatchEvent(new CustomEvent('engine-error', { detail: error }));
 });
+
+
 
 
 

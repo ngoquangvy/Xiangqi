@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -27,19 +27,26 @@
                 </div>
                 <button id="engine-btn">Engine</button>
                 <div id="engine-menu"
-                    style="display: none; position: absolute; background: white; border: 1px solid #ccc; padding: 5px;">
+                    style="display: none; position: absolute; background: white; border: 1px solid #ccc; padding: 10px; z-index: 9999; box-shadow: 0px 4px 6px rgba(0,0,0,0.1);">
+                    <div style="text-align: right; margin-bottom: 5px;">
+                        <button id="close-engine-menu" style="color: red; cursor: pointer; border: none; background: transparent; font-weight: bold;">[X] Close</button>
+                    </div>
                     <button id="add-engine-btn">Add Engine</button>
                     <input type="file" id="engine-file-input" style="display: none;" accept=".exe">
                     <div id="engine-list"></div>
                 </div>
                 <button id="book-btn">Book</button>
                 <div id="book-menu"
-                    style="display: none; position: absolute; background: white; border: 1px solid #ccc; padding: 5px;">
+                    style="display: none; position: absolute; background: white; border: 1px solid #ccc; padding: 10px; z-index: 9999; box-shadow: 0px 4px 6px rgba(0,0,0,0.1);">
+                    <div style="text-align: right; margin-bottom: 5px;">
+                        <button id="close-book-menu" style="color: red; cursor: pointer; border: none; background: transparent; font-weight: bold;">[X] Close</button>
+                    </div>
                     <button id="refresh-book-btn">Refresh</button>
                     <button id="convert-book-vi-btn">Convert VI</button>
                     <button id="convert-book-en-btn">Convert EN</button>
+                    <br><br>
                     <select id="book-select"></select>
-                    <button id="load-book-btn">Load</button>
+                    <button id="load-book-btn">Load Book</button>
                 </div>
             </div>
             <div id="move-history">
@@ -99,13 +106,15 @@
             </table>
 
             <div id="move-evaluation">
-                <h3>Move Evaluation</h3>
-                <table>
+                <h3>Move Evaluation (Chuột phải vào vị trí bất kỳ lúc chọn quân để phân tích)</h3>
+                <table id="evaluation-table">
                     <thead>
                         <tr>
-                            <th>Score</th>
-                            <th>Rank</th>
-                            <th>Note</th>
+                            <th style="width: 15%;">Move</th>
+                            <th style="width: 15%;">Score</th>
+                            <th style="width: 10%;">Depth</th>
+                            <th style="width: 45%;">Principal Variation</th>
+                            <th style="width: 15%;">Note</th>
                         </tr>
                     </thead>
                     <tbody id="evaluation-body"></tbody>
@@ -127,7 +136,15 @@
             <label for="edit-engine-threads">Threads:</label>
             <input type="number" id="edit-engine-threads" min="1"><br>
             <label for="edit-engine-skill-level">Skill Level:</label>
-            <input type="number" id="edit-engine-skill-level" min="1" max="20"><br>
+            <input type="number" id="edit-engine-skill-level" min="1" max="20"><br><br>
+            
+            <label for="edit-engine-bookFile">Engine Book File (.xob / .bin):</label>
+            <div style="display: flex; flex-direction: row; align-items: center; gap: 5px; margin-bottom: 10px;">
+                <input type="text" id="edit-engine-bookFile" placeholder="No book selected" readonly style="flex-grow: 1; background-color: #f0f0f0; border: 1px solid #ccc;">
+                <button type="button" id="browse-engine-book-btn">Browse</button>
+                <button type="button" id="clear-engine-book-btn" style="color: red;">Clear</button>
+            </div>
+
             <button type="submit">Save</button>
             <button type="button" id="cancel-edit-engine">Cancel</button>
         </form>

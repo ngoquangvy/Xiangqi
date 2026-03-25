@@ -45,6 +45,7 @@
             this.currentFen = null;
             this.currentBookCandidates = [];
             this.latestSuggestionRows = [];
+            this.isEvaluatingSpecificMove = false;
             window.XiangqiGameAPI.onEngineOutput((data) => {
                 this.handleEngineOutput(data);
             });
@@ -61,6 +62,60 @@
                 this.updateEngineList();
                 alert(`Engine crashed. Switched to default engine: ${engines[index].name}`);
             });
+
+            if (window.XiangqiGameAPI.on) {
+                window.XiangqiGameAPI.on('menu-action', (event, action) => {
+                    switch (action) {
+                        case 'import-game': document.getElementById('import-game-btn').click(); break;
+                        case 'export-game': document.getElementById('export-game-btn').click(); break;
+                        case 'import-book': document.getElementById('import-book-btn').click(); break;
+                        case 'undo': document.getElementById('undo-btn').click(); break;
+                        case 'redo': document.getElementById('redo-btn').click(); break;
+                        case 'reset-initial': document.getElementById('reset-initial-btn').click(); break;
+                        case 'reset-game': document.getElementById('reset-game-btn').click(); break;
+                        case 'flip-board': document.getElementById('flip-board-btn').click(); break;
+                        case 'load-suggestions': document.getElementById('load-suggestions-btn').click(); break;
+                        case 'open-engine-menu': 
+                            setTimeout(() => {
+                                const engineMenu = document.getElementById('engine-menu');
+                                if (engineMenu) {
+                                    if (engineMenu.parentElement.id !== 'main-container' && engineMenu.parentElement !== document.body) {
+                                        document.body.appendChild(engineMenu);
+                                    }
+                                    engineMenu.style.zIndex = "9999";
+                                    engineMenu.style.top = "30%";
+                                    engineMenu.style.left = "50%";
+                                    engineMenu.style.transform = "translate(-50%, -50%)";
+                                    engineMenu.style.boxShadow = "0px 10px 30px rgba(0,0,0,0.5)";
+                                    engineMenu.style.padding = "20px";
+                                    engineMenu.style.borderRadius = "8px";
+                                    engineMenu.style.display = "block";
+                                    this.updateEngineList();
+                                }
+                            }, 50);
+                            break;
+                        case 'open-book-menu': 
+                            setTimeout(() => {
+                                const bookMenu = document.getElementById('book-menu');
+                                if (bookMenu) {
+                                    if (bookMenu.parentElement.id !== 'main-container' && bookMenu.parentElement !== document.body) {
+                                        document.body.appendChild(bookMenu);
+                                    }
+                                    bookMenu.style.zIndex = "9999";
+                                    bookMenu.style.top = "30%";
+                                    bookMenu.style.left = "50%";
+                                    bookMenu.style.transform = "translate(-50%, -50%)";
+                                    bookMenu.style.boxShadow = "0px 10px 30px rgba(0,0,0,0.5)";
+                                    bookMenu.style.padding = "20px";
+                                    bookMenu.style.borderRadius = "8px";
+                                    bookMenu.style.display = "block";
+                                    this.updateBookList();
+                                }
+                            }, 50);
+                            break;
+                    }
+                });
+            }
 
             if (canvas) {
                 canvas.width = (8 * this.cellWidth + 40) * this.devicePixelRatio;
@@ -83,13 +138,23 @@
             this.loadBookData();
         }
         async analyzeCurrentPosition() {
+            if (this.isEvaluatingSpecificMove) return;
+
             try {
-                // Keep current table visible while engine recalculates.
+                // Keep status visible while engine recalculates.
                 this.clearHoverHighlights();
                 this.setSuggestionLoading(true, 'Analyzing suggestions...');
                 const fen = await window.XiangqiGameAPI.getFen();
                 this.currentFen = fen;
                 this.pendingSuggestions.clear();
+                
+                // Clear stale state to prevent UI from showing past moves
+                this.latestSuggestionRows = [];
+                this.currentBookCandidates = [];
+                if (this.suggestionsBody) {
+                    this.suggestionsBody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 10px; color: #8A7355;">Äang phÃ¢n tÃ­ch tháº¿ cá»...</td></tr>';
+                }
+
                 window.XiangqiGameAPI.analyzePosition(fen);
             } catch (err) {
                 this.setSuggestionLoading(false, 'Analyze failed');
@@ -268,27 +333,31 @@
 
         applySuggestionHighlightStyle(marker, hasEngine, hasBook) {
             marker.style.setProperty("opacity", "1", "important");
+            marker.style.setProperty("border-radius", "50%", "important");
+            marker.style.setProperty("box-sizing", "border-box", "important");
+            
             if (hasEngine && hasBook) {
-                marker.style.setProperty("background", "linear-gradient(135deg, rgba(38,117,59,0.24) 0%, rgba(38,117,59,0.24) 48%, rgba(36,82,184,0.24) 52%, rgba(36,82,184,0.24) 100%)", "important");
-                marker.style.setProperty("border", "2px solid #2452b8", "important");
-                marker.style.setProperty("box-shadow", "inset 0 0 0 2px #26753b", "important");
+                marker.style.setProperty("background", "linear-gradient(135deg, rgba(38,117,59,0.5) 0%, rgba(38,117,59,0.5) 50%, rgba(36,82,184,0.5) 50%, rgba(36,82,184,0.5) 100%)", "important");
+                marker.style.setProperty("border", "3px solid #ffcc00", "important");
+                marker.style.setProperty("box-shadow", "0 0 10px rgba(255,204,0,0.8), inset 0 0 5px rgba(255,204,0,0.5)", "important");
                 return;
             }
             if (hasEngine) {
-                marker.style.setProperty("background-color", "rgba(36,82,184,0.18)", "important");
-                marker.style.setProperty("border", "2px solid #2452b8", "important");
-                marker.style.removeProperty("box-shadow");
+                marker.style.setProperty("background", "radial-gradient(circle, rgba(36,82,184,0.5) 0%, rgba(36,82,184,0.1) 70%)", "important");
+                marker.style.setProperty("border", "3px solid #2452b8", "important");
+                marker.style.setProperty("box-shadow", "0 0 8px rgba(36,82,184,0.7)", "important");
                 return;
             }
             if (hasBook) {
-                marker.style.setProperty("background-color", "rgba(38,117,59,0.18)", "important");
-                marker.style.setProperty("border", "2px solid #26753b", "important");
-                marker.style.removeProperty("box-shadow");
+                marker.style.setProperty("background", "radial-gradient(circle, rgba(38,117,59,0.5) 0%, rgba(38,117,59,0.1) 70%)", "important");
+                marker.style.setProperty("border", "3px solid #26753b", "important");
+                marker.style.setProperty("box-shadow", "0 0 8px rgba(38,117,59,0.7)", "important");
                 return;
             }
-            marker.style.setProperty("background-color", "transparent", "important");
-            marker.style.setProperty("border", "2px solid #d4a017", "important");
-            marker.style.removeProperty("box-shadow");
+            // Normal legal move
+            marker.style.setProperty("background", "radial-gradient(circle, rgba(212,160,23,0.5) 0%, rgba(212,160,23,0.1) 60%, transparent 70%)", "important");
+            marker.style.setProperty("border", "2px dashed rgba(212,160,23,0.8)", "important");
+            marker.style.setProperty("box-shadow", "0 0 5px rgba(212,160,23,0.4)", "important");
         }
         async makeMove(fromX, fromY, toX, toY) {
             const moveResult = await window.XiangqiGameAPI.move(fromX, fromY, toX, toY);
@@ -350,11 +419,19 @@
                         const multipvIndex = parts.indexOf('multipv');
                         if (scoreIndex !== -1 && pvIndex !== -1) {
                             const scoreType = parts[scoreIndex + 1];
-                            scoreValue = parseInt(parts[scoreIndex + 2]);
+                            let scoreValue = parseInt(parts[scoreIndex + 2]);
+                            if (this.isEvaluatingSpecificMove) {
+                                scoreValue = -scoreValue;
+                            }
+                            
                             move = parts[pvIndex + 1];
+                            if (this.isEvaluatingSpecificMove && this.evalSpecificMoveUci) {
+                                move = this.evalSpecificMoveUci;
+                            }
+                            
                             const rank = multipvIndex !== -1 ? parseInt(parts[multipvIndex + 1]) : 1;
                             if (scoreType === 'mate') {
-                                note = `Mate in ${scoreValue}`;
+                                note = this.isEvaluatingSpecificMove ? `Mate in ${-scoreValue}` : `Mate in ${scoreValue}`;
                             } else if (scoreType === 'cp') {
                                 note = `${(scoreValue / 100).toFixed(2)} points`;
                             }
@@ -362,14 +439,23 @@
                             const nodes = nodesIndex !== -1 ? parseInt(parts[nodesIndex + 1]) : '-';
                             const time = timeIndex !== -1 ? (parseInt(parts[timeIndex + 1]) / 1000).toFixed(2) : '-';
                             pvMoves = parts.slice(pvIndex + 1);
-                            pvMoves = pvMoves.filter(move => /^[a-i][0-9][a-i][0-9]$/.test(move));
+                            pvMoves = pvMoves.filter(m => /^[a-i][0-9][a-i][0-9]$/.test(m));
+                            if (this.isEvaluatingSpecificMove && this.evalSpecificMoveUci) {
+                                pvMoves = [this.evalSpecificMoveUci, ...pvMoves];
+                            }
                             this.pendingSuggestions.set(rank, { move, score: scoreValue, rank, note, depth, nodes, time, pv: pvMoves });
                         }
                     } else if (this.engineProtocol === 'ucci' && line.includes('move')) {
                         const moveIndex = parts.indexOf('move');
                         if (scoreIndex !== -1 && moveIndex !== -1) {
                             scoreValue = parseInt(parts[scoreIndex + 1]);
+                            if (this.isEvaluatingSpecificMove) scoreValue = -scoreValue;
+                            
                             move = parts[moveIndex + 1];
+                            if (this.isEvaluatingSpecificMove && this.evalSpecificMoveUci) {
+                                move = this.evalSpecificMoveUci;
+                            }
+                            
                             note = `${scoreValue} points`;
                             const depth = depthIndex !== -1 ? parseInt(parts[depthIndex + 1]) : '-';
                             const nodes = nodesIndex !== -1 ? parseInt(parts[nodesIndex + 1]) : '-';
@@ -378,15 +464,96 @@
                         }
                     }
                 } else if (line.startsWith('bestmove')) {
+                    const bestMoveMatch = line.trim().match(/^bestmove\s+([^\s]+)/);
+                    const engineBestMove = bestMoveMatch && bestMoveMatch[1] !== '(none)' ? bestMoveMatch[1] : null;
+
                     const suggestions = Array.from(this.pendingSuggestions.values()).sort((a, b) => a.rank - b.rank);
-                    if (suggestions.length > 0) {
-                        this.updateSuggestionsTable(suggestions);
+                    if (this.isEvaluatingSpecificMove) {
+                        if (suggestions.length > 0) {
+                            this.updateEvaluationTable(suggestions[0]);
+                        } else if (engineBestMove && this.evalSpecificMoveUci) {
+                            // Synthesize an evaluation row for book hits
+                            const fallbackEval = {
+                                move: this.evalSpecificMoveUci,
+                                score: 0,
+                                rank: 1,
+                                note: 'Book / Instant Reply',
+                                depth: 'Book',
+                                nodes: '-',
+                                time: '-',
+                                pv: [this.evalSpecificMoveUci, engineBestMove]
+                            };
+                            this.updateEvaluationTable(fallbackEval);
+                        } else {
+                            if (this.evaluationBody) this.evaluationBody.innerHTML = `<tr><td colspan="5" style="text-align:center;">PhÃ¢n tÃ­ch khÃ´ng kháº£ dá»¥ng</td></tr>`;
+                        }
+                        this.isEvaluatingSpecificMove = false;
+                        this.analyzeCurrentPosition();
                     } else {
-                        this.setSuggestionLoading(false, 'No suggestion available');
+                        if (suggestions.length > 0) {
+                            this.updateSuggestionsTable(suggestions);
+                        } else {
+                            this.setSuggestionLoading(false, 'No suggestion available');
+                        }
                     }
                     this.pendingSuggestions.clear();
                 }
             });
+        }
+
+        async evaluateSpecificMove(toX, toY) {
+            if (!this.selectedPiece) return;
+            const [fromX, fromY] = this.selectedPiece;
+            const moveUci = this.toUCIMove(fromX, fromY, toX, toY);
+            this.evalSpecificMoveUci = moveUci;
+            const moveNotation = await this.convertMoveToNotation(moveUci);
+            
+            if (this.evaluationBody) {
+                this.evaluationBody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 10px; color: #8A7355;">Äang phÃ¢n tÃ­ch <b>${moveNotation}</b>...</td></tr>`;
+            }
+            
+            this.isEvaluatingSpecificMove = true;
+            this.pendingSuggestions.clear();
+            
+            if (window.XiangqiGameAPI && window.XiangqiGameAPI.evaluateMove) {
+                window.XiangqiGameAPI.evaluateMove(this.currentFen, moveUci);
+            } else {
+                if (this.evaluationBody) this.evaluationBody.innerHTML = `<tr><td colspan="5">API \`evaluateMove\` chÆ°a Ä‘Æ°á»£c há»— trá»£.</td></tr>`;
+                this.isEvaluatingSpecificMove = false;
+            }
+        }
+
+        async updateEvaluationTable(evalData) {
+            if (!this.evaluationBody) return;
+            const moveNotation = await this.convertMoveToNotation(evalData.move);
+            this.evaluationBody.innerHTML = '';
+            const row = document.createElement('tr');
+            
+            const enginePvMoves = Array.isArray(evalData.pv) ? evalData.pv : [];
+            const enginePvResult = await window.XiangqiGameAPI.formatPV(this.currentFen, enginePvMoves);
+            const enginePvNotations = Array.isArray(enginePvResult.moves) ? enginePvResult.moves : [];
+            
+            let formattedScore = '-';
+            if (evalData.note && evalData.note.includes('Mate in')) {
+                formattedScore = `<span style="color:#d4a017;font-weight:bold">${evalData.note}</span>`;
+            } else {
+                formattedScore = this.formatEngineScore(evalData.score) || '-';
+            }
+
+            row.innerHTML = `
+                <td><strong>${moveNotation}</strong></td>
+                <td class="eval-score">${formattedScore}</td>
+                <td class="eval-depth">${evalData.depth || '-'}</td>
+                <td class="pv-cell eval-pv"></td>
+                <td class="note-cell eval-note">${evalData.note ? evalData.note : ''} ${evalData.nodes && evalData.nodes !== '-' ? '(N: ' + evalData.nodes + ')' : ''}</td>
+            `;
+
+            const pvCell = row.querySelector('.pv-cell');
+            this.renderMoveSpans(pvCell, enginePvNotations, async (step) => {
+                await this.simulateToStep(-1, enginePvMoves, step);
+            });
+
+            this.evaluationBody.appendChild(row);
         }
 
         async updateSuggestionsTable(suggestions) {
@@ -596,12 +763,9 @@
 
                         const displayX = this.isFlipped ? (8 - x) : x;
                         const displayY = this.isFlipped ? (9 - y) : y;
-                        const marginX = 23;
-                        const marginY = 21;
-                        const baseLeft = displayX * this.cellWidth * this.pieceSpacing + marginX;
-                        const baseTop = displayY * this.cellHeight * this.pieceSpacing + marginY;
-                        div.style.left = `${(baseLeft + this.offsetX)}px`;
-                        div.style.top = `${(baseTop + this.offsetY)}px`;
+                        const coords = this.getPiecePosition(displayX, displayY, this.offsetX, this.offsetY);
+                        div.style.left = `${coords.left}px`;
+                        div.style.top = `${coords.top}px`;
 
                         div.style.transform = `scale(${this.scale})`;
                         div.style.transformOrigin = "center";
@@ -700,6 +864,39 @@
 
         updateBoardDisplay() {
             const boardImage = document.getElementById("board-image");
+            
+            if (this.useImageBoard) {
+                this.cellWidth = 47;
+                this.cellHeight = 48;
+                this.pieceSpacing = 1.07;
+                this.offsetX = -24;
+                this.offsetY = -24;
+                this.scale = 1.0;
+                this.numberSpacing = 1.05;
+            } else {
+                this.cellWidth = 52;
+                this.cellHeight = 52;
+                this.pieceSpacing = 1.0;
+                this.offsetX = -24;
+                this.offsetY = -24;
+                this.scale = 1.0;
+                this.numberSpacing = 1.0;
+            }
+
+            if (this.canvas) {
+                const logicalW = this.useImageBoard ? (8 * this.cellWidth + 40) : (8 * this.cellWidth + 56);
+                const logicalH = this.useImageBoard ? (9 * this.cellHeight + 40) : (9 * this.cellHeight + 56);
+                const cssW = this.useImageBoard ? (8 * this.cellWidth + 70) : logicalW;
+                const cssH = this.useImageBoard ? (9 * this.cellHeight + 70) : logicalH;
+                
+                this.canvas.width = logicalW * this.devicePixelRatio;
+                this.canvas.height = logicalH * this.devicePixelRatio;
+                this.canvas.style.width = `${cssW}px`;
+                this.canvas.style.height = `${cssH}px`;
+                this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+                this.ctx.scale(this.devicePixelRatio, this.devicePixelRatio);
+            }
+
             if (boardImage) {
                 if (this.useImageBoard) {
                     boardImage.style.display = "block";
@@ -712,8 +909,6 @@
                     boardImage.style.left = "-3px";
                     if (this.ctx && this.canvas) {
                         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-                    } else {
-                        console.error("Cannot clear canvas: ctx or canvas is undefined");
                     }
                 } else {
                     boardImage.style.display = "none";
@@ -729,6 +924,10 @@
                 this.drawBoard();
             }
             this.renderBoardNumbers();
+            
+            if (window.XiangqiGameAPI && piecesContainer.innerHTML !== "") {
+                this.renderPieces(this.offsetX, this.offsetY, this.scale);
+            }
         }
 
         drawBoard() {
@@ -739,19 +938,48 @@
 
             const ctx = this.ctx;
             const canvas = this.canvas;
+            
+            ctx.save();
+            // Clear and apply high quality settings
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            const marginX = 23;
-            const marginY = 21;
+            
+            // Premium background: Wooden color with smooth gradient
+            const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+            gradient.addColorStop(0, "#EED8A1");
+            gradient.addColorStop(0.5, "#E4C381");
+            gradient.addColorStop(1, "#D6AD64");
+            
+            // Add slight rounded corners to the board background visually if needed, 
+            // or just fill rect. Since the HTML container is rectangular, fill uniformly.
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const marginX = 28;
+            const marginY = 28;
+            
             ctx.translate(marginX, marginY);
-            ctx.strokeStyle = "black";
+            
+            const boardColor = "#3D2517"; // Elegant dark ink color
+            ctx.strokeStyle = boardColor;
+            ctx.fillStyle = boardColor;
 
-            // Ve vien doi: net dam ngoai + net manh ben trong
-            ctx.lineWidth = 3;
+            // Draw shadow for the outer thin border to give it depth
+            ctx.shadowColor = "rgba(0, 0, 0, 0.2)";
+            ctx.shadowBlur = 4;
+            ctx.shadowOffsetX = 2;
+            ctx.shadowOffsetY = 2;
+
+            // Outer thick frame + inner thin line
+            ctx.lineWidth = 4;
+            ctx.strokeRect(-6, -6, 8 * this.cellWidth + 12, 9 * this.cellHeight + 12);
+            
+            ctx.shadowColor = "transparent"; // Reset shadow for inner lines
+            
+            ctx.lineWidth = 1.5;
             ctx.strokeRect(0, 0, 8 * this.cellWidth, 9 * this.cellHeight);
-            ctx.lineWidth = 1;
-            ctx.strokeRect(3, 3, 8 * this.cellWidth - 6, 9 * this.cellHeight - 6);
 
-            ctx.lineWidth = 1;
+            // Grid lines
+            ctx.lineWidth = 1.2;
             for (let i = 0; i < 9; i++) {
                 ctx.beginPath();
                 if (i === 0 || i === 8) {
@@ -765,22 +993,33 @@
                 }
                 ctx.stroke();
             }
+            
             for (let i = 0; i < 10; i++) {
                 ctx.beginPath();
                 ctx.moveTo(0, i * this.cellHeight);
                 ctx.lineTo(8 * this.cellWidth, i * this.cellHeight);
                 ctx.stroke();
             }
+            
             this.drawPalaceDiagonals();
             this.drawPawnAndCannonDots();
-            ctx.font = "20px 'Noto Sans SC', Arial, sans-serif";
+            
+            // Draw River text using horizontal clear font
+            ctx.save();
+            ctx.font = "bold 32px 'Microsoft YaHei', 'PingFang SC', 'SimHei', sans-serif";
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
-            ctx.fillText("CHU HE - HAN JIE", 4 * this.cellWidth, 4.5 * this.cellHeight);
+            ctx.fillStyle = boardColor;
+            
+            // Single horizontal line across the river
+            ctx.fillText("æ¥š æ²³        æ¼¢ ç•Œ", 4 * this.cellWidth, 4.5 * this.cellHeight);
+
             ctx.translate(-marginX, -marginY);
+            ctx.restore();
         }
 
 
+        // Optional rendering of margin numbers in the DOM - no change here, handled separately
         renderBoardNumbers() {
             const topNumbers = document.getElementById("top-numbers");
             const bottomNumbers = document.getElementById("bottom-numbers");
@@ -806,8 +1045,9 @@
             });
         }
         drawPalaceDiagonals() {
-            ctx.strokeStyle = "black";
-            ctx.lineWidth = 1;
+            const ctx = this.ctx;
+            ctx.strokeStyle = "#3D2517"; // Match board ink color
+            ctx.lineWidth = 1.2;
 
             ctx.beginPath();
             ctx.moveTo(3 * this.cellWidth, 0 * this.cellHeight);
@@ -831,16 +1071,53 @@
         }
 
         drawPawnAndCannonDots() {
-            const dots = [
-                [0, 3], [2, 3], [4, 3], [6, 3], [8, 3],
-                [0, 6], [2, 6], [4, 6], [6, 6], [8, 6],
-                [1, 2], [7, 2], [1, 7], [7, 7]
-            ];
-            ctx.fillStyle = "black";
-            dots.forEach(([x, y]) => {
+            const ctx = this.ctx;
+            
+            // Helper function to draw the elegant L-shaped ticks 
+            const drawCrossTick = (x, y, hasLeft, hasRight) => {
+                const px = x * this.cellWidth;
+                const py = y * this.cellHeight;
+                ctx.strokeStyle = "#3D2517"; // Match board ink
+                ctx.lineWidth = 1.5;
+                const len = Math.min(this.cellWidth, this.cellHeight) * 0.15; // Length of the cross arm
+                const gap = 4; // Gap from the intersection
+                
                 ctx.beginPath();
-                ctx.arc(x * this.cellWidth, y * this.cellHeight, 4, 0, 2 * Math.PI);
-                ctx.fill();
+                if (hasLeft) {
+                    // Top-Left quadrant
+                    ctx.moveTo(px - gap, py - gap - len);
+                    ctx.lineTo(px - gap, py - gap);
+                    ctx.lineTo(px - gap - len, py - gap);
+                    
+                    // Bottom-Left quadrant
+                    ctx.moveTo(px - gap, py + gap + len);
+                    ctx.lineTo(px - gap, py + gap);
+                    ctx.lineTo(px - gap - len, py + gap);
+                }
+                if (hasRight) {
+                    // Top-Right quadrant
+                    ctx.moveTo(px + gap, py - gap - len);
+                    ctx.lineTo(px + gap, py - gap);
+                    ctx.lineTo(px + gap + len, py - gap);
+                    
+                    // Bottom-Right quadrant
+                    ctx.moveTo(px + gap, py + gap + len);
+                    ctx.lineTo(px + gap, py + gap);
+                    ctx.lineTo(px + gap + len, py + gap);
+                }
+                ctx.stroke();
+            };
+
+            const positions = [
+                // format: [x, y, hasLeftMarks, hasRightMarks]
+                [0, 3, false, true], [2, 3, true, true], [4, 3, true, true], [6, 3, true, true], [8, 3, true, false],
+                [0, 6, false, true], [2, 6, true, true], [4, 6, true, true], [6, 6, true, true], [8, 6, true, false],
+                [1, 2, true, true], [7, 2, true, true], 
+                [1, 7, true, true], [7, 7, true, true]
+            ];
+            
+            positions.forEach(([x, y, l, r]) => {
+                drawCrossTick(x, y, l, r);
             });
         }
 
@@ -860,12 +1137,9 @@
 
                         const displayX = this.isFlipped ? (8 - x) : x;
                         const displayY = this.isFlipped ? (9 - y) : y;
-                        const marginX = 23;
-                        const marginY = 21;
-                        const baseLeft = displayX * this.cellWidth * this.pieceSpacing + marginX;
-                        const baseTop = displayY * this.cellHeight * this.pieceSpacing + marginY;
-                        div.style.left = `${(baseLeft + offsetX)}px`;
-                        div.style.top = `${(baseTop + offsetY)}px`;
+                        const coords = this.getPiecePosition(displayX, displayY, offsetX, offsetY);
+                        div.style.left = `${coords.left}px`;
+                        div.style.top = `${coords.top}px`;
 
                         div.style.transform = `scale(${scale})`;
                         div.style.transformOrigin = "center";
@@ -890,6 +1164,19 @@
                 }
             }
         }
+        getPiecePosition(displayX, displayY, customOffsetX, customOffsetY) {
+            if (this.useImageBoard) {
+                return {
+                    left: displayX * this.cellWidth * this.pieceSpacing + 23 + customOffsetX,
+                    top: displayY * this.cellHeight * this.pieceSpacing + 21 + customOffsetY
+                };
+            }
+            return {
+                left: displayX * this.cellWidth + 28 + customOffsetX,
+                top: displayY * this.cellHeight + 28 + customOffsetY
+            };
+        }
+
         highlightPosition(x, y, className) {
             const marker = document.createElement("div");
             marker.className = `piece ${className}`;
@@ -902,12 +1189,9 @@
 
             const displayX = this.isFlipped ? (8 - x) : x;
             const displayY = this.isFlipped ? (9 - y) : y;
-            const marginX = 23;
-            const marginY = 21;
-            const baseLeft = displayX * this.cellWidth * this.pieceSpacing + marginX;
-            const baseTop = displayY * this.cellHeight * this.pieceSpacing + marginY;
-            marker.style.left = `${baseLeft + this.offsetX}px`;
-            marker.style.top = `${baseTop + this.offsetY}px`;
+            const coords = this.getPiecePosition(displayX, displayY, this.offsetX, this.offsetY);
+            marker.style.left = `${coords.left}px`;
+            marker.style.top = `${coords.top}px`;
 
             marker.style.transform = `scale(${this.scale})`;
             marker.style.transformOrigin = "center";
@@ -935,17 +1219,18 @@
 
                 const displayX = this.isFlipped ? (8 - mx) : mx;
                 const displayY = this.isFlipped ? (9 - my) : my;
-                const marginX = 23;
-                const marginY = 21;
-                const baseLeft = displayX * this.cellWidth * this.pieceSpacing + marginX;
-                const baseTop = displayY * this.cellHeight * this.pieceSpacing + marginY;
-                marker.style.left = `${(baseLeft + offsetX)}px`;
-                marker.style.top = `${(baseTop + offsetY)}px`;
+                const coords = this.getPiecePosition(displayX, displayY, offsetX, offsetY);
+                marker.style.left = `${coords.left}px`;
+                marker.style.top = `${coords.top}px`;
 
                 marker.style.transform = `scale(${scale})`;
                 marker.style.transformOrigin = "center";
 
                 marker.addEventListener("click", () => this.handlePieceClick(mx, my));
+                marker.addEventListener("contextmenu", (e) => {
+                    e.preventDefault();
+                    this.evaluateSpecificMove(mx, my);
+                });
                 piecesContainer.appendChild(marker);
             });
         }
@@ -979,9 +1264,7 @@
                         this.lastMove = lastMoveEntry ? lastMoveEntry.moveNotation : null; // "R1+1"
                         this.lastMoveRaw = `${String.fromCharCode(97 + fromX)}${10 - fromY}${String.fromCharCode(97 + x)}${10 - y}`; // "b2e2"
                         await this.updateMoveHistory();
-                        if (await window.XiangqiGameAPI.isKingInCheck(currentTurn)) {
-                            console.log("King is in check!");
-                        }
+                        await window.XiangqiGameAPI.isKingInCheck(currentTurn);
                         await this.checkForCheckmate();
                         await this.analyzeCurrentPosition();
                     }
@@ -1116,7 +1399,9 @@
             });
 
             const history = await window.XiangqiGameAPI.getMoveHistory();
-            const lastMoveEntry = history[history.length - 1];
+            const currentIndex = await window.XiangqiGameAPI.getCurrentMoveIndex();
+            const lastMoveEntry = currentIndex >= 0 && currentIndex < history.length ? history[currentIndex] : null;
+            
             if (lastMoveEntry) {
                 this.lastMovePositions = {
                     fromX: lastMoveEntry.fromX,
@@ -1195,7 +1480,10 @@
 
                 const editBtn = div.querySelector(".edit-engine-btn");
                 editBtn.addEventListener("click", () => {
-                    console.log(`Edit button clicked for engine index ${index}`);
+                    const engineMenu = document.getElementById("engine-menu");
+                    if (engineMenu) {
+                        engineMenu.style.display = "none";
+                    }
                     this.showEditEngineForm(index, engine);
                 });
 
@@ -1280,19 +1568,13 @@
             const depthInput = document.getElementById("edit-engine-depth");
             const threadsInput = document.getElementById("edit-engine-threads");
             const skillLevelInput = document.getElementById("edit-engine-skill-level");
-            if (!modal || !overlay || !form || !cancelBtn || !nameInput || !hashInput || !multipvInput || !depthInput || !threadsInput || !skillLevelInput) {
-                console.error('One or more modal elements are missing:', {
-                    modal: !!modal,
-                    overlay: !!overlay,
-                    form: !!form,
-                    cancelBtn: !!cancelBtn,
-                    nameInput: !!nameInput,
-                    hashInput: !!hashInput,
-                    multipvInput: !!multipvInput,
-                    depthInput: !!depthInput,
-                    threadsInput: !!threadsInput,
-                    skillLevelInput: !!skillLevelInput
-                });
+            
+            const bookFileInput = document.getElementById("edit-engine-bookFile");
+            const browseBookBtn = document.getElementById("browse-engine-book-btn");
+            const clearBookBtn = document.getElementById("clear-engine-book-btn");
+
+            if (!modal || !overlay || !form || !cancelBtn || !nameInput || !hashInput || !multipvInput || !depthInput || !threadsInput || !skillLevelInput || !bookFileInput) {
+                console.error('One or more modal elements are missing');
                 alert('Error: Modal elements are missing. Please check index.html.');
                 return;
             }
@@ -1302,6 +1584,19 @@
             depthInput.value = engine.options?.depth || 20;
             threadsInput.value = engine.options?.threads || 1;
             skillLevelInput.value = engine.options?.skillLevel || 20;
+            bookFileInput.value = engine.options?.bookFile || "";
+
+            browseBookBtn.onclick = async () => {
+                const res = await window.XiangqiGameAPI.browseEngineBook();
+                if (res && res.success) {
+                    bookFileInput.value = res.filePath;
+                }
+            };
+
+            clearBookBtn.onclick = () => {
+                bookFileInput.value = "";
+            };
+
             modal.classList.add("show");
             overlay.classList.add("show");
             const closeModal = () => {
@@ -1321,7 +1616,8 @@
                         multipv: parseInt(multipvInput.value),
                         depth: parseInt(depthInput.value),
                         threads: parseInt(threadsInput.value),
-                        skillLevel: parseInt(skillLevelInput.value)
+                        skillLevel: parseInt(skillLevelInput.value),
+                        bookFile: bookFileInput.value || null
                     }
                 };
 
@@ -1368,14 +1664,19 @@
                 });
             }
 
-            document.addEventListener("click", (event) => {
-                if (!engineBtn.contains(event.target) && !engineMenu.contains(event.target)) {
+            const closeEngineBtn = document.getElementById("close-engine-menu");
+            if (closeEngineBtn) {
+                closeEngineBtn.addEventListener("click", () => {
                     engineMenu.style.display = "none";
-                }
-                if (bookBtn && bookMenu && !bookBtn.contains(event.target) && !bookMenu.contains(event.target)) {
+                });
+            }
+
+            const closeBookBtn = document.getElementById("close-book-menu");
+            if (closeBookBtn) {
+                closeBookBtn.addEventListener("click", () => {
                     bookMenu.style.display = "none";
-                }
-            });
+                });
+            }
 
             if (refreshBookBtn) {
                 refreshBookBtn.addEventListener("click", async () => {
@@ -1558,6 +1859,8 @@
         new XiangqiUI();
     });
 })();
+
+
 
 
 

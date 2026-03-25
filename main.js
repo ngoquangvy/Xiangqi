@@ -1,5 +1,4 @@
-﻿// main.js
-const { app, BrowserWindow, ipcMain, Menu } = require('electron');
+﻿const { app, BrowserWindow, ipcMain, Menu, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs').promises;
 const { spawn } = require('child_process');
@@ -178,14 +177,51 @@ function stripPgnNoise(raw) {
     text = text.replace(/\{[^}]*\}/g, ' '); // comments
     text = text.replace(/;[^\n\r]*/g, ' '); // ; comment line tails
 
-    // Remove simple and nested (...) variations
-    let prev;
-    do {
-        prev = text;
-        text = text.replace(/\([^()]*\)/g, ' ');
-    } while (text !== prev);
+    text = text.replace(/\(/g, ' ( ').replace(/\)/g, ' ) ');
 
     return text;
+}
+
+function parsePgnTokenToIccs(t, g, turn) {
+    if (/^[a-i][0-9][a-i][0-9]$/i.test(t)) return t.toLowerCase();
+    t = t.replace(/[+?!#x]/g, '');
+    if (t.length < 2 || t.length > 4) return null;
+    let dest = t.slice(-2);
+    if (!/^[a-i][0-9]$/.test(dest)) return null;
+    let toX = dest.charCodeAt(0) - 97;
+    let toY = 9 - parseInt(dest[1], 10);
+    let type = t.length > 2 ? t[0].toLowerCase() : 'p';
+    let color = turn % 2 === 0 ? 'red' : 'black';
+    let typeMap = {'h':'é¦¬', 'r':'è»Š','c':'ç‚®','e':'ç›¸','a':'ä»•','k':'å¸¥','p':'å…µ'};
+    if (color === 'black') {
+        typeMap = {'h':'é©¬', 'r':'è»Š','c':'ç‚®','e':'è±¡','a':'å£«','k':'å°‡','p':'å’'};
+    }
+    let pName = typeMap[type];
+    if (!pName) return null;
+
+    let fromFile = null;
+    if (t.length === 4) {
+        const ch = t[1];
+        if (/[a-i]/.test(ch)) fromFile = ch.charCodeAt(0) - 97;
+    }
+    
+    let found = null;
+    for (let y = 0; y < 10; y++) {
+        for (let x = 0; x < 9; x++) {
+            let p = g.board[y][x];
+            if (p && p.color === color && p.name === pName && (fromFile === null || x === fromFile)) {
+                let moves = g.getLegalMoves(x, y);
+                if (moves.some(m => m[0] === toX && m[1] === toY)) {
+                    if (found) return null; 
+                    found = { fx: x, fy: y };
+                }
+            }
+        }
+    }
+    if (found) {
+        return String.fromCharCode(97 + found.fx) + (9 - found.fy) + dest;
+    }
+    return null;
 }
 
 function extractIccsGamesFromPgn(raw) {
@@ -194,29 +230,80 @@ function extractIccsGamesFromPgn(raw) {
 
     const games = [];
     let current = [];
+    let stateHistory = [];
+    let g = new XiangqiGame();
+    g.setupInitialPosition();
+    let turn = 0;
+    stateHistory.push({ fen: g.exportFen(), turn: 0 });
+
+    const stack = [];
 
     for (const token of tokens) {
-        const t = token.replace(/[?!+#]+$/g, '');
+        if (token === '(') {
+            if (current.length === 0) continue;
+            let branchTurn = current.length - 1;
+            let branchCurrent = current.slice(0, branchTurn);
+            
+            stack.push({
+                current: current.slice(),
+                stateHistory: stateHistory.slice(),
+                turn: turn,
+                fen: g.exportFen()
+            });
 
-        if (/^(1-0|0-1|1\/2-1\/2|\*)$/i.test(t)) {
+            current = branchCurrent;
+            turn = branchTurn;
+            g.importFen(stateHistory[turn].fen);
+            stateHistory = stateHistory.slice(0, turn + 1);
+            continue;
+        }
+
+        if (token === ')') {
             if (current.length > 0) {
-                games.push(current);
-                current = [];
+                games.push(current.slice());
+            }
+            if (stack.length > 0) {
+                let restored = stack.pop();
+                current = restored.current;
+                stateHistory = restored.stateHistory;
+                turn = restored.turn;
+                g.importFen(restored.fen);
             }
             continue;
         }
 
-        if (/^\d+\.(\.\.)?$/.test(t)) {
+        const t = token.replace(/[?!+#]+$/g, '');
+
+        if (/^(1-0|0-1|1\/2-1\/2|\*)$/i.test(t)) {
+            if (current.length > 0) {
+                games.push(current.slice());
+            }
+            current = [];
+            g = new XiangqiGame();
+            g.setupInitialPosition();
+            turn = 0;
+            stateHistory = [{ fen: g.exportFen(), turn: 0 }];
+            stack.length = 0;
             continue;
         }
 
-        if (/^[a-i][0-9][a-i][0-9]$/i.test(t)) {
-            current.push(t.toLowerCase());
+        if (/^\d+\.(\.\.)?$/.test(t)) continue;
+
+        const iccs = parsePgnTokenToIccs(t, g, turn);
+        if (iccs) {
+            current.push(iccs);
+            const fx = iccs.charCodeAt(0) - 97;
+            const fy = 9 - parseInt(iccs[1], 10);
+            const tx = iccs.charCodeAt(2) - 97;
+            const ty = 9 - parseInt(iccs[3], 10);
+            g.move(fx, fy, tx, ty);
+            turn++;
+            stateHistory.push({ fen: g.exportFen(), turn: turn });
         }
     }
 
     if (current.length > 0) {
-        games.push(current);
+        games.push(current.slice());
     }
 
     return games;
@@ -321,6 +408,10 @@ function convertPgnToOpeningBook(rawPgn, options = {}) {
     };
 }
 
+const DATA_DIR = path.join(__dirname, 'data');
+const ENGINES_FILE = path.join(DATA_DIR, 'engines.json');
+const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
+
 function getBookPaths() {
     const booksRoot = path.join(__dirname, 'assets', 'books');
     const sourcesRoot = path.join(booksRoot, 'sources');
@@ -335,21 +426,21 @@ function translateBookNoteText(text, language) {
     }
 
     const dictVi = [
-        ['开局', 'khai cuộc'], ['中炮', 'Trung pháo'], ['顺炮', 'Thuận pháo'], ['屏风马', 'Bình phong mã'],
-        ['飞相', 'Phi tượng'], ['仙人指路', 'Tiên nhân chỉ lộ'], ['过宫炮', 'Quá cung pháo'],
-        ['先手', 'đi tiên'], ['后手', 'đi hậu'], ['进攻', 'tấn công'], ['防守', 'phòng thủ'], ['变化', 'biến'],
-        ['红', 'đỏ'], ['黑', 'đen'], ['车', 'xe'], ['車', 'xe'], ['马', 'mã'], ['炮', 'pháo'],
-        ['兵', 'tốt'], ['卒', 'tốt'], ['象', 'tượng'], ['相', 'tượng'], ['士', 'sĩ'], ['仕', 'sĩ'],
-        ['将', 'tướng'], ['帅', 'tướng']
+        ['å¼€å±€', 'khai cuá»™c'], ['ä¸­ç‚®', 'Trung phÃ¡o'], ['é¡ºç‚®', 'Thuáº­n phÃ¡o'], ['å±é£Žé©¬', 'BÃ¬nh phong mÃ£'],
+        ['é£žç›¸', 'Phi tÆ°á»£ng'], ['ä»™äººæŒ‡è·¯', 'TiÃªn nhÃ¢n chá»‰ lá»™'], ['è¿‡å®«ç‚®', 'QuÃ¡ cung phÃ¡o'],
+        ['å…ˆæ‰‹', 'Ä‘i tiÃªn'], ['åŽæ‰‹', 'Ä‘i háº­u'], ['è¿›æ”»', 'táº¥n cÃ´ng'], ['é˜²å®ˆ', 'phÃ²ng thá»§'], ['å˜åŒ–', 'biáº¿n'],
+        ['çº¢', 'Ä‘á»'], ['é»‘', 'Ä‘en'], ['è½¦', 'xe'], ['è»Š', 'xe'], ['é©¬', 'mÃ£'], ['ç‚®', 'phÃ¡o'],
+        ['å…µ', 'tá»‘t'], ['å’', 'tá»‘t'], ['è±¡', 'tÆ°á»£ng'], ['ç›¸', 'tÆ°á»£ng'], ['å£«', 'sÄ©'], ['ä»•', 'sÄ©'],
+        ['å°†', 'tÆ°á»›ng'], ['å¸…', 'tÆ°á»›ng']
     ];
 
     const dictEn = [
-        ['开局', 'opening'], ['中炮', 'central cannon'], ['顺炮', 'parallel cannon'], ['屏风马', 'screen horse'],
-        ['飞相', 'flying elephant'], ['仙人指路', 'immortal points the way'], ['过宫炮', 'cross-palace cannon'],
-        ['先手', 'first move'], ['后手', 'second move'], ['进攻', 'attack'], ['防守', 'defense'], ['变化', 'variation'],
-        ['红', 'red'], ['黑', 'black'], ['车', 'rook'], ['車', 'rook'], ['马', 'horse'], ['炮', 'cannon'],
-        ['兵', 'pawn'], ['卒', 'pawn'], ['象', 'elephant'], ['相', 'elephant'], ['士', 'advisor'], ['仕', 'advisor'],
-        ['将', 'general'], ['帅', 'general']
+        ['å¼€å±€', 'opening'], ['ä¸­ç‚®', 'central cannon'], ['é¡ºç‚®', 'parallel cannon'], ['å±é£Žé©¬', 'screen horse'],
+        ['é£žç›¸', 'flying elephant'], ['ä»™äººæŒ‡è·¯', 'immortal points the way'], ['è¿‡å®«ç‚®', 'cross-palace cannon'],
+        ['å…ˆæ‰‹', 'first move'], ['åŽæ‰‹', 'second move'], ['è¿›æ”»', 'attack'], ['é˜²å®ˆ', 'defense'], ['å˜åŒ–', 'variation'],
+        ['çº¢', 'red'], ['é»‘', 'black'], ['è½¦', 'rook'], ['è»Š', 'rook'], ['é©¬', 'horse'], ['ç‚®', 'cannon'],
+        ['å…µ', 'pawn'], ['å’', 'pawn'], ['è±¡', 'elephant'], ['ç›¸', 'elephant'], ['å£«', 'advisor'], ['ä»•', 'advisor'],
+        ['å°†', 'general'], ['å¸…', 'general']
     ];
 
     const dictionary = language === 'vi' ? dictVi : dictEn;
@@ -460,6 +551,7 @@ async function detectEngineProtocol(enginePath) {
 
 function startEngine(enginePath) {
     if (engineProcess) {
+        engineProcess.intentionalKill = true;
         engineProcess.kill();
         engineProcess = null;
     }
@@ -483,12 +575,10 @@ function startEngine(enginePath) {
     }
 
     engineProcess.stdout.on('data', (data) => {
+        const output = data.toString().trim();
+        debugLog(`[ENGINE OUT ${enginePath}]: ${output}`);
         if (mainWindow) {
-            mainWindow.webContents.send('engine-output', data.toString());
-        }
-        const output = data.toString();
-        if (VERBOSE_ENGINE_OUTPUT) {
-            safeLog(`Engine output: ${output}`);
+            mainWindow.webContents.send('engine-output', output);
         }
         if (output.includes('readyok') && mainWindow) {
             mainWindow.webContents.send('engine-ready');
@@ -496,9 +586,12 @@ function startEngine(enginePath) {
     });
 
     engineProcess.stderr.on('data', (data) => {
-        safeError(`Engine error from ${enginePath}: ${data}`);
+        const errOut = data.toString().trim();
+        if (errOut) {
+            safeError(`[ENGINE ERR ${enginePath}]: ${errOut}`);
+        }
         if (mainWindow) {
-            mainWindow.webContents.send('engine-error', `Engine error: ${data}`);
+            mainWindow.webContents.send('engine-error', `Engine error: ${errOut}`);
         }
     });
 
@@ -510,18 +603,32 @@ function startEngine(enginePath) {
         engineProcess = null;
     });
 
-    engineProcess.on('close', (code) => {
-        safeLog(`Engine ${enginePath} exited with code ${code}`);
-        if (mainWindow) {
-            mainWindow.webContents.send('engine-error', `Engine exited with code ${code}`);
+    const currentEngineProc = engineProcess;
+    currentEngineProc.on('close', (code, signal) => {
+        safeLog(`Engine ${enginePath} exited with code ${code}, signal ${signal}`);
+        
+        if (currentEngineProc.intentionalKill || signal === 'SIGTERM' || signal === 'SIGKILL') {
+            debugLog(`Engine ${enginePath} was intentionally stopped/swapped. No crash recovery needed.`);
+            return;
         }
-        engineProcess = null;
 
-        if (code !== 0) {
-            safeLog('Engine crashed, switching to default engine (Pikafish)...');
+        if (mainWindow) {
+            mainWindow.webContents.send('engine-error', `Engine exited unexpectedly with code ${code}`);
+        }
+        if (engineProcess === currentEngineProc) {
+            engineProcess = null;
+        }
+
+        if (code !== 0 && signal == null) {
+            safeLog('Engine crashed unexpectedly, switching to default engine (Pikafish)...');
             setTimeout(() => {
                 const pikafishIndex = engines.findIndex(e => e.name === defaultEngine.name);
                 if (pikafishIndex !== -1) {
+                    // CRITICAL PATCH: If it's entering a crash loop, the #1 cause is a corrupted or mismatched Binary Book File.
+                    // We forcibly strip the BookFile from the fallback engine's RAM config to guarantee a clean boot!
+                    if (engines[pikafishIndex].options) {
+                        engines[pikafishIndex].options.bookFile = null; 
+                    }
                     startEngine(engines[pikafishIndex].path);
                     if (mainWindow) {
                         mainWindow.webContents.send('engine-switched', pikafishIndex);
@@ -545,23 +652,36 @@ function startEngine(enginePath) {
 
     const selectedEngine = engines.find(e => e.path === enginePath) || { protocol: 'uci', options: {} };
     engineProtocol = selectedEngine.protocol;
+    debugLog(`[ENGINE INIT]: Booting protocol = ${engineProtocol}`);
     if (engineProtocol === 'uci') {
+        debugLog(`[ENGINE IN]: uci`);
         engineProcess.stdin.write('uci\n');
         if (selectedEngine.options) {
             if (selectedEngine.options.hash) {
+                debugLog(`[ENGINE IN]: setoption name Hash value ${selectedEngine.options.hash}`);
                 engineProcess.stdin.write(`setoption name Hash value ${selectedEngine.options.hash}\n`);
             }
             if (selectedEngine.options.multipv) {
+                debugLog(`[ENGINE IN]: setoption name MultiPV value ${selectedEngine.options.multipv}`);
                 engineProcess.stdin.write(`setoption name MultiPV value ${selectedEngine.options.multipv}\n`);
             }
             if (selectedEngine.options.threads) {
+                debugLog(`[ENGINE IN]: setoption name Threads value ${selectedEngine.options.threads}`);
                 engineProcess.stdin.write(`setoption name Threads value ${selectedEngine.options.threads}\n`);
             }
             if (selectedEngine.options.skillLevel) {
+                debugLog(`[ENGINE IN]: setoption name Skill Level value ${selectedEngine.options.skillLevel}`);
                 engineProcess.stdin.write(`setoption name Skill Level value ${selectedEngine.options.skillLevel}\n`);
+            }
+            if (selectedEngine.options.bookFile) {
+                debugLog(`[ENGINE IN]: setoption name UseBook value true`);
+                engineProcess.stdin.write(`setoption name UseBook value true\n`);
+                debugLog(`[ENGINE IN]: setoption name BookFile value ${selectedEngine.options.bookFile}`);
+                engineProcess.stdin.write(`setoption name BookFile value ${selectedEngine.options.bookFile}\n`);
             }
         }
     } else if (engineProtocol === 'ucci') {
+        debugLog(`[ENGINE IN]: ucci`);
         engineProcess.stdin.write('ucci\n');
     }
     engineProcess.stdin.write('isready\n');
@@ -657,9 +777,29 @@ ipcMain.handle('get-engines', () => {
     return engines;
 });
 
+ipcMain.handle('browse-engine-book', async (event) => {
+    try {
+        const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+            title: 'Select Engine Opening Book (.xob, .bin)',
+            properties: ['openFile'],
+            filters: [
+                { name: 'Engine Books', extensions: ['xob', 'bin'] },
+                { name: 'All Files', extensions: ['*'] }
+            ]
+        });
+        if (!canceled && filePaths.length > 0) {
+            return { success: true, filePath: filePaths[0] };
+        }
+        return { success: false, error: 'User canceled file dialog' };
+    } catch (err) {
+        safeError(`Error browsing for engine book: ${err.message}`);
+        return { success: false, error: err.message };
+    }
+});
+
 ipcMain.handle('add-engine', async (event, enginePath) => {
     try {
-        safeLog(`Testing engine: ${enginePath}`);
+        debugLog(`Testing engine: ${enginePath}`);
         const protocol = await detectEngineProtocol(enginePath);
         if (protocol === 'unknown') {
             return { success: false, error: 'Engine does not support UCI or UCCI' };
@@ -680,7 +820,7 @@ ipcMain.handle('add-engine', async (event, enginePath) => {
         };
         engines.push(newEngine);
         await saveEngines();
-        safeLog(`Engine added: ${name} (${protocol}) at ${enginePath}`);
+        debugLog(`Engine added: ${name} (${protocol}) at ${enginePath}`);
         startEngine(enginePath);
         return { success: true };
     } catch (err) {
@@ -1069,22 +1209,30 @@ ipcMain.handle('get-move-notation', (event, fromX, fromY, toX, toY) => {
 ipcMain.on('analyze-position', (event, fen) => {
     if (engineProcess && engineProcess.stdin && !engineProcess.killed) {
         try {
-            safeLog(`Analyzing FEN: ${fen}`);
+            debugLog(`[EVAL] Analyzing FEN: ${fen}`);
             if (engineProtocol === 'uci' || engineProtocol === 'ucci') {
+                debugLog(`[ENGINE IN]: stop`);
                 engineProcess.stdin.write('stop\n');
             }
+            debugLog(`[ENGINE IN]: position fen ${fen}`);
             engineProcess.stdin.write(`position fen ${fen}\n`);
+            
             const selectedEngine = engines.find(e => e.path === engineProcess.spawnargs[0]) || { options: {} };
+            
             if (engineProtocol === 'uci') {
                 if (selectedEngine.options && selectedEngine.options.depth) {
+                    debugLog(`[ENGINE IN]: go depth ${selectedEngine.options.depth}`);
                     engineProcess.stdin.write(`go depth ${selectedEngine.options.depth}\n`);
                 } else {
+                    debugLog(`[ENGINE IN]: go movetime 1000`);
                     engineProcess.stdin.write('go movetime 1000\n');
                 }
             } else if (engineProtocol === 'ucci') {
                 if (selectedEngine.options && selectedEngine.options.depth) {
+                    debugLog(`[ENGINE IN]: go depth ${selectedEngine.options.depth}`);
                     engineProcess.stdin.write(`go depth ${selectedEngine.options.depth}\n`);
                 } else {
+                    debugLog(`[ENGINE IN]: go time 1000`);
                     engineProcess.stdin.write('go time 1000\n');
                 }
             }
@@ -1099,6 +1247,35 @@ ipcMain.on('analyze-position', (event, fen) => {
         if (mainWindow) {
             mainWindow.webContents.send('engine-error', 'Engine is not running. Please select a valid engine.');
         }
+    }
+});
+
+ipcMain.on('evaluate-move', (event, fen, moveUci) => {
+    if (engineProcess && engineProcess.stdin && !engineProcess.killed) {
+        try {
+            debugLog(`Evaluating move ${moveUci} for FEN: ${fen}`);
+            if (engineProtocol === 'uci' || engineProtocol === 'ucci') {
+                engineProcess.stdin.write('stop\n');
+            }
+            engineProcess.stdin.write(`position fen ${fen} moves ${moveUci}\n`);
+            const selectedEngine = engines.find(e => e.path === engineProcess.spawnargs[0]) || { options: {} };
+            if (engineProtocol === 'uci') {
+                if (selectedEngine.options && selectedEngine.options.depth) {
+                    engineProcess.stdin.write(`go depth ${selectedEngine.options.depth}\n`);
+                } else {
+                    engineProcess.stdin.write(`go movetime 1000\n`);
+                }
+            } else if (engineProtocol === 'ucci') {
+                engineProcess.stdin.write('go time 1000\n');
+            }
+        } catch (err) {
+            safeError(`Error writing to engine: ${err.message}`);
+            if (mainWindow) {
+                mainWindow.webContents.send('engine-error', `Error writing to engine: ${err.message}`);
+            }
+        }
+    } else {
+        console.warn('Engine process is not ready or has been terminated.');
     }
 });
 
@@ -1127,6 +1304,7 @@ process.on('SIGINT', () => {
     safeLog('Received SIGINT. Exiting gracefully...');
     app.quit();
 });
+
 
 
 
