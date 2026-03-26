@@ -1,4 +1,4 @@
-﻿const { app, BrowserWindow, ipcMain, Menu, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs').promises;
 const { spawn } = require('child_process');
@@ -256,9 +256,9 @@ function parsePgnTokenToIccs(t, g, turn) {
     let toY = 9 - parseInt(dest[1], 10);
     let type = t.length > 2 ? t[0].toLowerCase() : 'p';
     let color = turn % 2 === 0 ? 'red' : 'black';
-    let typeMap = {'h':'é¦¬', 'r':'è»Š','c':'ç‚®','e':'ç›¸','a':'ä»•','k':'å¸¥','p':'å…µ'};
+    let typeMap = { 'h': 'é¦¬', 'r': 'è»Š', 'c': 'ç‚®', 'e': 'ç›¸', 'a': 'ä»•', 'k': 'å¸¥', 'p': 'å…µ' };
     if (color === 'black') {
-        typeMap = {'h':'é©¬', 'r':'è»Š','c':'ç‚®','e':'è±¡','a':'å£«','k':'å°‡','p':'å’'};
+        typeMap = { 'h': 'é©¬', 'r': 'è»Š', 'c': 'ç‚®', 'e': 'è±¡', 'a': 'å£«', 'k': 'å°‡', 'p': 'å’' };
     }
     let pName = typeMap[type];
     if (!pName) return null;
@@ -268,7 +268,7 @@ function parsePgnTokenToIccs(t, g, turn) {
         const ch = t[1];
         if (/[a-i]/.test(ch)) fromFile = ch.charCodeAt(0) - 97;
     }
-    
+
     let found = null;
     for (let y = 0; y < 10; y++) {
         for (let x = 0; x < 9; x++) {
@@ -276,7 +276,7 @@ function parsePgnTokenToIccs(t, g, turn) {
             if (p && p.color === color && p.name === pName && (fromFile === null || x === fromFile)) {
                 let moves = g.getLegalMoves(x, y);
                 if (moves.some(m => m[0] === toX && m[1] === toY)) {
-                    if (found) return null; 
+                    if (found) return null;
                     found = { fx: x, fy: y };
                 }
             }
@@ -307,7 +307,7 @@ function extractIccsGamesFromPgn(raw) {
             if (current.length === 0) continue;
             let branchTurn = current.length - 1;
             let branchCurrent = current.slice(0, branchTurn);
-            
+
             stack.push({
                 current: current.slice(),
                 stateHistory: stateHistory.slice(),
@@ -670,7 +670,7 @@ function startEngine(enginePath) {
     const currentEngineProc = engineProcess;
     currentEngineProc.on('close', (code, signal) => {
         safeLog(`Engine ${enginePath} exited with code ${code}, signal ${signal}`);
-        
+
         if (currentEngineProc.intentionalKill || signal === 'SIGTERM' || signal === 'SIGKILL') {
             debugLog(`Engine ${enginePath} was intentionally stopped/swapped. No crash recovery needed.`);
             return;
@@ -691,7 +691,7 @@ function startEngine(enginePath) {
                     // CRITICAL PATCH: If it's entering a crash loop, the #1 cause is a corrupted or mismatched Binary Book File.
                     // We forcibly strip the BookFile from the fallback engine's RAM config to guarantee a clean boot!
                     if (engines[pikafishIndex].options) {
-                        engines[pikafishIndex].options.bookFile = null; 
+                        engines[pikafishIndex].options.bookFile = null;
                     }
                     persistSelectedEngineByIndex(pikafishIndex);
                     startEngine(engines[pikafishIndex].path);
@@ -796,9 +796,12 @@ ipcMain.handle('simulate-pv', async (event, fen, pvMoves, stepLimit) => {
 ipcMain.handle('format-pv', async (event, fen, pvMoves) => {
     try {
         const tempGame = new XiangqiGame();
-        tempGame.importFen(fen);
+        if (!tempGame.importFen(fen)) {
+            return { moves: [], formatted: '-' };
+        }
 
         const notations = [];
+        const processedMoves = [];
         for (const move of pvMoves || []) {
             if (!/^[a-i][0-9][a-i][0-9]$/.test(move)) continue;
 
@@ -808,24 +811,31 @@ ipcMain.handle('format-pv', async (event, fen, pvMoves) => {
             const toY = 9 - parseInt(move[3], 10);
 
             const piece = tempGame.getPiece(fromX, fromY);
+            if (!piece) {
+                notations.push(move);
+                processedMoves.push(move);
+                continue;
+            }
+
+            const notation = tempGame.getMoveNotation({
+                fromX, fromY, toX, toY, piece: { ...piece }
+            });
+
             const success = tempGame.move(fromX, fromY, toX, toY);
             if (!success) break;
 
-            const lastMove = tempGame.moveHistory[tempGame.moveHistory.length - 1];
-            const notation = lastMove?.moveNotation || tempGame.getMoveNotation({
-                fromX, fromY, toX, toY, piece: piece ? { ...piece } : null
-            });
-            notations.push(notation || move);
+            notations.push(notation);
+            processedMoves.push(move);
         }
 
         const lines = [];
         for (let i = 0; i < notations.length; i += 2) {
             const redMove = notations[i];
             const blackMove = notations[i + 1] || '...';
-            lines.push((i / 2 + 1) + '. ' + redMove + ' ' + blackMove);
+            lines.push((Math.floor(i / 2) + 1) + '. ' + redMove + ' ' + blackMove);
         }
 
-        return { moves: notations, formatted: lines.join(', ') };
+        return { moves: processedMoves, formatted: lines.join(', ') };
     } catch (err) {
         safeError('Error formatting PV:', err);
         return { moves: [], formatted: '-' };
@@ -958,6 +968,13 @@ ipcMain.handle('get-fen', () => {
     return gameInstance.exportFen();
 });
 
+ipcMain.handle('get-fen-at-index', (event, index) => {
+    if (typeof gameInstance.getFenAtIndex !== 'function') {
+        throw new Error('getFenAtIndex is not a function');
+    }
+    return gameInstance.getFenAtIndex(index);
+});
+
 ipcMain.handle('get-piece', (event, x, y) => {
     if (typeof gameInstance.getPiece !== 'function') {
         throw new Error('getPiece is not a function');
@@ -973,11 +990,11 @@ ipcMain.handle('set-flipped', (event, isFlipped) => {
     return true;
 });
 
-ipcMain.handle('move-piece', (event, fromX, fromY, toX, toY) => {
+ipcMain.handle('move-piece', (event, fromX, fromY, toX, toY, isAnalysis = false) => {
     if (typeof gameInstance.move !== 'function') {
         throw new Error('move is not a function');
     }
-    return gameInstance.move(fromX, fromY, toX, toY);
+    return gameInstance.move(fromX, fromY, toX, toY, isAnalysis);
 });
 
 ipcMain.handle('get-legal-moves', (event, x, y) => {
@@ -1065,6 +1082,27 @@ ipcMain.handle('export-game', () => {
         throw new Error('exportGame is not a function');
     }
     return gameInstance.exportGame();
+});
+
+ipcMain.handle('export-pgn', () => {
+    if (typeof gameInstance.exportPgn !== 'function') {
+        throw new Error('exportPgn is not a function');
+    }
+    return gameInstance.exportPgn();
+});
+
+ipcMain.handle('update-move-note', (event, index, note) => {
+    if (typeof gameInstance.updateMoveNote !== 'function') {
+        throw new Error('updateMoveNote is not a function');
+    }
+    return gameInstance.updateMoveNote(index, note);
+});
+
+ipcMain.handle('update-move-variation', (event, index, variation) => {
+    if (typeof gameInstance.updateMoveVariation !== 'function') {
+        throw new Error('updateMoveVariation is not a function');
+    }
+    return gameInstance.updateMoveVariation(index, variation);
 });
 
 ipcMain.handle('import-game', (event, gameData) => {
@@ -1304,9 +1342,9 @@ ipcMain.on('analyze-position', (event, fen) => {
             }
             debugLog(`[ENGINE IN]: position fen ${fen}`);
             engineProcess.stdin.write(`position fen ${fen}\n`);
-            
+
             const selectedEngine = engines.find(e => e.path === engineProcess.spawnargs[0]) || { options: {} };
-            
+
             if (engineProtocol === 'uci') {
                 if (selectedEngine.options && selectedEngine.options.depth) {
                     debugLog(`[ENGINE IN]: go depth ${selectedEngine.options.depth}`);

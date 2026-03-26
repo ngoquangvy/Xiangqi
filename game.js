@@ -1,4 +1,4 @@
-﻿// game.js
+// game.js
 const ROWS = 10;
 const COLS = 9;
 
@@ -205,7 +205,7 @@ class XiangqiGame {
     isValidPosition(x, y) {
         return x >= 0 && x < COLS && y >= 0 && y < ROWS;
     }
-    move(fromX, fromY, toX, toY) {
+    move(fromX, fromY, toX, toY, isAnalysis = false) {
         const piece = this.board[fromY][fromX];
         if (!piece) return false;
 
@@ -216,16 +216,20 @@ class XiangqiGame {
         if (!isLegal) return false;
 
         const capturedPiece = this.board[toY][toX];
-        this.moveHistory = this.moveHistory.slice(0, this.currentMoveIndex + 1);
-        this.moveHistory.push({
-            fromX,
-            fromY,
-            toX,
-            toY,
-            capturedPiece,
-            currentTurn: this.currentTurn,
-            piece: { ...piece } // Lưu thông tin quân cờ tại thời điểm di chuyển
-        });
+        if (!isAnalysis) {
+            this.moveHistory = this.moveHistory.slice(0, this.currentMoveIndex + 1);
+            this.moveHistory.push({
+                fromX,
+                fromY,
+                toX,
+                toY,
+                capturedPiece,
+                currentTurn: this.currentTurn,
+                piece: { ...piece },
+                note: "",
+                variation: []
+            });
+        }
 
         this.board[toY][toX] = piece;
         this.board[fromY][fromX] = null;
@@ -233,11 +237,16 @@ class XiangqiGame {
         if (this.isKingInCheck(piece.color)) {
             this.board[fromY][fromX] = piece;
             this.board[toY][toX] = capturedPiece;
-            this.moveHistory.pop();
+            if (!isAnalysis) {
+                this.moveHistory.pop();
+            }
             return false;
         }
 
-        this.currentMoveIndex++;
+        if (!isAnalysis) {
+            this.currentMoveIndex++;
+        }
+        
         const previousTurn = this.currentTurn;
         this.currentTurn = this.currentTurn === "red" ? "black" : "red";
         if (previousTurn === "black" && this.currentTurn === "red") {
@@ -614,13 +623,28 @@ class XiangqiGame {
         return true;
     }
 
+    updateMoveNote(index, note) {
+        if (index >= 0 && index < this.moveHistory.length) {
+            this.moveHistory[index].note = note || "";
+            return true;
+        }
+        return false;
+    }
+
+    updateMoveVariation(index, variation) {
+        if (index >= 0 && index < this.moveHistory.length) {
+            this.moveHistory[index].variation = variation || [];
+            return true;
+        }
+        return false;
+    }
+
     getCurrentMoveIndex() {
         return this.currentMoveIndex;
     }
 
     goToMove(index) {
         // Rebuild board from initial position up to selected move index.
-        // goToMove is used by clickable history rows in UI.
         // It never mutates moveHistory; only recalculates board + timeline pointer.
         if (!this.initialBoard || !Array.isArray(this.moveHistory)) {
             return false;
@@ -641,7 +665,6 @@ class XiangqiGame {
             }
 
             let piece = this.board[move.fromY]?.[move.fromX] || null;
-            // Fallback for old history entries: recover piece from saved move payload.
             if (!piece && move.piece) {
                 piece = { ...move.piece };
                 this.board[move.fromY][move.fromX] = piece;
@@ -662,6 +685,23 @@ class XiangqiGame {
         }
 
         return true;
+    }
+
+    getFenAtIndex(index) {
+        // Save current state
+        const originalIndex = this.currentMoveIndex;
+        const originalBoard = this.board.map(row => row.map(cell => (cell ? { ...cell } : null)));
+        const originalTurn = this.currentTurn;
+
+        this.goToMove(index);
+        const fen = this.exportFen();
+
+        // Restore current state
+        this.currentMoveIndex = originalIndex;
+        this.board = originalBoard;
+        this.currentTurn = originalTurn;
+
+        return fen;
     }
 
     getMoveHistory() {
@@ -729,6 +769,37 @@ class XiangqiGame {
             console.error('Error importing game:', err);
             return false;
         }
+    }
+
+    exportPgn() {
+        let pgn = '[Event "Xiangqi Match"]\n';
+        pgn += `[Date "${new Date().toISOString().split('T')[0]}"]\n`;
+        pgn += '[FEN "' + (this.initialFen || 'rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w - - 0 1') + '"]\n\n';
+
+        for (let i = 0; i < this.moveHistory.length; i += 2) {
+            const moveNo = Math.floor(i / 2) + 1;
+            const redMove = this.moveHistory[i];
+            const blackMove = this.moveHistory[i + 1];
+
+            pgn += `${moveNo}. ${this.toICCS(redMove)} `;
+            if (redMove.note) pgn += `{${redMove.note}} `;
+
+            if (blackMove) {
+                pgn += `${this.toICCS(blackMove)} `;
+                if (blackMove.note) pgn += `{${blackMove.note}} `;
+            }
+            pgn += '\n';
+        }
+        return pgn;
+    }
+
+    toICCS(move) {
+        if (!move) return "";
+        const fX = String.fromCharCode(97 + move.fromX);
+        const fY = 9 - move.fromY;
+        const tX = String.fromCharCode(97 + move.toX);
+        const tY = 9 - move.toY;
+        return `${fX}${fY}${tX}${tY}`;
     }
 
     // Chuyển đổi tên quân cờ sang ký hiệu ngắn gọn

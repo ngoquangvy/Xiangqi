@@ -1,4 +1,4 @@
-﻿(function () {
+(function () {
     const canvas = document.getElementById("boardCanvas");
     const ctx = canvas ? canvas.getContext("2d") : null;
     const piecesContainer = document.getElementById("pieces");
@@ -19,6 +19,31 @@
             this.evaluationBody = document.getElementById('evaluation-body');
             this.suggestionsStatus = document.getElementById('suggestions-status');
             this.suggestionStatusTimer = null;
+            this.moveContextPanel = document.getElementById('move-context-panel');
+            this.moveContextTitle = document.getElementById('move-context-title');
+            this.moveContextClose = document.getElementById('move-context-close');
+            this.moveNoteInput = document.getElementById('move-note-input');
+            this.saveNoteBtn = document.getElementById('save-note-btn');
+            this.moveVariationDisplay = document.getElementById('move-variation-display');
+            this.liveVariationDisplay = document.getElementById('live-variation-display');
+            this.recordVariationBtn = document.getElementById('record-variation-btn');
+            this.variationControls = document.getElementById('variation-controls');
+            this.commitVariationBtn = document.getElementById('commit-variation-btn');
+            this.cancelVariationBtn = document.getElementById('cancel-variation-btn');
+            
+            // PV/Variation tracking for keyboard navigation
+            this.currentPVData = {
+                container: null,
+                moves: [],
+                activeIndex: -1,
+                onClick: null
+            };
+            this.setupKeyboardNavigation();
+
+            this.isRecordingVariation = false;
+            this.recordedMoves = [];
+            this.preRecordingHistory = [];
+            this.preRecordingFen = null;
             this.cellWidth = 47;
             this.cellHeight = 48;
             this.pieceSpacing = 1.07;
@@ -27,6 +52,9 @@
             this.imageWidthScale = 1.02;
             this.imageHeightScale = 1.02;
             this.isFlipped = false;
+            this.isRecordingVariation = false;
+            this.recordedMoves = [];
+            this.selectedMoveIndex = -1;
             this.lastMove = null;
             this.lastMoveRaw = null;
             this.lastMovePositions = null;
@@ -52,6 +80,7 @@
             window.XiangqiGameAPI.onEngineReady(() => {
                 this.analyzeCurrentPosition();
             });
+            this.setupNoteEditor();
             window.addEventListener('engine-error', (event) => {
                 const errorMessage = event.detail || 'Unknown engine error';
                 alert(`Engine Error: ${errorMessage}`);
@@ -75,7 +104,7 @@
                         case 'reset-game': document.getElementById('reset-game-btn').click(); break;
                         case 'flip-board': document.getElementById('flip-board-btn').click(); break;
                         case 'load-suggestions': document.getElementById('load-suggestions-btn').click(); break;
-                        case 'open-engine-menu': 
+                        case 'open-engine-menu':
                             setTimeout(() => {
                                 const engineMenu = document.getElementById('engine-menu');
                                 if (engineMenu) {
@@ -94,7 +123,7 @@
                                 }
                             }, 50);
                             break;
-                        case 'open-book-menu': 
+                        case 'open-book-menu':
                             setTimeout(() => {
                                 const bookMenu = document.getElementById('book-menu');
                                 if (bookMenu) {
@@ -147,12 +176,12 @@
                 const fen = await window.XiangqiGameAPI.getFen();
                 this.currentFen = fen;
                 this.pendingSuggestions.clear();
-                
+
                 // Clear stale state to prevent UI from showing past moves
                 this.latestSuggestionRows = [];
                 this.currentBookCandidates = [];
                 if (this.suggestionsBody) {
-                    this.suggestionsBody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 10px; color: #8A7355;">Äang phÃ¢n tÃ­ch tháº¿ cá»...</td></tr>';
+                    this.suggestionsBody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 10px; color: #8A7355;">Đang phân tích vị trí...</td></tr>';
                 }
 
                 window.XiangqiGameAPI.analyzePosition(fen);
@@ -275,25 +304,59 @@
         }
         renderMoveSpans(cell, notations, onClick) {
             const shown = Array.isArray(notations) ? notations : [];
+            cell.innerHTML = '';
             shown.forEach((notation, idx) => {
+                const step = idx + 1;
                 const moveSpan = document.createElement('span');
                 moveSpan.textContent = notation;
+                moveSpan.className = 'move-clickable-span';
                 moveSpan.style.cursor = 'pointer';
-                moveSpan.style.marginRight = '6px';
-                moveSpan.style.textDecoration = 'underline';
-                moveSpan.dataset.step = (idx + 1).toString();
-                moveSpan.addEventListener('click', async () => {
-                    document.querySelectorAll('.highlighted-move').forEach(span => {
-                        span.classList.remove('highlighted-move');
-                    });
+                moveSpan.style.marginRight = '8px';
+                moveSpan.style.padding = '2px 4px';
+                moveSpan.style.borderRadius = '3px';
+                moveSpan.dataset.step = step.toString();
+                
+                if (this.currentPVData.container === cell && this.currentPVData.activeIndex === step) {
                     moveSpan.classList.add('highlighted-move');
-                    const step = parseInt(moveSpan.dataset.step);
+                    setTimeout(() => {
+                        const leftPadding = 20;
+                        const targetLeft = Math.max(0, moveSpan.offsetLeft - leftPadding);
+                        cell.scrollTo({ left: targetLeft, behavior: 'smooth' });
+                    }, 0);
+                }
+
+                moveSpan.addEventListener('click', async () => {
+                    this.currentPVData = { container: cell, moves: notations, activeIndex: step, onClick };
+                    // Re-render to update highlights
+                    this.renderMoveSpans(cell, notations, onClick);
                     await onClick(step);
-                    const leftPadding = 90;
-                    const targetLeft = Math.max(0, moveSpan.offsetLeft - leftPadding);
-                    cell.scrollTo({ left: targetLeft, behavior: 'smooth' });
                 });
                 cell.appendChild(moveSpan);
+            });
+        }
+
+        setupKeyboardNavigation() {
+            document.addEventListener('keydown', async (e) => {
+                // Ignore if typing in a text area
+                if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+
+                if (!this.currentPVData.container || this.currentPVData.moves.length === 0) return;
+                
+                if (e.key === 'ArrowRight') {
+                    if (this.currentPVData.activeIndex < this.currentPVData.moves.length) {
+                        this.currentPVData.activeIndex++;
+                        this.renderMoveSpans(this.currentPVData.container, this.currentPVData.moves, this.currentPVData.onClick);
+                        await this.currentPVData.onClick(this.currentPVData.activeIndex);
+                        e.preventDefault();
+                    }
+                } else if (e.key === 'ArrowLeft') {
+                    if (this.currentPVData.activeIndex > 1) {
+                        this.currentPVData.activeIndex--;
+                        this.renderMoveSpans(this.currentPVData.container, this.currentPVData.moves, this.currentPVData.onClick);
+                        await this.currentPVData.onClick(this.currentPVData.activeIndex);
+                        e.preventDefault();
+                    }
+                }
             });
         }
 
@@ -335,7 +398,7 @@
             marker.style.setProperty("opacity", "1", "important");
             marker.style.setProperty("border-radius", "50%", "important");
             marker.style.setProperty("box-sizing", "border-box", "important");
-            
+
             if (hasEngine && hasBook) {
                 marker.style.setProperty("background", "linear-gradient(135deg, rgba(38,117,59,0.5) 0%, rgba(38,117,59,0.5) 50%, rgba(36,82,184,0.5) 50%, rgba(36,82,184,0.5) 100%)", "important");
                 marker.style.setProperty("border", "3px solid #ffcc00", "important");
@@ -423,12 +486,12 @@
                             if (this.isEvaluatingSpecificMove) {
                                 scoreValue = -scoreValue;
                             }
-                            
+
                             move = parts[pvIndex + 1];
                             if (this.isEvaluatingSpecificMove && this.evalSpecificMoveUci) {
                                 move = this.evalSpecificMoveUci;
                             }
-                            
+
                             const rank = multipvIndex !== -1 ? parseInt(parts[multipvIndex + 1]) : 1;
                             if (scoreType === 'mate') {
                                 note = this.isEvaluatingSpecificMove ? `Mate in ${-scoreValue}` : `Mate in ${scoreValue}`;
@@ -445,22 +508,34 @@
                             }
                             this.pendingSuggestions.set(rank, { move, score: scoreValue, rank, note, depth, nodes, time, pv: pvMoves });
                         }
-                    } else if (this.engineProtocol === 'ucci' && line.includes('move')) {
+                    } else if (this.engineProtocol === 'ucci' && (line.includes('pv') || line.includes('move'))) {
+                        const pvIndex = parts.indexOf('pv');
                         const moveIndex = parts.indexOf('move');
-                        if (scoreIndex !== -1 && moveIndex !== -1) {
+                        if (scoreIndex !== -1 && (pvIndex !== -1 || moveIndex !== -1)) {
                             scoreValue = parseInt(parts[scoreIndex + 1]);
                             if (this.isEvaluatingSpecificMove) scoreValue = -scoreValue;
-                            
-                            move = parts[moveIndex + 1];
+
+                            move = pvIndex !== -1 ? parts[pvIndex + 1] : parts[moveIndex + 1];
                             if (this.isEvaluatingSpecificMove && this.evalSpecificMoveUci) {
                                 move = this.evalSpecificMoveUci;
                             }
-                            
+
                             note = `${scoreValue} points`;
                             const depth = depthIndex !== -1 ? parseInt(parts[depthIndex + 1]) : '-';
                             const nodes = nodesIndex !== -1 ? parseInt(parts[nodesIndex + 1]) : '-';
                             const time = timeIndex !== -1 ? (parseInt(parts[timeIndex + 1]) / 1000).toFixed(2) : '-';
-                            this.pendingSuggestions.set(1, { move, score: scoreValue, rank: 1, note, depth, nodes, time });
+
+                            if (pvIndex !== -1) {
+                                pvMoves = parts.slice(pvIndex + 1);
+                                pvMoves = pvMoves.filter(m => /^[a-i][0-9][a-i][0-9]$/.test(m));
+                                if (this.isEvaluatingSpecificMove && this.evalSpecificMoveUci) {
+                                    pvMoves = [this.evalSpecificMoveUci, ...pvMoves];
+                                }
+                            } else {
+                                pvMoves = [move];
+                            }
+
+                            this.pendingSuggestions.set(1, { move, score: scoreValue, rank: 1, note, depth, nodes, time, pv: pvMoves });
                         }
                     }
                 } else if (line.startsWith('bestmove')) {
@@ -507,18 +582,18 @@
             const moveUci = this.toUCIMove(fromX, fromY, toX, toY);
             this.evalSpecificMoveUci = moveUci;
             const moveNotation = await this.convertMoveToNotation(moveUci);
-            
+
             if (this.evaluationBody) {
-                this.evaluationBody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 10px; color: #8A7355;">Äang phÃ¢n tÃ­ch <b>${moveNotation}</b>...</td></tr>`;
+                this.evaluationBody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 10px; color: #8A7355;">Đang phân tích <b>${moveNotation}</b>...</td></tr>`;
             }
-            
+
             this.isEvaluatingSpecificMove = true;
             this.pendingSuggestions.clear();
-            
+
             if (window.XiangqiGameAPI && window.XiangqiGameAPI.evaluateMove) {
                 window.XiangqiGameAPI.evaluateMove(this.currentFen, moveUci);
             } else {
-                if (this.evaluationBody) this.evaluationBody.innerHTML = `<tr><td colspan="5">API \`evaluateMove\` chÆ°a Ä‘Æ°á»£c há»— trá»£.</td></tr>`;
+                if (this.evaluationBody) this.evaluationBody.innerHTML = `<tr><td colspan="5">API \`evaluateMove\` chưa được hỗ trợ.</td></tr>`;
                 this.isEvaluatingSpecificMove = false;
             }
         }
@@ -528,11 +603,11 @@
             const moveNotation = await this.convertMoveToNotation(evalData.move);
             this.evaluationBody.innerHTML = '';
             const row = document.createElement('tr');
-            
+
             const enginePvMoves = Array.isArray(evalData.pv) ? evalData.pv : [];
             const enginePvResult = await window.XiangqiGameAPI.formatPV(this.currentFen, enginePvMoves);
             const enginePvNotations = Array.isArray(enginePvResult.moves) ? enginePvResult.moves : [];
-            
+
             let formattedScore = '-';
             if (evalData.note && evalData.note.includes('Mate in')) {
                 formattedScore = `<span style="color:#d4a017;font-weight:bold">${evalData.note}</span>`;
@@ -709,13 +784,13 @@
             await this.updateMoveHistory();
         }
 
-        async simulateToStep(rowIndex, pvMoves, step) {
+        async simulateToStep(rowIndex, pvMoves, step, forcedFen = null) {
             if (this.currentPVIndex !== rowIndex) {
                 this.currentPVIndex = rowIndex;
                 this.simulationStates = [];
                 this.originalFen = null;
             }
-            this.originalFen = await window.XiangqiGameAPI.getFen();
+            this.originalFen = forcedFen || await window.XiangqiGameAPI.getFen();
             if (!pvMoves || !Array.isArray(pvMoves) || pvMoves.length === 0 || step < 1 || step > pvMoves.length) {
                 console.warn('Invalid pvMoves or step:', { pvMoves, step });
                 return;
@@ -816,10 +891,10 @@
                 });
             }
         }
-        async formatPrincipalVariation(pvMoves) {
-            if (!pvMoves || pvMoves.length === 0) return '-';
+        async formatPrincipalVariation(pvMoves, forcedFen = null) {
+            if (!pvMoves || pvMoves.length === 0) return { moves: [], formatted: '-' };
 
-            const originalFen = await window.XiangqiGameAPI.getFen();
+            const originalFen = forcedFen || await window.XiangqiGameAPI.getFen();
             if (window.XiangqiGameAPI.formatPV) {
                 return await window.XiangqiGameAPI.formatPV(originalFen, pvMoves);
             }
@@ -851,20 +926,10 @@
             return [fromX, fromY, toX, toY];
         }
 
-        updateEvaluationTable(evalData) {
-            this.evaluationBody.innerHTML = '';
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td>${evalData.move}</td> 
-                <td>${evalData.rank}</td>
-                <td>${evalData.note}</td>
-            `;
-            this.evaluationBody.appendChild(row);
-        }
 
         updateBoardDisplay() {
             const boardImage = document.getElementById("board-image");
-            
+
             if (this.useImageBoard) {
                 this.cellWidth = 47;
                 this.cellHeight = 48;
@@ -888,7 +953,7 @@
                 const logicalH = this.useImageBoard ? (9 * this.cellHeight + 40) : (9 * this.cellHeight + 56);
                 const cssW = this.useImageBoard ? (8 * this.cellWidth + 70) : logicalW;
                 const cssH = this.useImageBoard ? (9 * this.cellHeight + 70) : logicalH;
-                
+
                 this.canvas.width = logicalW * this.devicePixelRatio;
                 this.canvas.height = logicalH * this.devicePixelRatio;
                 this.canvas.style.width = `${cssW}px`;
@@ -924,7 +989,7 @@
                 this.drawBoard();
             }
             this.renderBoardNumbers();
-            
+
             if (window.XiangqiGameAPI && piecesContainer.innerHTML !== "") {
                 this.renderPieces(this.offsetX, this.offsetY, this.scale);
             }
@@ -938,17 +1003,17 @@
 
             const ctx = this.ctx;
             const canvas = this.canvas;
-            
+
             ctx.save();
             // Clear and apply high quality settings
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
+
             // Premium background: Wooden color with smooth gradient
             const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
             gradient.addColorStop(0, "#EED8A1");
             gradient.addColorStop(0.5, "#E4C381");
             gradient.addColorStop(1, "#D6AD64");
-            
+
             // Add slight rounded corners to the board background visually if needed, 
             // or just fill rect. Since the HTML container is rectangular, fill uniformly.
             ctx.fillStyle = gradient;
@@ -956,9 +1021,9 @@
 
             const marginX = 28;
             const marginY = 28;
-            
+
             ctx.translate(marginX, marginY);
-            
+
             const boardColor = "#3D2517"; // Elegant dark ink color
             ctx.strokeStyle = boardColor;
             ctx.fillStyle = boardColor;
@@ -972,9 +1037,9 @@
             // Outer thick frame + inner thin line
             ctx.lineWidth = 4;
             ctx.strokeRect(-6, -6, 8 * this.cellWidth + 12, 9 * this.cellHeight + 12);
-            
+
             ctx.shadowColor = "transparent"; // Reset shadow for inner lines
-            
+
             ctx.lineWidth = 1.5;
             ctx.strokeRect(0, 0, 8 * this.cellWidth, 9 * this.cellHeight);
 
@@ -993,24 +1058,24 @@
                 }
                 ctx.stroke();
             }
-            
+
             for (let i = 0; i < 10; i++) {
                 ctx.beginPath();
                 ctx.moveTo(0, i * this.cellHeight);
                 ctx.lineTo(8 * this.cellWidth, i * this.cellHeight);
                 ctx.stroke();
             }
-            
+
             this.drawPalaceDiagonals();
             this.drawPawnAndCannonDots();
-            
+
             // Draw River text using horizontal clear font
             ctx.save();
             ctx.font = "bold 32px 'Microsoft YaHei', 'PingFang SC', 'SimHei', sans-serif";
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
             ctx.fillStyle = boardColor;
-            
+
             // Single horizontal line across the river
             ctx.fillText("楚 河 - 汉 界", 4 * this.cellWidth, 4.5 * this.cellHeight);
 
@@ -1072,7 +1137,7 @@
 
         drawPawnAndCannonDots() {
             const ctx = this.ctx;
-            
+
             // Helper function to draw the elegant L-shaped ticks 
             const drawCrossTick = (x, y, hasLeft, hasRight) => {
                 const px = x * this.cellWidth;
@@ -1081,14 +1146,14 @@
                 ctx.lineWidth = 1.5;
                 const len = Math.min(this.cellWidth, this.cellHeight) * 0.15; // Length of the cross arm
                 const gap = 4; // Gap from the intersection
-                
+
                 ctx.beginPath();
                 if (hasLeft) {
                     // Top-Left quadrant
                     ctx.moveTo(px - gap, py - gap - len);
                     ctx.lineTo(px - gap, py - gap);
                     ctx.lineTo(px - gap - len, py - gap);
-                    
+
                     // Bottom-Left quadrant
                     ctx.moveTo(px - gap, py + gap + len);
                     ctx.lineTo(px - gap, py + gap);
@@ -1099,7 +1164,7 @@
                     ctx.moveTo(px + gap, py - gap - len);
                     ctx.lineTo(px + gap, py - gap);
                     ctx.lineTo(px + gap + len, py - gap);
-                    
+
                     // Bottom-Right quadrant
                     ctx.moveTo(px + gap, py + gap + len);
                     ctx.lineTo(px + gap, py + gap);
@@ -1112,10 +1177,10 @@
                 // format: [x, y, hasLeftMarks, hasRightMarks]
                 [0, 3, false, true], [2, 3, true, true], [4, 3, true, true], [6, 3, true, true], [8, 3, true, false],
                 [0, 6, false, true], [2, 6, true, true], [4, 6, true, true], [6, 6, true, true], [8, 6, true, false],
-                [1, 2, true, true], [7, 2, true, true], 
+                [1, 2, true, true], [7, 2, true, true],
                 [1, 7, true, true], [7, 7, true, true]
             ];
-            
+
             positions.forEach(([x, y, l, r]) => {
                 drawCrossTick(x, y, l, r);
             });
@@ -1255,6 +1320,48 @@
                 const isLegalMove = legalMoves.some(([mx, my]) => mx === x && my === y);
 
                 if (isLegalMove) {
+                    if (this.isRecordingVariation) {
+                        const uci = this.toUCIMove(fromX, fromY, x, y);
+                        const moved = await window.XiangqiGameAPI.move(fromX, fromY, x, y, true); // true for isAnalysis
+                        if (moved) {
+                            this.recordedMoves.push(uci);
+                            this.lastMovePositions = { fromX, fromY, toX: x, toY: y };
+                            this.clearHighlights();
+                            this.selectedPiece = null;
+                            await this.renderPieces(this.offsetX, this.offsetY, this.scale);
+                            
+                            // Update live variation display
+                            if (this.liveVariationDisplay) {
+                                // Use the FEN before recording started as the base for formatting
+                                const result = await this.formatPrincipalVariation(this.recordedMoves, this.preRecordingFen);
+                                this.liveVariationDisplay.innerHTML = '';
+                                
+                                // Add a Reset button for the live display
+                                const resetBtn = document.createElement('button');
+                                resetBtn.textContent = 'Reset Board';
+                                resetBtn.style.fontSize = '10px';
+                                resetBtn.style.padding = '2px 5px';
+                                resetBtn.style.marginBottom = '5px';
+                                resetBtn.style.cursor = 'pointer';
+                                
+                                const onClickLive = async (step) => {
+                                    await this.simulateToStep(-1, this.recordedMoves, step, this.preRecordingFen);
+                                };
+
+                                resetBtn.onclick = async () => {
+                                    this.currentPVIndex = null;
+                                    await this.syncAfterStateChange();
+                                    this.renderMoveSpans(this.liveVariationDisplay, result.moves, onClickLive);
+                                };
+                                this.liveVariationDisplay.appendChild(resetBtn);
+                                this.liveVariationDisplay.appendChild(document.createElement('br'));
+
+                                this.renderMoveSpans(this.liveVariationDisplay, result.moves, onClickLive);
+                            }
+                        }
+                        return;
+                    }
+
                     const success = await window.XiangqiGameAPI.move(fromX, fromY, x, y);
                     if (success) {
                         this.lastMovePositions = { fromX, fromY, toX: x, toY: y };
@@ -1352,10 +1459,26 @@
                     redSpan.classList.add('move-clickable');
                     if (redIndex === currentIndex) {
                         redSpan.classList.add('move-current');
+                        redSpan.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
                     }
                     redSpan.addEventListener('click', async () => {
                         await this.goToMove(redIndex);
+                        this.selectedMoveIndex = redIndex;
+                        if (this.moveNoteInput) {
+                            this.moveNoteInput.value = (history[redIndex] && history[redIndex].note) ? history[redIndex].note : "";
+                        }
                     });
+
+                    redSpan.addEventListener('contextmenu', (e) => {
+                        e.preventDefault();
+                        this.selectedMoveIndex = redIndex;
+                        this.showMoveContextPanel(redIndex, history[redIndex]);
+                    });
+
+                    if (history[redIndex] && history[redIndex].note) {
+                        redSpan.title = history[redIndex].note;
+                        redSpan.innerHTML += ' <small>📝</small>';
+                    }
                 }
 
                 const blackSpan = document.createElement('span');
@@ -1368,7 +1491,22 @@
                     }
                     blackSpan.addEventListener('click', async () => {
                         await this.goToMove(blackIndex);
+                        this.selectedMoveIndex = blackIndex;
+                        if (this.moveNoteInput) {
+                            this.moveNoteInput.value = (history[blackIndex] && history[blackIndex].note) ? history[blackIndex].note : "";
+                        }
                     });
+
+                    blackSpan.addEventListener('contextmenu', (e) => {
+                        e.preventDefault();
+                        this.selectedMoveIndex = blackIndex;
+                        this.showMoveContextPanel(blackIndex, history[blackIndex]);
+                    });
+
+                    if (history[blackIndex] && history[blackIndex].note) {
+                        blackSpan.title = history[blackIndex].note;
+                        blackSpan.innerHTML += ' <small>📝</small>';
+                    }
                 }
 
                 item.appendChild(numberSpan);
@@ -1401,7 +1539,7 @@
             const history = await window.XiangqiGameAPI.getMoveHistory();
             const currentIndex = await window.XiangqiGameAPI.getCurrentMoveIndex();
             const lastMoveEntry = currentIndex >= 0 && currentIndex < history.length ? history[currentIndex] : null;
-            
+
             if (lastMoveEntry) {
                 this.lastMovePositions = {
                     fromX: lastMoveEntry.fromX,
@@ -1569,7 +1707,7 @@
             const depthInput = document.getElementById("edit-engine-depth");
             const threadsInput = document.getElementById("edit-engine-threads");
             const skillLevelInput = document.getElementById("edit-engine-skill-level");
-            
+
             const bookFileInput = document.getElementById("edit-engine-bookFile");
             const browseBookBtn = document.getElementById("browse-engine-book-btn");
             const clearBookBtn = document.getElementById("clear-engine-book-btn");
@@ -1637,6 +1775,193 @@
             cancelBtn.onclick = () => {
                 closeModal();
             };
+        }
+
+        showMoveContextPanel(index, moveData) {
+            if (!this.moveContextPanel) return;
+            this.moveContextPanel.style.display = 'block';
+            const notation = moveData ? moveData.moveNotation : 'Unknown';
+            this.moveContextTitle.textContent = `${notation} (${index % 2 === 0 ? 'Red' : 'Black'})`;
+            this.moveNoteInput.value = moveData && moveData.note ? moveData.note : '';
+            
+            // Render saved variations
+            if (this.moveVariationDisplay) {
+                this.moveVariationDisplay.innerHTML = '';
+                if (moveData && moveData.variation && moveData.variation.length > 0) {
+                    window.XiangqiGameAPI.getFenAtIndex(index).then(fen => {
+                        this.formatPrincipalVariation(moveData.variation, fen).then(result => {
+                            // Add a Reset button for the variation display
+                            const resetBtn = document.createElement('button');
+                            resetBtn.textContent = 'Reset Board';
+                            resetBtn.style.fontSize = '10px';
+                            resetBtn.style.padding = '2px 5px';
+                            resetBtn.style.marginBottom = '5px';
+                            resetBtn.style.cursor = 'pointer';
+                            
+                            const onClickVariation = async (step) => {
+                                await this.simulateToStep(-1, moveData.variation, step, fen);
+                            };
+
+                            resetBtn.onclick = async () => {
+                                this.currentPVIndex = null;
+                                await this.syncAfterStateChange();
+                                this.renderMoveSpans(this.moveVariationDisplay, result.moves, onClickVariation);
+                            };
+                            this.moveVariationDisplay.appendChild(resetBtn);
+                            this.moveVariationDisplay.appendChild(document.createElement('br'));
+
+                            this.renderMoveSpans(this.moveVariationDisplay, result.moves, onClickVariation);
+                        });
+                    }).catch(err => {
+                        console.error("Error getting FEN for variation:", err);
+                        this.moveVariationDisplay.textContent = 'Error loading variation';
+                    });
+                } else {
+                    this.moveVariationDisplay.textContent = '-';
+                }
+            }
+
+            this.updateRecordingUI();
+        }
+
+        setupNoteEditor() {
+            if (this.moveContextClose) {
+                this.moveContextClose.onclick = async () => {
+                    this.moveContextPanel.style.display = 'none';
+                    this.currentPVIndex = null;
+                    if (this.isRecordingVariation) {
+                        await this.cancelVariation();
+                    } else {
+                        // Just restore the board to the actual current game state
+                        await this.syncAfterStateChange();
+                    }
+                };
+            }
+            if (this.saveNoteBtn) {
+                this.saveNoteBtn.onclick = async () => {
+                    if (this.selectedMoveIndex === -1) {
+                        alert("Vui lòng chọn một nước đi trong lịch sử trước.");
+                        return;
+                    }
+                    const note = this.moveNoteInput.value;
+                    const success = await window.XiangqiGameAPI.updateMoveNote(this.selectedMoveIndex, note);
+                    if (success) {
+                        // Refresh the main move list to show/update the note badge
+                        await this.updateMoveHistory();
+                        // Re-fetch history to ensure we have the latest for the panel
+                        const history = await window.XiangqiGameAPI.getMoveHistory();
+                        this.showMoveContextPanel(this.selectedMoveIndex, history[this.selectedMoveIndex]);
+                        alert("Đã lưu ghi chú.");
+                    } else {
+                        alert("Không thể lưu ghi chú.");
+                    }
+                };
+            }
+
+            if (this.recordVariationBtn) {
+                this.recordVariationBtn.onclick = () => this.toggleRecordingMode();
+            }
+
+            if (this.commitVariationBtn) {
+                this.commitVariationBtn.onclick = () => this.commitVariation();
+            }
+
+            if (this.cancelVariationBtn) {
+                this.cancelVariationBtn.onclick = () => this.cancelVariation();
+            }
+        }
+
+        async toggleRecordingMode() {
+            if (this.selectedMoveIndex === -1) {
+                alert("Vui lòng chọn một nước đi để bắt đầu record biến mới.");
+                return;
+            }
+
+            if (!this.isRecordingVariation) {
+                // START RECORDING
+                this.isRecordingVariation = true;
+                this.recordedMoves = [];
+                // Save state to restore if cancelled
+                this.preRecordingHistory = await window.XiangqiGameAPI.getMoveHistory();
+                this.preRecordingFen = await window.XiangqiGameAPI.getFen();
+
+                // Jump to the selected move index in the engine to start from there
+                await window.XiangqiGameAPI.goToMove(this.selectedMoveIndex);
+                await this.syncAfterStateChange({ reanalyze: true });
+
+                if (this.liveVariationDisplay) this.liveVariationDisplay.textContent = '-';
+            } else {
+                // TOGGLE OFF (defaults to cancel if not explicitly committed)
+                this.cancelVariation();
+            }
+            this.updateRecordingUI();
+        }
+
+        updateRecordingUI() {
+            if (!this.variationControls) return;
+            if (this.isRecordingVariation) {
+                this.variationControls.style.display = 'block';
+                this.recordVariationBtn.textContent = 'Stop Recording';
+                this.recordVariationBtn.classList.add('recording-active');
+                if (this.moveContextPanel) this.moveContextPanel.style.borderColor = '#ffa39e';
+            } else {
+                this.variationControls.style.display = 'none';
+                this.recordVariationBtn.textContent = 'Record Var';
+                this.recordVariationBtn.classList.remove('recording-active');
+                if (this.moveContextPanel) this.moveContextPanel.style.borderColor = '#ffe58f';
+                if (this.liveVariationDisplay) this.liveVariationDisplay.textContent = '-';
+            }
+        }
+
+        async commitVariation() {
+            if (!this.isRecordingVariation) return;
+            if (this.recordedMoves.length === 0) {
+                alert("Chưa có nước đi mới nào được ghi lại.");
+                return;
+            }
+
+            const confirmCommit = confirm(`Lưu ${this.recordedMoves.length} nước đi mới vào Biến thế của nước đi này?`);
+            if (!confirmCommit) return;
+
+            // Save locally to the move instead of merging into main history
+            await window.XiangqiGameAPI.updateMoveVariation(this.selectedMoveIndex, this.recordedMoves);
+
+            this.isRecordingVariation = false;
+            this.recordedMoves = [];
+            
+            // Refresh main list to show note badge if any
+            await this.updateMoveHistory();
+            
+            // Refresh panel
+            const history = await window.XiangqiGameAPI.getMoveHistory();
+            this.showMoveContextPanel(this.selectedMoveIndex, history[this.selectedMoveIndex]);
+            
+            this.updateRecordingUI();
+            alert("Đã lưu biến thế.");
+        }
+
+        async cancelVariation() {
+            if (!this.isRecordingVariation) return;
+
+            this.isRecordingVariation = false;
+            this.recordedMoves = [];
+
+            // Restore previous state
+            if (this.preRecordingFen) {
+                await window.XiangqiGameAPI.importFen(this.preRecordingFen);
+                // We also need to restore the history. Currently, the API doesn't have a 'setHistory'.
+                // But we can reset game and replay, or just jump back if the move() calls during recording
+                // were made on a "forked" state. 
+                // Since our move() calls were made on the singleton, we must undo them.
+                const currentHistory = await window.XiangqiGameAPI.getMoveHistory();
+                const movesToUndo = currentHistory.length - this.preRecordingHistory.length;
+                for (let i = 0; i < movesToUndo; i++) {
+                    await window.XiangqiGameAPI.undo();
+                }
+            }
+
+            await this.syncAfterStateChange();
+            this.updateRecordingUI();
         }
 
         setupControls() {

@@ -7,13 +7,13 @@
     <meta http-equiv="Content-Security-Policy"
         content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';">
     <title>Chinese Chess</title>
-    <link rel="stylesheet" href="styles/styles.css"> 
+    <link rel="stylesheet" href="styles/styles.css">
 
 </head>
 
 <body>
     <div id="main-container" style="display: flex; flex-direction: row;">
-        
+
         <div id="container">
             <div id="controls">
                 <button id="controls-btn">Controls</button>
@@ -29,7 +29,9 @@
                 <div id="engine-menu"
                     style="display: none; position: absolute; background: white; border: 1px solid #ccc; padding: 10px; z-index: 9999; box-shadow: 0px 4px 6px rgba(0,0,0,0.1);">
                     <div style="text-align: right; margin-bottom: 5px;">
-                        <button id="close-engine-menu" style="color: red; cursor: pointer; border: none; background: transparent; font-weight: bold;">[X] Close</button>
+                        <button id="close-engine-menu"
+                            style="color: red; cursor: pointer; border: none; background: transparent; font-weight: bold;">[X]
+                            Close</button>
                     </div>
                     <button id="add-engine-btn">Add Engine</button>
                     <input type="file" id="engine-file-input" style="display: none;" accept=".exe">
@@ -39,7 +41,9 @@
                 <div id="book-menu"
                     style="display: none; position: absolute; background: white; border: 1px solid #ccc; padding: 10px; z-index: 9999; box-shadow: 0px 4px 6px rgba(0,0,0,0.1);">
                     <div style="text-align: right; margin-bottom: 5px;">
-                        <button id="close-book-menu" style="color: red; cursor: pointer; border: none; background: transparent; font-weight: bold;">[X] Close</button>
+                        <button id="close-book-menu"
+                            style="color: red; cursor: pointer; border: none; background: transparent; font-weight: bold;">[X]
+                            Close</button>
                     </div>
                     <button id="refresh-book-btn">Refresh</button>
                     <button id="convert-book-vi-btn">Convert VI</button>
@@ -52,10 +56,36 @@
             <div id="move-history">
                 <h3>Move History</h3>
                 <ul id="move-list"></ul>
+                <!-- Context Sensitive Move Panel (Hidden by default, shown on right-click) -->
+                <div id="move-context-panel" style="display: none; margin-top: 10px; border-top: 2px solid #ccc; padding: 10px; background: #fffbe6; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); border: 1px solid #ffe58f; position: relative;">
+                    <button id="move-context-close" style="position: absolute; right: 8px; top: 8px; border: none; background: transparent; color: #dc3545; font-weight: bold; cursor: pointer; font-size: 16px;">&times;</button>
+                    <h4 id="move-context-title" style="margin: 0 0 10px 0; font-size: 15px; color: #856404; font-weight: bold;">-</h4>
+                    
+                    <textarea id="move-note-input" rows="3" style="width: 100%; box-sizing: border-box; resize: vertical; margin-top: 0; font-size: 13px; padding: 8px; border: 1px solid #d9d9d9; border-radius: 4px;" placeholder="Viết ghi chú..."></textarea>
+                    
+                    <div style="margin-top: 10px; display: flex; gap: 8px;">
+                        <button id="save-note-btn" style="flex: 1; padding: 4px; font-size: 11px; cursor: pointer; background: #26753b; color: white; border: none; border-radius: 4px; font-weight: bold;">Save</button>
+                        <button id="record-variation-btn" style="flex: 1; padding: 4px; font-size: 11px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 4px; font-weight: bold;">Record Var</button>
+                    </div>
+
+                    <div id="variation-display-section" style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #ffe58f;">
+                        <div style="font-size: 12px; font-weight: bold; color: #856404; margin-bottom: 5px;">Biến thế đã lưu:</div>
+                        <div id="move-variation-display" class="pv-cell" style="min-height: 20px; font-size: 12px;">-</div>
+                    </div>
+
+                    <div id="variation-controls" style="display: none; margin-top: 10px; padding: 10px; background: #fff0f0; border-radius: 4px; border: 1px solid #ffa39e;">
+                        <div style="font-size: 11px; color: #cf1322; font-weight: bold; margin-bottom: 4px; text-transform: uppercase;">Đang Record Biến Mới...</div>
+                        <div id="live-variation-display" class="pv-cell" style="min-height: 20px; font-size: 12px; margin-bottom: 8px; background: white; padding: 4px; border-radius: 2px; border: 1px solid #ffccc7;">-</div>
+                        <div style="display: flex; gap: 8px;">
+                            <button id="commit-variation-btn" style="flex: 1; padding: 6px; font-size: 12px; cursor: pointer; background: #28a745; color: white; border: none; border-radius: 4px; font-weight: bold;">Commit</button>
+                            <button id="cancel-variation-btn" style="flex: 1; padding: 6px; font-size: 12px; cursor: pointer; background: #dc3545; color: white; border: none; border-radius: 4px; font-weight: bold;">Cancel</button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
-        
+
         <div id="board-section">
             <div id="adjustments">
                 <label>Board Type:
@@ -86,7 +116,7 @@
             </div>
         </div>
 
-        
+
         <div id="engine-container">
             <button id="load-suggestions-btn">Load Suggestions</button>
             <div id="suggestions-status" class="suggestions-status" aria-live="polite"></div>
@@ -137,10 +167,11 @@
             <input type="number" id="edit-engine-threads" min="1"><br>
             <label for="edit-engine-skill-level">Skill Level:</label>
             <input type="number" id="edit-engine-skill-level" min="1" max="20"><br><br>
-            
+
             <label for="edit-engine-bookFile">Engine Book File (.xob / .bin):</label>
             <div style="display: flex; flex-direction: row; align-items: center; gap: 5px; margin-bottom: 10px;">
-                <input type="text" id="edit-engine-bookFile" placeholder="No book selected" readonly style="flex-grow: 1; background-color: #f0f0f0; border: 1px solid #ccc;">
+                <input type="text" id="edit-engine-bookFile" placeholder="No book selected" readonly
+                    style="flex-grow: 1; background-color: #f0f0f0; border: 1px solid #ccc;">
                 <button type="button" id="browse-engine-book-btn">Browse</button>
                 <button type="button" id="clear-engine-book-btn" style="color: red;">Clear</button>
             </div>
@@ -154,29 +185,3 @@
 </body>
 
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

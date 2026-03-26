@@ -1,4 +1,4 @@
-﻿// preload.js
+// preload.js
 const { contextBridge, ipcRenderer } = require('electron');
 
 let engineProtocol = 'uci';
@@ -11,7 +11,7 @@ contextBridge.exposeInMainWorld('XiangqiGameAPI', {
     // - Main process channels stay private behind these wrappers.
     // - Keeps UI code decoupled from Electron internals.
     getPiece: (x, y) => ipcRenderer.invoke('get-piece', x, y),
-    move: (fromX, fromY, toX, toY) => ipcRenderer.invoke('move-piece', fromX, fromY, toX, toY),
+    move: (fromX, fromY, toX, toY, isAnalysis = false) => ipcRenderer.invoke('move-piece', fromX, fromY, toX, toY, isAnalysis),
     makeMove: (fromX, fromY, toX, toY) => ipcRenderer.invoke('move-piece', fromX, fromY, toX, toY),
     getLegalMoves: (x, y) => ipcRenderer.invoke('get-legal-moves', x, y),
     isKingInCheck: (color) => ipcRenderer.invoke('is-king-in-check', color),
@@ -26,6 +26,9 @@ contextBridge.exposeInMainWorld('XiangqiGameAPI', {
     getCurrentMoveIndex: () => ipcRenderer.invoke('get-current-move-index'),
     goToMove: (index) => ipcRenderer.invoke('go-to-move', index),
     exportGame: () => ipcRenderer.invoke('export-game'),
+    exportPgn: () => ipcRenderer.invoke('export-pgn'),
+    updateMoveNote: (index, note) => ipcRenderer.invoke('update-move-note', index, note),
+    updateMoveVariation: (index, variation) => ipcRenderer.invoke('update-move-variation', index, variation),
     setFlipped: (isFlipped) => ipcRenderer.invoke('set-flipped', isFlipped),
     importGame: (gameData) => ipcRenderer.invoke('import-game', gameData),
     importBookFile: (filePath) => ipcRenderer.invoke('import-book-file', filePath),
@@ -36,6 +39,7 @@ contextBridge.exposeInMainWorld('XiangqiGameAPI', {
     evaluateMove: (fen, moveUci) => ipcRenderer.send('evaluate-move', fen, moveUci),
     onEngineOutput: (callback) => ipcRenderer.on('engine-output', (event, data) => callback(data)),
     getFen: () => ipcRenderer.invoke('get-fen'),
+    getFenAtIndex: (index) => ipcRenderer.invoke('get-fen-at-index', index),
     onEngineReady: (callback) => ipcRenderer.on('engine-ready', (event) => callback()),
     getMoveNotation: (fromX, fromY, toX, toY) => ipcRenderer.invoke('get-move-notation', fromX, fromY, toX, toY),
     getEngines: () => ipcRenderer.invoke('get-engines'),
@@ -71,7 +75,7 @@ ipcRenderer.on('engine-output', (event, data) => {
     }
 });
 
-ipcRenderer.on('engine-ready', () => {});
+ipcRenderer.on('engine-ready', () => { });
 
 ipcRenderer.on('engine-error', (event, error) => {
     console.error('Engine error:', error);
