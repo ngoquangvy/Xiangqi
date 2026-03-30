@@ -36,11 +36,17 @@ contextBridge.exposeInMainWorld('XiangqiGameAPI', {
     selectBook: (bookPath) => ipcRenderer.invoke('select-book', bookPath),
     convertBookLanguage: (bookPath, language) => ipcRenderer.invoke('convert-book-language', bookPath, language),
     analyzePosition: (fen) => ipcRenderer.send('analyze-position', fen),
-    evaluateMove: (fen, moveUci) => ipcRenderer.send('evaluate-move', fen, moveUci),
-    onEngineOutput: (callback) => ipcRenderer.on('engine-output', (event, data) => callback(data)),
+    evaluateMove: (fen, moveUci, depth, multiPV) => ipcRenderer.send('evaluate-move', fen, moveUci, depth, multiPV),
+    onEngineOutput: (callback) => {
+        engineOutputCallback = callback;
+    },
+    onEvalEngineOutput: (callback) => ipcRenderer.on('eval-engine-output', (event, data) => callback(data)),
+    onEvalEngineStatus: (callback) => ipcRenderer.on('eval-engine-status', (event, status) => callback(status)),
     getFen: () => ipcRenderer.invoke('get-fen'),
     getFenAtIndex: (index) => ipcRenderer.invoke('get-fen-at-index', index),
     onEngineReady: (callback) => ipcRenderer.on('engine-ready', (event) => callback()),
+    onEngineStatus: (callback) => ipcRenderer.on('engine-status', (event, status) => callback(status)),
+    onEnginePonder: (callback) => ipcRenderer.on('engine-ponder', (event, move) => callback(move)),
     getMoveNotation: (fromX, fromY, toX, toY) => ipcRenderer.invoke('get-move-notation', fromX, fromY, toX, toY),
     getEngines: () => ipcRenderer.invoke('get-engines'),
     browseEngineBook: () => ipcRenderer.invoke('browse-engine-book'),
@@ -56,12 +62,9 @@ contextBridge.exposeInMainWorld('XiangqiGameAPI', {
     simulatePV: (fen, pvMoves, stepLimit) => ipcRenderer.invoke('simulate-pv', fen, pvMoves, stepLimit),
     formatPV: (fen, pvMoves) => ipcRenderer.invoke('format-pv', fen, pvMoves),
     updateBookNote: (fen, move, note) => ipcRenderer.invoke('update-book-note', fen, move, note),
-
-    onEngineOutput: (callback) => {
-        engineOutputCallback = callback;
-    },
-    onEngineReady: (callback) => ipcRenderer.on('engine-ready', (event) => callback()),
+    stopEngine: () => ipcRenderer.send('stop-engine'),
 });
+
 ipcRenderer.on('update-protocol', (event, protocol) => {
     engineProtocol = protocol || 'uci';
 });
@@ -72,7 +75,6 @@ ipcRenderer.on('engine-output', (event, data) => {
     // - Keep callback in a mutable ref so late listeners still receive data.
     if (engineOutputCallback) {
         engineOutputCallback(data);
-    } else {
     }
 });
 
@@ -82,10 +84,3 @@ ipcRenderer.on('engine-error', (event, error) => {
     console.error('Engine error:', error);
     window.dispatchEvent(new CustomEvent('engine-error', { detail: error }));
 });
-
-
-
-
-
-
-

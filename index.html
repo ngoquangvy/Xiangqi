@@ -144,18 +144,42 @@
 
             <div id="move-evaluation">
                 <h3>Move Evaluation (Chuột phải vào vị trí bất kỳ lúc chọn quân để phân tích)</h3>
-                <table id="evaluation-table">
-                    <thead>
-                        <tr>
-                            <th style="width: 15%;">Move</th>
-                            <th style="width: 15%;">Score</th>
-                            <th style="width: 10%;">Depth</th>
-                            <th style="width: 45%;">Principal Variation</th>
-                            <th style="width: 15%;">Note</th>
-                        </tr>
-                    </thead>
-                    <tbody id="evaluation-body"></tbody>
-                </table>
+                <div class="move-evaluation-container" style="display: flex; gap: 15px; align-items: flex-start;">
+                    <div style="flex: 1; overflow-x: auto;">
+                        <table id="evaluation-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 15%;">Move</th>
+                                    <th style="width: 15%;">Score</th>
+                                    <th style="width: 10%;">Depth</th>
+                                    <th style="width: 45%;">Principal Variation</th>
+                                    <th style="width: 15%;">Note</th>
+                                </tr>
+                            </thead>
+                            <tbody id="evaluation-body"></tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- PANEL CẤU HÌNH CHO EVAL AGENT (AGENT 3) -->
+                    <div id="eval-agent-config" class="config-panel">
+                        <h4 style="margin-top: 0; color: #444;">Eval Agent Config</h4>
+                        <div class="config-group">
+                            <label for="eval-engine-select">Engine:</label>
+                            <select id="eval-engine-select" style="width: 100%; padding: 4px;"></select>
+                        </div>
+                        <div class="config-group" style="margin-top: 8px;">
+                            <label for="eval-depth-input">Depth:</label>
+                            <input type="number" id="eval-depth-input" value="20" min="1" max="50" style="width: 50px; padding: 4px;">
+                        </div>
+                        <div class="config-group" style="margin-top: 8px;">
+                            <label for="eval-multipv-input">MultiPV:</label>
+                            <input type="number" id="eval-multipv-input" value="1" min="1" max="100" style="width: 50px; padding: 4px;">
+                        </div>
+                        <div id="eval-status-indicator" style="margin-top: 12px; font-size: 11px; color: #666;">
+                            Status: <span id="eval-status-text">Ready</span>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

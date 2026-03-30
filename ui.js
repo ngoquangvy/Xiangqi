@@ -39,6 +39,15 @@
             this.isAnalysisPaused = false; // Trạng thái tạm dừng mặc định là false
 
             this.initEngineControls();
+            
+            // --- CẤU HÌNH EVAL AGENT (AGENT 3) ---
+            this.evalEngineSelect = document.getElementById('eval-engine-select');
+            this.evalDepthInput = document.getElementById('eval-depth-input');
+            this.evalMultiPVInput = document.getElementById('eval-multipv-input');
+            this.evalStatusText = document.getElementById('eval-status-text');
+            this.evalPendingSuggestions = new Map();
+            
+            this.initEvalEngineControls();
             // ----------------------------------------
 
             // PV/Variation tracking for keyboard navigation
@@ -84,8 +93,14 @@
             this.currentBookCandidates = [];
             this.latestSuggestionRows = [];
             this.isEvaluatingSpecificMove = false;
+            
             window.XiangqiGameAPI.onEngineOutput((data) => {
                 this.handleEngineOutput(data);
+            });
+
+            // Lắng nghe dữ liệu riêng biệt cho Eval Engine (Agent 3)
+            window.XiangqiGameAPI.onEvalEngineOutput((data) => {
+                this.handleEvalEngineOutput(data);
             });
 
             // Lắng nghe trạng thái của Engine từ Main Process (Thinking/Paused/Ready)
@@ -94,6 +109,13 @@
             });
             window.XiangqiGameAPI.onEngineReady(() => {
                 this.analyzeCurrentPosition();
+            });
+
+            window.XiangqiGameAPI.onEvalEngineStatus((status) => {
+                if (this.evalStatusText) {
+                    this.evalStatusText.textContent = status === 'thinking' ? 'Thinking...' : 'Ready';
+                    this.evalStatusText.style.color = status === 'thinking' ? '#d32f2f' : '#388e3c';
+                }
             });
             this.setupNoteEditor();
             window.addEventListener('engine-error', (event) => {
@@ -203,6 +225,90 @@
         }
 
         /**
+         * Khởi tạo các sự kiện cho Panel cấu hình Eval Agent (Agent 3).
+         */
+        async initEvalEngineControls() {
+            // Nạp danh sách engine vào select box của Eval Agent
+            const engines = await window.XiangqiGameAPI.getEngines();
+            if (this.evalEngineSelect) {
+                this.evalEngineSelect.innerHTML = engines.map((e, idx) => 
+                    `<option value="${idx}">${e.name}</option>`
+                ).join('');
+                
+                const selectedIdx = await window.XiangqiGameAPI.getSelectedEngineIndex();
+                this.evalEngineSelect.value = selectedIdx;
+
+                this.evalEngineSelect.addEventListener('change', async (e) => {
+                    // Khi đổi engine cho bản Eval, ta gửi lệnh tới Main Process 
+                    // (Backend sẽ tự khởi động engine phụ tương ứng khi cần)
+                    console.log('[Agent 3] Engine switched to index:', e.target.value);
+                });
+            }
+        }
+
+        /**
+         * Xử lý dữ liệu thô từ Agent 3 (Evaluation Engine).
+         */
+        handleEvalEngineOutput(data) {
+            if (!data) return;
+            const lines = data.split('\n');
+            for (let line of lines) {
+                line = line.trim();
+                // Lọc thông tin depth, score, pv...
+                if (line.startsWith('info')) {
+                    this.parseEvalInfoLine(line);
+                } else if (line.startsWith('bestmove')) {
+                    const suggestions = Array.from(this.evalPendingSuggestions.values()).sort((a, b) => a.rank - b.rank);
+                    if (suggestions.length > 0) {
+                        // Cập nhật bảng Evaluation phía bên dưới
+                        this.updateEvaluationTable(suggestions[0]);
+                    }
+                    this.isEvaluatingSpecificMove = false;
+                }
+            }
+        }
+
+        parseEvalInfoLine(line) {
+            const parts = line.split(' ');
+            const depthIndex = parts.indexOf('depth');
+            const scoreIndex = parts.indexOf('score');
+            const pvIndex = parts.indexOf('pv');
+            const multipvIndex = parts.indexOf('multipv');
+            const nodesIndex = parts.indexOf('nodes');
+
+            if (scoreIndex !== -1 && pvIndex !== -1) {
+                const scoreType = parts[scoreIndex + 1];
+                let scoreValue = parseInt(parts[scoreIndex + 2]);
+                
+                // Vì Agent 3 đánh giá vị trí SAU KHI đi, nên điểm số của Engine là cho đối thủ.
+                // Ta cần đảo ngược lại để hiển thị cho nước đi ta vừa soi.
+                scoreValue = -scoreValue;
+
+                const move = this.evalSpecificMoveUci;
+                const rank = multipvIndex !== -1 ? parseInt(parts[multipvIndex + 1]) : 1;
+                
+                let note = '';
+                if (scoreType === 'mate') {
+                    note = `Mate in ${-scoreValue}`;
+                } else if (scoreType === 'cp') {
+                    note = `${(scoreValue / 100).toFixed(2)} points`;
+                }
+
+                const depth = depthIndex !== -1 ? parseInt(parts[depthIndex + 1]) : '-';
+                const nodes = nodesIndex !== -1 ? parts[nodesIndex + 1] : '-';
+                let pvMoves = parts.slice(pvIndex + 1);
+                pvMoves = pvMoves.filter(m => /^[a-i][0-9][a-i][0-9]$/.test(m));
+                
+                // Prepend chính nước đi ta đang soi để PV đầy đủ
+                pvMoves = [this.evalSpecificMoveUci, ...pvMoves];
+
+                this.evalPendingSuggestions.set(rank, { 
+                    move, score: scoreValue, rank, note, depth, nodes, pv: pvMoves 
+                });
+            }
+        }
+
+        /**
          * Cập nhật diện mạo của thanh trạng thái Engine (Indicator).
          */
         updateEngineStatusUI(status) {
@@ -214,6 +320,10 @@
             if (status === 'thinking') {
                 this.statusIndicator.classList.add('engine-status-thinking');
                 this.statusText.textContent = 'Thinking...';
+            } else if (status === 'thinking-easy') {
+                // Trạng thái phân tích nhanh khi đối thủ sai lầm (Blunder)
+                this.statusIndicator.classList.add('engine-status-thinking');
+                this.statusText.textContent = 'Quick Analysis...';
             } else if (status === 'paused') {
                 this.statusIndicator.classList.add('engine-status-paused');
                 this.statusText.textContent = 'Paused';
@@ -650,23 +760,32 @@
         }
 
         async evaluateSpecificMove(toX, toY) {
-            if (!this.selectedPiece) return;
+            if (!this.selectedPiece || !Array.isArray(this.selectedPiece)) return;
             const [fromX, fromY] = this.selectedPiece;
-            const moveUci = this.toUCIMove(fromX, fromY, toX, toY);
+            const moveUci = `${String.fromCharCode(97 + fromX)}${9 - fromY}${String.fromCharCode(97 + toX)}${9 - toY}`;
+            
+            this.isEvaluatingSpecificMove = true;
             this.evalSpecificMoveUci = moveUci;
             const moveNotation = await this.convertMoveToNotation(moveUci);
 
             if (this.evaluationBody) {
-                this.evaluationBody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 10px; color: #8A7355;">Đang phân tích <b>${moveNotation}</b>...</td></tr>`;
+                this.evaluationBody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 10px; color: #8A7355;">
+                    <div class="spinner-small" style="display:inline-block; vertical-align:middle; margin-right:8px;"></div>
+                    Agent 3 đang soi biến <b>${moveNotation}</b>...
+                </td></tr>`;
             }
 
-            this.isEvaluatingSpecificMove = true;
-            this.pendingSuggestions.clear();
+            // Lấy thông số cấu hình từ Panel của người dùng (Agent 3 Settings)
+            const depth = parseInt(this.evalDepthInput ? this.evalDepthInput.value : 20);
+            const multiPV = parseInt(this.evalMultiPVInput ? this.evalMultiPVInput.value : 1);
+
+            this.evalPendingSuggestions.clear();
 
             if (window.XiangqiGameAPI && window.XiangqiGameAPI.evaluateMove) {
-                window.XiangqiGameAPI.evaluateMove(this.currentFen, moveUci);
+                // Gửi cấu hình riêng cho Engine phụ
+                window.XiangqiGameAPI.evaluateMove(this.currentFen, moveUci, depth, multiPV);
             } else {
-                if (this.evaluationBody) this.evaluationBody.innerHTML = `<tr><td colspan="5">API \`evaluateMove\` chưa được hỗ trợ.</td></tr>`;
+                if (this.evaluationBody) this.evaluationBody.innerHTML = `<tr><td colspan="5">Lỗi: API Phân tích không sẵn sàng.</td></tr>`;
                 this.isEvaluatingSpecificMove = false;
             }
         }

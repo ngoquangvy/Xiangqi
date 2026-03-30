@@ -35,8 +35,11 @@ const debugLog = (...args) => {
 let gameInstance = new XiangqiGame();
 let mainWindow;
 let engineProcess;
+let evalEngineProcess; // Tiến trình Engine phụ chuyên soi nước đi lẻ (Agent 3)
 let engines = [];
 let engineProtocol = 'uci';
+let evalEngineProtocol = 'uci';
+let lastBestScore = 0; 
 let selectedEnginePath = null;
 const enginesFile = path.join(app.getPath('userData'), 'engines.json');
 const engineSelectionFile = path.join(app.getPath('userData'), 'engine-selection.json');
@@ -656,22 +659,18 @@ function applyEngineOptions(options) {
  * Khởi động Engine mới hoặc Cập nhật "nóng" nếu file Engine không đổi.
  */
 function startEngine(enginePath, forceRestart = false) {
-    // Nếu Engine đang chạy và đường dẫn file không đổi + không ép buộc restart
-    // thì ta thực hiện "Cập nhật nóng" (Hot Update)
     if (engineProcess && !forceRestart) {
         const currentPath = engineProcess.spawnargs[0];
-        // Normalizing path labels to check equality
         if (path.resolve(currentPath) === path.resolve(enginePath)) {
             const selectedEngine = engines.find(e => e.path === enginePath);
             if (selectedEngine && selectedEngine.options) {
-                safeLog(`Hot updating engine options for: ${enginePath}`);
+                safeLog(`[HOT UPDATE]: Engine options applied for ${enginePath}`);
                 applyEngineOptions(selectedEngine.options);
                 return;
             }
         }
     }
 
-    // Nếu không thể cập nhật nóng, ta tiến hành giết tiến trình cũ và khởi chạy mới
     if (engineProcess) {
         engineProcess.intentionalKill = true;
         engineProcess.kill();
@@ -679,20 +678,28 @@ function startEngine(enginePath, forceRestart = false) {
     }
 
     if (!fsSync.existsSync(enginePath)) {
-        safeError(`File Engine không tồn tại tại: ${enginePath}`);
+        safeError(`Engine file NOT FOUND at: ${enginePath}`);
         if (mainWindow) {
-            mainWindow.webContents.send('engine-error', `File Engine không tồn tại tại: ${enginePath}`);
+            mainWindow.webContents.send('engine-error', `Engine file NOT FOUND at: ${enginePath}`);
         }
         return;
     }
 
     try {
-        safeLog(`Đang khởi động Engine: ${enginePath}`);
+        safeLog(`Starting engine process: ${enginePath}`);
         engineProcess = spawn(enginePath);
+        
+        // --- KHỞI TẠO TRẠNG THÁI ENGINE ---
+        // Gán các thuộc tính trạng thái cho tiến trình để logic 2 giai đoạn hoạt động ổn định
+        engineProcess.isProbeMode = false;
+        engineProcess.isPaused = false;
+        engineProcess.lastProbeScore = 0;
+        engineProcess.intentionalKill = false;
+        // ---------------------------------
     } catch (err) {
-        safeError(`Không thể khởi động Engine tại ${enginePath}: ${err.message}`);
+        safeError(`Failed to start engine at ${enginePath}: ${err.message}`);
         if (mainWindow) {
-            mainWindow.webContents.send('engine-error', `Không thể khởi động Engine: ${err.message}`);
+            mainWindow.webContents.send('engine-error', `Failed to start engine: ${err.message}`);
         }
         return;
     }
@@ -714,18 +721,66 @@ function startEngine(enginePath, forceRestart = false) {
          * Nếu Engine kết thúc lượt tìm kiếm nhanh (Probe), và ta đang không tạm dừng,
          * thì tự động chuyển sang chế độ phân tích vô hạn (Infinite).
          */
+        /**
+         * LOGIC TƯ DUY THÍCH ỨNG THÔNG MINH (Smart Adaptive Thinking):
+         * 1. Nhận diện sai lầm (Blunder) dựa trên biến động điểm số nhảy vọt.
+         * 2. Nếu là thế cờ "dễ" (thắng thế rõ rệt), giảm depth xuống cực thấp (ví dụ 6).
+         * 3. Nếu là thế cờ "khó" (cân bằng), chạy phân tích vô cực (infinite).
+         */
         if (output.startsWith('bestmove') && !engineProcess.isPaused) {
-            // Nếu đây là kết thúc của lượt tìm kiếm giới hạn (Probe), ta kích hoạt Infinite
+            // Trích xuất bestmove và ponder move (nếu có)
+            const parts = output.split(' ');
+            const bestMove = parts[1];
+            const ponderMove = parts[3] || null; // UCI/UCCI thường trả về 'bestmove A ponder B'
+
             if (engineProcess.isProbeMode) {
                 engineProcess.isProbeMode = false;
-                debugLog(`[DOUBLE AGENT]: Probe finished. Switching to Infinite mode...`);
-                // Gửi lệnh phân tích không giới hạn
-                if (engineProtocol === 'uci') {
-                    engineProcess.stdin.write('go infinite\n');
-                } else if (engineProtocol === 'ucci') {
+                
+                // Nhận diện 'Thế cờ dễ' (Easy Position)
+                const currentScore = engineProcess.lastProbeScore || 0;
+                const scoreDelta = Math.abs(currentScore - lastBestScore);
+                
+                // Tiêu chí thế cờ dễ: 
+                // - Điểm số nhảy vọt (> 1.50 point) do sai lầm của đối thủ
+                // - Hoặc điểm số cực lớn (Mate in X hoặc > 10.00 point)
+                const isEasyPosition = scoreDelta > 150 || Math.abs(currentScore) > 1000;
+                
+                if (isEasyPosition) {
+                    debugLog(`[DOUBLE AGENT]: Easy position detected (Delta: ${scoreDelta}, Score: ${currentScore}). Using SHALLOW DEPTH (6)...`);
+                    if (mainWindow) {
+                        mainWindow.webContents.send('engine-status', 'thinking-easy');
+                    }
+                    // Ở thế cờ dễ, ta chỉ cần phân tích nhanh để xác nhận
+                    engineProcess.stdin.write('go depth 6\n');
+                } else {
+                    debugLog(`[DOUBLE AGENT]: Complex position detected. Using DEEP INFINITE search...`);
+                    if (mainWindow) {
+                        mainWindow.webContents.send('engine-status', 'thinking');
+                    }
+                    // Chạy phân tích vô hạn nếu thế cờ còn phức tạp
                     engineProcess.stdin.write('go infinite\n');
                 }
+                
+                // Gửi thông tin Ponder về cho Renderer để hiển thị gợi ý (Stage 3.2)
+                if (ponderMove && mainWindow) {
+                    mainWindow.webContents.send('engine-ponder', ponderMove);
+                }
+                
+                // Cập nhật điểm số tốt nhất cho lần so sánh sau
+                lastBestScore = currentScore;
             }
+        }
+
+        // Lấy điểm số cp từ luồng info để phục vụ nhận diện sai lầm
+        if (output.includes('info') && output.includes('score cp')) {
+            const scoreMatch = output.match(/score cp (-?\d+)/);
+            if (scoreMatch) {
+                engineProcess.lastProbeScore = parseInt(scoreMatch[1]);
+            }
+        }
+        // Mate detection
+        if (output.includes('info') && output.includes('score mate')) {
+            engineProcess.lastProbeScore = 9999; // Coi như điểm tối đa
         }
     });
 
@@ -791,6 +846,50 @@ function startEngine(enginePath, forceRestart = false) {
     }
 }
 
+/**
+ * Khởi động Engine phụ (Agent 3) để soi nước đi lẻ.
+ */
+function startEvalEngine(enginePath) {
+    if (evalEngineProcess) {
+        const currentPath = evalEngineProcess.spawnargs[0];
+        if (path.resolve(currentPath) === path.resolve(enginePath)) {
+            // Nếu đúng engine path, ta chỉ cần đảm bảo nó sẵn sàng
+            evalEngineProcess.stdin.write('isready\n');
+            return;
+        }
+        // Nếu chọn engine khác cho Eval, giết cái cũ
+        evalEngineProcess.intentionalKill = true;
+        evalEngineProcess.kill();
+        evalEngineProcess = null;
+    }
+
+    try {
+        safeLog(`Starting EVAL engine process: ${enginePath}`);
+        evalEngineProcess = spawn(enginePath);
+    } catch (err) {
+        safeError(`Failed to start EVAL engine: ${err.message}`);
+        return;
+    }
+
+    evalEngineProcess.stdout.on('data', (data) => {
+        const output = data.toString().trim();
+        if (mainWindow) {
+            // Gửi qua kênh riêng biệt để UI không bị nhầm lẫn với Engine chính
+            mainWindow.webContents.send('eval-engine-output', output);
+        }
+    });
+
+    evalEngineProcess.on('close', () => {
+        evalEngineProcess = null;
+    });
+
+    // Khởi tạo giao thức cho Eval Engine
+    const selectedEngine = engines.find(e => e.path === enginePath) || { protocol: 'uci' };
+    evalEngineProtocol = selectedEngine.protocol;
+    evalEngineProcess.stdin.write(evalEngineProtocol + '\n');
+    evalEngineProcess.stdin.write('isready\n');
+}
+
 ipcMain.handle('simulate-pv', async (event, fen, pvMoves, stepLimit) => {
     try {
         const tempGame = new XiangqiGame();
@@ -846,21 +945,20 @@ ipcMain.handle('format-pv', async (event, fen, pvMoves) => {
             const toY = 9 - parseInt(move[3], 10);
 
             const piece = tempGame.getPiece(fromX, fromY);
-            if (!piece) {
-                notations.push(move);
-                processedMoves.push(move);
-                continue;
+            let notation = move;
+            if (piece) {
+                notation = tempGame.getMoveNotation({
+                    fromX, fromY, toX, toY, piece: { ...piece }
+                });
             }
 
-            const notation = tempGame.getMoveNotation({
-                fromX, fromY, toX, toY, piece: { ...piece }
-            });
-
             const success = tempGame.move(fromX, fromY, toX, toY);
-            if (!success) break;
-
+            // Ngay cả khi move không thành công trong simulation (hiếm gặp), 
+            // ta vẫn lưu notation thô để không làm trống bảng.
             notations.push(notation);
             processedMoves.push(move);
+            
+            if (!success) break;
         }
 
         const lines = [];
@@ -1376,8 +1474,10 @@ ipcMain.handle('get-move-notation', (event, fromX, fromY, toX, toY) => {
 ipcMain.on('analyze-position', (event, fen) => {
     if (engineProcess && engineProcess.stdin && !engineProcess.killed) {
         try {
-            // Reset trạng thái điều khiển
+            // Reset trạng thái điều khiển an toàn
             engineProcess.isPaused = false;
+            engineProcess.isProbeMode = true; 
+            engineProcess.lastProbeScore = 0;
             
             debugLog(`[EVAL] Analyzing FEN: ${fen}`);
             if (engineProtocol === 'uci' || engineProtocol === 'ucci') {
@@ -1427,32 +1527,39 @@ ipcMain.on('stop-engine', () => {
     }
 });
 
-ipcMain.on('evaluate-move', (event, fen, moveUci) => {
-    if (engineProcess && engineProcess.stdin && !engineProcess.killed) {
+ipcMain.on('evaluate-move', (event, fen, moveUci, depth, multiPV) => {
+    // Luôn ưu tiên dùng Eval Engine (Agent 3) nếu có thể khởi động được
+    const enginePath = selectedEnginePath || defaultEngine.path;
+    if (!evalEngineProcess) {
+        startEvalEngine(enginePath);
+    }
+
+    if (evalEngineProcess && evalEngineProcess.stdin && !evalEngineProcess.killed) {
         try {
-            debugLog(`Evaluating move ${moveUci} for FEN: ${fen}`);
-            if (engineProtocol === 'uci' || engineProtocol === 'ucci') {
-                engineProcess.stdin.write('stop\n');
+            debugLog(`[EVAL AGENT] Evaluating move ${moveUci} (Depth: ${depth}, MultiPV: ${multiPV})`);
+            
+            // Dừng các lệnh cũ của Eval Engine
+            evalEngineProcess.stdin.write('stop\n');
+            
+            // Thiết lập MultiPV cho Eval Engine
+            if (evalEngineProtocol === 'uci') {
+                evalEngineProcess.stdin.write(`setoption name MultiPV value ${multiPV || 1}\n`);
             }
-            engineProcess.stdin.write(`position fen ${fen} moves ${moveUci}\n`);
-            const selectedEngine = engines.find(e => e.path === engineProcess.spawnargs[0]) || { options: {} };
-            if (engineProtocol === 'uci') {
-                if (selectedEngine.options && selectedEngine.options.depth) {
-                    engineProcess.stdin.write(`go depth ${selectedEngine.options.depth}\n`);
-                } else {
-                    engineProcess.stdin.write(`go movetime 1000\n`);
-                }
-            } else if (engineProtocol === 'ucci') {
-                engineProcess.stdin.write('go time 1000\n');
+            
+            evalEngineProcess.stdin.write(`position fen ${fen} moves ${moveUci}\n`);
+            
+            if (evalEngineProtocol === 'uci') {
+                evalEngineProcess.stdin.write(`go depth ${depth || 20}\n`);
+            } else if (evalEngineProtocol === 'ucci') {
+                evalEngineProcess.stdin.write('go depth 20\n');
+            }
+            
+            if (mainWindow) {
+                mainWindow.webContents.send('eval-engine-status', 'thinking');
             }
         } catch (err) {
-            safeError(`Error writing to engine: ${err.message}`);
-            if (mainWindow) {
-                mainWindow.webContents.send('engine-error', `Error writing to engine: ${err.message}`);
-            }
+            safeError(`Error writing to Eval Engine: ${err.message}`);
         }
-    } else {
-        console.warn('Engine process is not ready or has been terminated.');
     }
 });
 
