@@ -285,6 +285,7 @@ th {
     border-color: #ff9900;
     outline: 2px solid rgba(255, 153, 0, 0.8);
     outline-offset: 2px;
+    z-index: 25;
 }
 
 .piece.last-move:not(.red):not(.black) {
@@ -302,6 +303,7 @@ th {
     border-color: #33cc33;
     outline: 2px solid rgba(51, 204, 51, 0.8);
     outline-offset: 2px;
+    z-index: 30;
 }
 
 .piece.hover-move:not(.red):not(.black) {

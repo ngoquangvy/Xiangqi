@@ -30,7 +30,7 @@
             this.variationControls = document.getElementById('variation-controls');
             this.commitVariationBtn = document.getElementById('commit-variation-btn');
             this.cancelVariationBtn = document.getElementById('cancel-variation-btn');
-            
+
             // PV/Variation tracking for keyboard navigation
             this.currentPVData = {
                 container: null,
@@ -315,7 +315,7 @@
                 moveSpan.style.padding = '2px 4px';
                 moveSpan.style.borderRadius = '3px';
                 moveSpan.dataset.step = step.toString();
-                
+
                 if (this.currentPVData.container === cell && this.currentPVData.activeIndex === step) {
                     moveSpan.classList.add('highlighted-move');
                     setTimeout(() => {
@@ -341,7 +341,7 @@
                 if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
 
                 if (!this.currentPVData.container || this.currentPVData.moves.length === 0) return;
-                
+
                 if (e.key === 'ArrowRight') {
                     if (this.currentPVData.activeIndex < this.currentPVData.moves.length) {
                         this.currentPVData.activeIndex++;
@@ -1329,13 +1329,13 @@
                             this.clearHighlights();
                             this.selectedPiece = null;
                             await this.renderPieces(this.offsetX, this.offsetY, this.scale);
-                            
+
                             // Update live variation display
                             if (this.liveVariationDisplay) {
                                 // Use the FEN before recording started as the base for formatting
                                 const result = await this.formatPrincipalVariation(this.recordedMoves, this.preRecordingFen);
                                 this.liveVariationDisplay.innerHTML = '';
-                                
+
                                 // Add a Reset button for the live display
                                 const resetBtn = document.createElement('button');
                                 resetBtn.textContent = 'Reset Board';
@@ -1343,7 +1343,7 @@
                                 resetBtn.style.padding = '2px 5px';
                                 resetBtn.style.marginBottom = '5px';
                                 resetBtn.style.cursor = 'pointer';
-                                
+
                                 const onClickLive = async (step) => {
                                     await this.simulateToStep(-1, this.recordedMoves, step, this.preRecordingFen);
                                 };
@@ -1570,6 +1570,8 @@
         // Ham danh dau nuoc di
         async highlightMove(fromX, fromY, toX, toY, className) {
             this.clearHoverHighlights();
+
+            // Highlight source
             const fromPiece = await window.XiangqiGameAPI.getPiece(fromX, fromY);
             if (fromPiece) {
                 const pieceDiv = piecesContainer.querySelector(`[data-x="${fromX}"][data-y="${fromY}"]`);
@@ -1577,7 +1579,15 @@
             } else {
                 this.highlightPosition(fromX, fromY, className);
             }
-            this.highlightPosition(toX, toY, className);
+
+            // Highlight destination (Capture or empty square)
+            const toPiece = await window.XiangqiGameAPI.getPiece(toX, toY);
+            if (toPiece) {
+                const pieceDiv = piecesContainer.querySelector(`[data-x="${toX}"][data-y="${toY}"]`);
+                if (pieceDiv) pieceDiv.classList.add(className);
+            } else {
+                this.highlightPosition(toX, toY, className);
+            }
         }
         clearHoverHighlights() {
             document.querySelectorAll(".hover-move").forEach(el => el.classList.remove("hover-move"));
@@ -1783,7 +1793,7 @@
             const notation = moveData ? moveData.moveNotation : 'Unknown';
             this.moveContextTitle.textContent = `${notation} (${index % 2 === 0 ? 'Red' : 'Black'})`;
             this.moveNoteInput.value = moveData && moveData.note ? moveData.note : '';
-            
+
             // Render saved variations
             if (this.moveVariationDisplay) {
                 this.moveVariationDisplay.innerHTML = '';
@@ -1797,7 +1807,7 @@
                             resetBtn.style.padding = '2px 5px';
                             resetBtn.style.marginBottom = '5px';
                             resetBtn.style.cursor = 'pointer';
-                            
+
                             const onClickVariation = async (step) => {
                                 await this.simulateToStep(-1, moveData.variation, step, fen);
                             };
@@ -1928,14 +1938,14 @@
 
             this.isRecordingVariation = false;
             this.recordedMoves = [];
-            
+
             // Refresh main list to show note badge if any
             await this.updateMoveHistory();
-            
+
             // Refresh panel
             const history = await window.XiangqiGameAPI.getMoveHistory();
             this.showMoveContextPanel(this.selectedMoveIndex, history[this.selectedMoveIndex]);
-            
+
             this.updateRecordingUI();
             alert("Đã lưu biến thế.");
         }
