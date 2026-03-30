@@ -835,7 +835,7 @@ ipcMain.handle('format-pv', async (event, fen, pvMoves) => {
             lines.push((Math.floor(i / 2) + 1) + '. ' + redMove + ' ' + blackMove);
         }
 
-        return { moves: processedMoves, formatted: lines.join(', ') };
+        return { moves: notations, formatted: lines.join(', ') };
     } catch (err) {
         safeError('Error formatting PV:', err);
         return { moves: [], formatted: '-' };

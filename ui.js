@@ -311,8 +311,8 @@
                 moveSpan.textContent = notation;
                 moveSpan.className = 'move-clickable-span';
                 moveSpan.style.cursor = 'pointer';
-                moveSpan.style.marginRight = '8px';
-                moveSpan.style.padding = '2px 4px';
+                moveSpan.style.marginRight = '4px';
+                moveSpan.style.padding = '2px';
                 moveSpan.style.borderRadius = '3px';
                 moveSpan.dataset.step = step.toString();
 
