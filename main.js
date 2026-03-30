@@ -613,143 +613,178 @@ async function detectEngineProtocol(enginePath) {
     });
 }
 
-function startEngine(enginePath) {
+/**
+ * Hàm hỗ trợ áp dụng cấu hình UCI (Hash, Threads, MultiPV...) ngay lập tức.
+ * Giúp thay đổi cài đặt mà không phải khởi động lại Engine (Giữ lại Hash Table).
+ */
+function applyEngineOptions(options) {
+    if (!engineProcess || !engineProcess.stdin || engineProcess.killed) return;
+    
+    // Luôn gửi lệnh 'stop' trước khi đổi thông số để đảm bảo an toàn
+    engineProcess.stdin.write('stop\n');
+    
+    if (engineProtocol === 'uci') {
+        if (options.hash) {
+            debugLog(`[HOT UPDATE]: setoption name Hash value ${options.hash}`);
+            engineProcess.stdin.write(`setoption name Hash value ${options.hash}\n`);
+        }
+        if (options.multipv) {
+            debugLog(`[HOT UPDATE]: setoption name MultiPV value ${options.multipv}`);
+            engineProcess.stdin.write(`setoption name MultiPV value ${options.multipv}\n`);
+        }
+        if (options.threads) {
+            debugLog(`[HOT UPDATE]: setoption name Threads value ${options.threads}`);
+            engineProcess.stdin.write(`setoption name Threads value ${options.threads}\n`);
+        }
+        if (options.skillLevel) {
+            debugLog(`[HOT UPDATE]: setoption name Skill Level value ${options.skillLevel}`);
+            engineProcess.stdin.write(`setoption name Skill Level value ${options.skillLevel}\n`);
+        }
+        if (options.bookFile) {
+            debugLog(`[HOT UPDATE]: setoption name UseBook value true`);
+            engineProcess.stdin.write(`setoption name UseBook value true\n`);
+            debugLog(`[HOT UPDATE]: setoption name BookFile value ${options.bookFile}`);
+            engineProcess.stdin.write(`setoption name BookFile value ${options.bookFile}\n`);
+        }
+    }
+    
+    // Gửi lệnh 'isready' để xác nhận Engine đã áp dụng xong các thay đổi
+    engineProcess.stdin.write('isready\n');
+}
+
+/**
+ * Khởi động Engine mới hoặc Cập nhật "nóng" nếu file Engine không đổi.
+ */
+function startEngine(enginePath, forceRestart = false) {
+    // Nếu Engine đang chạy và đường dẫn file không đổi + không ép buộc restart
+    // thì ta thực hiện "Cập nhật nóng" (Hot Update)
+    if (engineProcess && !forceRestart) {
+        const currentPath = engineProcess.spawnargs[0];
+        // Normalizing path labels to check equality
+        if (path.resolve(currentPath) === path.resolve(enginePath)) {
+            const selectedEngine = engines.find(e => e.path === enginePath);
+            if (selectedEngine && selectedEngine.options) {
+                safeLog(`Hot updating engine options for: ${enginePath}`);
+                applyEngineOptions(selectedEngine.options);
+                return;
+            }
+        }
+    }
+
+    // Nếu không thể cập nhật nóng, ta tiến hành giết tiến trình cũ và khởi chạy mới
     if (engineProcess) {
         engineProcess.intentionalKill = true;
         engineProcess.kill();
         engineProcess = null;
     }
+
     if (!fsSync.existsSync(enginePath)) {
-        safeError(`Engine file does not exist at ${enginePath}`);
+        safeError(`File Engine không tồn tại tại: ${enginePath}`);
         if (mainWindow) {
-            mainWindow.webContents.send('engine-error', `Engine file does not exist at ${enginePath}`);
+            mainWindow.webContents.send('engine-error', `File Engine không tồn tại tại: ${enginePath}`);
         }
         return;
     }
 
     try {
-        safeLog(`Starting engine: ${enginePath}`);
+        safeLog(`Đang khởi động Engine: ${enginePath}`);
         engineProcess = spawn(enginePath);
     } catch (err) {
-        safeError(`Failed to start engine at ${enginePath}: ${err.message}`);
+        safeError(`Không thể khởi động Engine tại ${enginePath}: ${err.message}`);
         if (mainWindow) {
-            mainWindow.webContents.send('engine-error', `Failed to start engine: ${err.message}`);
+            mainWindow.webContents.send('engine-error', `Không thể khởi động Engine: ${err.message}`);
         }
         return;
     }
 
     engineProcess.stdout.on('data', (data) => {
         const output = data.toString().trim();
-        debugLog(`[ENGINE OUT ${enginePath}]: ${output}`);
+        debugLog(`[ENGINE OUT]: ${output}`);
         if (mainWindow) {
             mainWindow.webContents.send('engine-output', output);
         }
+        
+        // Khi nhận được 'readyok', báo cho Renderer biết Engine đã sẵn sàng
         if (output.includes('readyok') && mainWindow) {
             mainWindow.webContents.send('engine-ready');
+        }
+
+        /**
+         * LOGIC TƯ DUY THÍCH ỨNG (Adaptive Thinking):
+         * Nếu Engine kết thúc lượt tìm kiếm nhanh (Probe), và ta đang không tạm dừng,
+         * thì tự động chuyển sang chế độ phân tích vô hạn (Infinite).
+         */
+        if (output.startsWith('bestmove') && !engineProcess.isPaused) {
+            // Nếu đây là kết thúc của lượt tìm kiếm giới hạn (Probe), ta kích hoạt Infinite
+            if (engineProcess.isProbeMode) {
+                engineProcess.isProbeMode = false;
+                debugLog(`[DOUBLE AGENT]: Probe finished. Switching to Infinite mode...`);
+                // Gửi lệnh phân tích không giới hạn
+                if (engineProtocol === 'uci') {
+                    engineProcess.stdin.write('go infinite\n');
+                } else if (engineProtocol === 'ucci') {
+                    engineProcess.stdin.write('go infinite\n');
+                }
+            }
         }
     });
 
     engineProcess.stderr.on('data', (data) => {
         const errOut = data.toString().trim();
         if (errOut) {
-            safeError(`[ENGINE ERR ${enginePath}]: ${errOut}`);
-        }
-        if (mainWindow) {
-            mainWindow.webContents.send('engine-error', `Engine error: ${errOut}`);
+            safeError(`[ENGINE ERR]: ${errOut}`);
         }
     });
 
     engineProcess.on('error', (err) => {
-        safeError(`Engine process error: ${err.message}`);
-        if (mainWindow) {
-            mainWindow.webContents.send('engine-error', `Engine process error: ${err.message}`);
-        }
+        safeError(`Lỗi tiến trình Engine: ${err.message}`);
         engineProcess = null;
     });
 
     const currentEngineProc = engineProcess;
     currentEngineProc.on('close', (code, signal) => {
-        safeLog(`Engine ${enginePath} exited with code ${code}, signal ${signal}`);
+        safeLog(`Engine ${enginePath} đã thoát với mã ${code}, tín hiệu ${signal}`);
 
         if (currentEngineProc.intentionalKill || signal === 'SIGTERM' || signal === 'SIGKILL') {
-            debugLog(`Engine ${enginePath} was intentionally stopped/swapped. No crash recovery needed.`);
             return;
         }
 
         if (mainWindow) {
-            mainWindow.webContents.send('engine-error', `Engine exited unexpectedly with code ${code}`);
+            mainWindow.webContents.send('engine-error', `Engine thoát bất ngờ với mã ${code}`);
         }
         if (engineProcess === currentEngineProc) {
             engineProcess = null;
         }
 
+        // Tự động khôi phục nếu Engine bị sập
         if (code !== 0 && signal == null) {
-            safeLog('Engine crashed unexpectedly, switching to default engine (Pikafish)...');
+            safeLog('Engine sập bất ngờ, đang chuyển sang Engine dự phòng (Pikafish)...');
             setTimeout(() => {
                 const pikafishIndex = engines.findIndex(e => e.name === defaultEngine.name);
                 if (pikafishIndex !== -1) {
-                    // CRITICAL PATCH: If it's entering a crash loop, the #1 cause is a corrupted or mismatched Binary Book File.
-                    // We forcibly strip the BookFile from the fallback engine's RAM config to guarantee a clean boot!
                     if (engines[pikafishIndex].options) {
                         engines[pikafishIndex].options.bookFile = null;
                     }
                     persistSelectedEngineByIndex(pikafishIndex);
-                    startEngine(engines[pikafishIndex].path);
-                    if (mainWindow) {
-                        mainWindow.webContents.send('engine-switched', pikafishIndex);
-                    }
-                } else if (fsSync.existsSync(defaultEngine.path)) {
-                    engines.push(defaultEngine);
-                    saveEngines();
-                    persistSelectedEngineByIndex(engines.length - 1);
-                    startEngine(defaultEngine.path);
-                    if (mainWindow) {
-                        mainWindow.webContents.send('engine-switched', engines.length - 1);
-                    }
-                } else {
-                    safeError('Default engine not available.');
-                    if (mainWindow) {
-                        mainWindow.webContents.send('engine-error', 'No valid engines available.');
-                    }
+                    startEngine(engines[pikafishIndex].path, true);
                 }
             }, 1000);
         }
     });
 
+    // Khởi tạo giao thức UCI/UCCI và áp dụng cấu hình ban đầu
     const selectedEngine = engines.find(e => e.path === enginePath) || { protocol: 'uci', options: {} };
     engineProtocol = selectedEngine.protocol;
-    debugLog(`[ENGINE INIT]: Booting protocol = ${engineProtocol}`);
+    
     if (engineProtocol === 'uci') {
-        debugLog(`[ENGINE IN]: uci`);
         engineProcess.stdin.write('uci\n');
         if (selectedEngine.options) {
-            if (selectedEngine.options.hash) {
-                debugLog(`[ENGINE IN]: setoption name Hash value ${selectedEngine.options.hash}`);
-                engineProcess.stdin.write(`setoption name Hash value ${selectedEngine.options.hash}\n`);
-            }
-            if (selectedEngine.options.multipv) {
-                debugLog(`[ENGINE IN]: setoption name MultiPV value ${selectedEngine.options.multipv}`);
-                engineProcess.stdin.write(`setoption name MultiPV value ${selectedEngine.options.multipv}\n`);
-            }
-            if (selectedEngine.options.threads) {
-                debugLog(`[ENGINE IN]: setoption name Threads value ${selectedEngine.options.threads}`);
-                engineProcess.stdin.write(`setoption name Threads value ${selectedEngine.options.threads}\n`);
-            }
-            if (selectedEngine.options.skillLevel) {
-                debugLog(`[ENGINE IN]: setoption name Skill Level value ${selectedEngine.options.skillLevel}`);
-                engineProcess.stdin.write(`setoption name Skill Level value ${selectedEngine.options.skillLevel}\n`);
-            }
-            if (selectedEngine.options.bookFile) {
-                debugLog(`[ENGINE IN]: setoption name UseBook value true`);
-                engineProcess.stdin.write(`setoption name UseBook value true\n`);
-                debugLog(`[ENGINE IN]: setoption name BookFile value ${selectedEngine.options.bookFile}`);
-                engineProcess.stdin.write(`setoption name BookFile value ${selectedEngine.options.bookFile}\n`);
-            }
+            applyEngineOptions(selectedEngine.options);
         }
     } else if (engineProtocol === 'ucci') {
-        debugLog(`[ENGINE IN]: ucci`);
         engineProcess.stdin.write('ucci\n');
     }
+    
     engineProcess.stdin.write('isready\n');
     if (mainWindow) {
         mainWindow.webContents.send('update-protocol', engineProtocol);
@@ -951,9 +986,15 @@ ipcMain.handle('update-engine', async (event, index, updatedEngine) => {
         const previousPath = engines[index].path;
         engines[index] = updatedEngine;
         await saveEngines();
+        
+        // Nếu Engine vừa cập nhật chính là Engine đang được chọn
         if (selectedEnginePath === previousPath) {
             selectedEnginePath = updatedEngine.path;
             await saveSelectedEnginePath();
+            
+            // Gọi startEngine - Hàm này giờ đây sẽ tự nhận diện nếu file exe cũ 
+            // thì chỉ cập nhật thông số "nóng" (Hot Update)
+            startEngine(updatedEngine.path);
         }
         return true;
     }
@@ -1335,43 +1376,53 @@ ipcMain.handle('get-move-notation', (event, fromX, fromY, toX, toY) => {
 ipcMain.on('analyze-position', (event, fen) => {
     if (engineProcess && engineProcess.stdin && !engineProcess.killed) {
         try {
+            // Reset trạng thái điều khiển
+            engineProcess.isPaused = false;
+            
             debugLog(`[EVAL] Analyzing FEN: ${fen}`);
             if (engineProtocol === 'uci' || engineProtocol === 'ucci') {
-                debugLog(`[ENGINE IN]: stop`);
                 engineProcess.stdin.write('stop\n');
             }
-            debugLog(`[ENGINE IN]: position fen ${fen}`);
             engineProcess.stdin.write(`position fen ${fen}\n`);
 
             const selectedEngine = engines.find(e => e.path === engineProcess.spawnargs[0]) || { options: {} };
 
+            /**
+             * BẮT ĐẦU CHIẾN THUẬT 2 GIAI ĐOẠN:
+             * 1. Probe Mode: Tìm nhanh (depth 12) để UI hiện kết quả lập tức.
+             * 2. Infinite Mode: Sau khi có bestmove từ Probe, engine sẽ tự động chạy 'go infinite' 
+             * (xử lý trong listener stdout ở hàm startEngine).
+             */
+            engineProcess.isProbeMode = true; 
+            
             if (engineProtocol === 'uci') {
-                if (selectedEngine.options && selectedEngine.options.depth) {
-                    debugLog(`[ENGINE IN]: go depth ${selectedEngine.options.depth}`);
-                    engineProcess.stdin.write(`go depth ${selectedEngine.options.depth}\n`);
-                } else {
-                    debugLog(`[ENGINE IN]: go movetime 1000`);
-                    engineProcess.stdin.write('go movetime 1000\n');
-                }
+                debugLog(`[DOUBLE AGENT]: Starting Probe search (depth 12)...`);
+                engineProcess.stdin.write(`go depth 12\n`);
             } else if (engineProtocol === 'ucci') {
-                if (selectedEngine.options && selectedEngine.options.depth) {
-                    debugLog(`[ENGINE IN]: go depth ${selectedEngine.options.depth}`);
-                    engineProcess.stdin.write(`go depth ${selectedEngine.options.depth}\n`);
-                } else {
-                    debugLog(`[ENGINE IN]: go time 1000`);
-                    engineProcess.stdin.write('go time 1000\n');
-                }
+                engineProcess.stdin.write(`go depth 12\n`);
+            }
+            
+            if (mainWindow) {
+                mainWindow.webContents.send('engine-status', 'thinking');
             }
         } catch (err) {
             safeError(`Error writing to engine: ${err.message}`);
-            if (mainWindow) {
-                mainWindow.webContents.send('engine-error', `Error writing to engine: ${err.message}`);
-            }
         }
-    } else {
-        console.warn('Engine process is not ready or has been terminated.');
+    }
+});
+
+/**
+ * IPC Handler cho nút Pause/Play.
+ * Dừng Engine vật lý và cập nhật trạng thái điều khiển.
+ */
+ipcMain.on('stop-engine', () => {
+    if (engineProcess && !engineProcess.killed) {
+        engineProcess.isPaused = true;
+        engineProcess.isProbeMode = false;
+        engineProcess.stdin.write('stop\n');
+        debugLog(`[ENGINE CONTROL]: Manual Stop (Pause) requested.`);
         if (mainWindow) {
-            mainWindow.webContents.send('engine-error', 'Engine is not running. Please select a valid engine.');
+            mainWindow.webContents.send('engine-status', 'paused');
         }
     }
 });

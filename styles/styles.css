@@ -869,4 +869,45 @@ th {
 
 #save-note-btn:hover {
     background-color: #1e5e2f;
-}
+}
+/* UI cho b? di?u khi?n Engine (Phase 3.5) */
+#engine-controls-toolbar button {
+    min-width: 80px;
+}
+.engine-control-btn {
+    padding: 5px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    background-color: #f0f0f0;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+.engine-control-btn:hover {
+    background-color: #e0e0e0;
+    border-color: #bbb;
+}
+.engine-status-ready, .engine-status-thinking, .engine-status-paused {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+}
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: #ccc;
+}
+.engine-status-ready .status-dot { background-color: #28a745; }
+.engine-status-thinking .status-dot { 
+    background-color: #2f6fdf; 
+    animation: blink 0.8s infinite;
+}
+.engine-status-paused .status-dot { background-color: #d18f14; }
+.engine-status-thinking #engine-status-text { color: #2f6fdf; }
+.engine-status-paused #engine-status-text { color: #d18f14; }
+.engine-status-ready #engine-status-text { color: #28a745; }
+

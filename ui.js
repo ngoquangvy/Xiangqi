@@ -31,6 +31,16 @@
             this.commitVariationBtn = document.getElementById('commit-variation-btn');
             this.cancelVariationBtn = document.getElementById('cancel-variation-btn');
 
+            // --- BỘ ĐIỀU KHIỂN ENGINE (PAUSE/PLAY) ---
+            // Khởi tạo các nút và nhãn trạng thái từ DOM (index.html)
+            this.engineControlBtn = document.getElementById("engine-control-btn");
+            this.statusIndicator = document.getElementById("engine-status-indicator");
+            this.statusText = document.getElementById("engine-status-text");
+            this.isAnalysisPaused = false; // Trạng thái tạm dừng mặc định là false
+
+            this.initEngineControls();
+            // ----------------------------------------
+
             // PV/Variation tracking for keyboard navigation
             this.currentPVData = {
                 container: null,
@@ -76,6 +86,11 @@
             this.isEvaluatingSpecificMove = false;
             window.XiangqiGameAPI.onEngineOutput((data) => {
                 this.handleEngineOutput(data);
+            });
+
+            // Lắng nghe trạng thái của Engine từ Main Process (Thinking/Paused/Ready)
+            window.XiangqiGameAPI.onEngineStatus((status) => {
+                this.updateEngineStatusUI(status);
             });
             window.XiangqiGameAPI.onEngineReady(() => {
                 this.analyzeCurrentPosition();
@@ -166,7 +181,51 @@
             this.updateMoveHistory();
             this.loadBookData();
         }
+        /**
+         * Hàm khởi tạo trình xử lý sự kiện cho bộ điều khiển Engine.
+         */
+        initEngineControls() {
+            if (this.engineControlBtn) {
+                this.engineControlBtn.addEventListener('click', () => {
+                    if (this.isAnalysisPaused) {
+                        // Trạng thái Play: Tiếp tục phân tích
+                        this.isAnalysisPaused = false;
+                        this.engineControlBtn.textContent = 'Pause';
+                        this.analyzeCurrentPosition();
+                    } else {
+                        // Trạng thái Pause: Dừng Engine vật lý
+                        this.isAnalysisPaused = true;
+                        this.engineControlBtn.textContent = 'Resume';
+                        window.XiangqiGameAPI.stopEngine();
+                    }
+                });
+            }
+        }
+
+        /**
+         * Cập nhật diện mạo của thanh trạng thái Engine (Indicator).
+         */
+        updateEngineStatusUI(status) {
+            if (!this.statusIndicator || !this.statusText) return;
+            
+            // Xóa sạch các class trạng thái cũ để tránh xung đột
+            this.statusIndicator.classList.remove('engine-status-ready', 'engine-status-thinking', 'engine-status-paused');
+            
+            if (status === 'thinking') {
+                this.statusIndicator.classList.add('engine-status-thinking');
+                this.statusText.textContent = 'Thinking...';
+            } else if (status === 'paused') {
+                this.statusIndicator.classList.add('engine-status-paused');
+                this.statusText.textContent = 'Paused';
+            } else {
+                this.statusIndicator.classList.add('engine-status-ready');
+                this.statusText.textContent = 'Ready';
+            }
+        }
+
         async analyzeCurrentPosition() {
+            // Kiểm tra trạng thái tạm dừng của người dùng trước khi bắt đầu
+            if (this.isAnalysisPaused) return;
             if (this.isEvaluatingSpecificMove) return;
 
             try {
@@ -1798,6 +1857,7 @@
             overlay.addEventListener("click", closeModal);
             form.onsubmit = async (e) => {
                 e.preventDefault();
+                // Chúng ta chuẩn bị dữ liệu cấu hình mới để gửi xuống Backend
                 const updatedEngine = {
                     name: nameInput.value,
                     path: engine.path,
@@ -1812,16 +1872,22 @@
                     }
                 };
 
+                // Hiển thị thông báo bằng tiếng Anh cho người dùng (Toasts in English)
+                this.showToast('Updating Engine configuration...', 2000);
+
+                /**
+                 * Gọi IPC updateEngine. 
+                 * Backend (main.js) sẽ tự quyết định: 
+                 * - Nếu path không đổi: Gửi lệnh 'setoption' (Hot Update).
+                 * - Nếu path thay đổi: Khởi động lại Engine hoàn toàn.
+                 */
                 const success = await window.XiangqiGameAPI.updateEngine(index, updatedEngine);
                 if (success) {
-                    if (this.selectedEngineIndex === index) {
-                        await window.XiangqiGameAPI.selectEngine(index);
-                        this.analyzeCurrentPosition();
-                    }
+                    this.showToast('Engine updated successfully!', 2000);
                     this.updateEngineList();
                     closeModal();
                 } else {
-                    alert("Failed to update engine.");
+                    this.showToast('Error updating Engine configuration!', 3000);
                 }
             };
             cancelBtn.onclick = () => {
