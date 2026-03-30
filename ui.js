@@ -170,23 +170,37 @@
             if (this.isEvaluatingSpecificMove) return;
 
             try {
-                // Keep status visible while engine recalculates.
+                // Giữ trạng thái thông báo đang xử lý
                 this.clearHoverHighlights();
-                this.setSuggestionLoading(true, 'Analyzing suggestions...');
+                this.setSuggestionLoading(true, 'Đang phân tích...');
+                
                 const fen = await window.XiangqiGameAPI.getFen();
                 this.currentFen = fen;
                 this.pendingSuggestions.clear();
 
-                // Clear stale state to prevent UI from showing past moves
-                this.latestSuggestionRows = [];
-                this.currentBookCandidates = [];
-                if (this.suggestionsBody) {
-                    this.suggestionsBody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 10px; color: #8A7355;">Đang phân tích vị trí...</td></tr>';
+                // --- BƯỚC 1: KIỂM TRA MÃ KHAI CUỘC (BOOK) TRƯỚC ---
+                // Việc này diễn ra tức thì, không cần đợi Engine khởi động
+                const bookCandidates = this.getBookCandidatesForFen(fen);
+                this.currentBookCandidates = bookCandidates;
+
+                if (bookCandidates.length > 0) {
+                    // Nếu tìm thấy trong Book, cập nhật UI ngay lập tức
+                    console.log(`[Book] Found ${bookCandidates.length} candidates for ${fen}`);
+                    await this.updateSuggestionsTable([]); // Truyền mảng rỗng cho Engine vì Engine chưa có kết quả
+                    this.setSuggestionLoading(true, 'Đã tìm thấy trong Book. Engine đang tính thêm...');
+                } else {
+                    // Nếu không có trong Book, xóa dữ liệu cũ để tránh nhầm lẫn
+                    this.latestSuggestionRows = [];
+                    if (this.suggestionsBody) {
+                        this.suggestionsBody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 10px; color: #8A7355;">Đang phân tích vị trí...</td></tr>';
+                    }
                 }
 
+                // --- BƯỚC 2: KÍCH HOẠT ENGINE CHẠY NGẦM ---
+                // Engine sẽ gửi kết quả qua handleEngineOutput sau vài giây
                 window.XiangqiGameAPI.analyzePosition(fen);
             } catch (err) {
-                this.setSuggestionLoading(false, 'Analyze failed');
+                this.setSuggestionLoading(false, 'Phân tích thất bại');
                 console.error('Error analyzing position:', err);
             }
         }
@@ -632,15 +646,13 @@
         }
 
         async updateSuggestionsTable(suggestions) {
-            // Row model merges two data sources:
-            // - engine suggestions (rank/depth/pv)
-            // - opening book candidates (book pv + note/score)
-            // We align by primary move when possible, then append book-only rows.
+            // mergeEngineAndBook: Kết hợp dữ liệu từ Engine (suggestions) và Book (currentBookCandidates)
             this.clearHoverHighlights();
             const fragment = document.createDocumentFragment();
 
             const fen = this.currentFen || await window.XiangqiGameAPI.getFen();
-            const bookCandidates = this.getBookCandidatesForFen(fen);
+            // Lấy lại book để đảm bảo dữ liệu mới nhất nếu suggestions trống
+            const bookCandidates = (suggestions.length === 0) ? this.currentBookCandidates : this.getBookCandidatesForFen(fen);
             this.currentBookCandidates = bookCandidates;
 
             const engineByMove = new Map();
