@@ -55,6 +55,7 @@ contextBridge.exposeInMainWorld('XiangqiGameAPI', {
     updateEngine: (index, updatedEngine) => ipcRenderer.invoke('update-engine', index, updatedEngine),
     simulatePV: (fen, pvMoves, stepLimit) => ipcRenderer.invoke('simulate-pv', fen, pvMoves, stepLimit),
     formatPV: (fen, pvMoves) => ipcRenderer.invoke('format-pv', fen, pvMoves),
+    updateBookNote: (fen, move, note) => ipcRenderer.invoke('update-book-note', fen, move, note),
 
     onEngineOutput: (callback) => {
         engineOutputCallback = callback;

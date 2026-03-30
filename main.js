@@ -1405,6 +1405,31 @@ ipcMain.on('evaluate-move', (event, fen, moveUci) => {
     }
 });
 
+ipcMain.handle('update-book-note', async (event, fen, moveUci, newNote) => {
+    try {
+        const bookPath = path.join(__dirname, 'assets', 'books', 'opening-book.json');
+        if (!fsSync.existsSync(bookPath)) {
+            return { success: false, error: 'Book file not found' };
+        }
+
+        const raw = await fs.readFile(bookPath, 'utf8');
+        const bookData = JSON.parse(raw);
+
+        if (bookData.positions && bookData.positions[fen]) {
+            const moveEntry = bookData.positions[fen].find(m => m.move === moveUci);
+            if (moveEntry) {
+                moveEntry.note = newNote;
+                await fs.writeFile(bookPath, JSON.stringify(bookData, null, 2), 'utf8');
+                return { success: true };
+            }
+        }
+        return { success: false, error: 'Position or move not found in book' };
+    } catch (err) {
+        console.error('Error updating book note:', err);
+        return { success: false, error: err.message };
+    }
+});
+
 app.whenReady().then(async () => {
     await createWindow();
     await loadEngines();

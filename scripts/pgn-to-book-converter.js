@@ -3,6 +3,55 @@ const path = require('path');
 const XiangqiGame = require('../game.js');
 
 /**
+ * TỪ ĐIỂN KHAI CUỘC TIẾNG VIỆT (VIETNAMESE OPENING DICTIONARY)
+ * Dựa trên các chuỗi nước đi đầu tiên (ICCS).
+ */
+const VIETNAMESE_OPENINGS = {
+    // --- RED FIRST MOVES ---
+    'h2e2': 'Pháo Đầu', 'b2e2': 'Pháo Đầu',
+    'h0g2': 'Khởi Mã Cuộc', 'b0c2': 'Khởi Mã Cuộc',
+    'c3c4': 'Tiên Nhân Chỉ Lộ', 'g3g4': 'Tiên Nhân Chỉ Lộ',
+    'e0g2': 'Phi Tượng Cuộc', 'e0c2': 'Phi Tượng Cuộc',
+    'h2i2': 'Quá Cung Pháo', 'b2a2': 'Quá Cung Pháo',
+    'h2g2': 'Sĩ Giác Pháo', 'b2c2': 'Sĩ Giác Pháo',
+    'h2f2': 'Kim Câu Pháo', 'b2d2': 'Kim Câu Pháo',
+    'c0e2': 'Sĩ Cuộc', 'g0e2': 'Sĩ Cuộc',
+    'h0i2': 'Biên Mã', 'b0a2': 'Biên Mã',
+
+    // --- BLACK RESPONSES TO CENTRAL CANNON (h2e2 / b2e2) ---
+    'h2e2_h9e7': 'Thuận Pháo', 'h2e2_b9e7': 'Thuận Pháo',
+    'b2e2_h9e7': 'Thuận Pháo', 'b2e2_b9e7': 'Thuận Pháo',
+    'h2e2_h9c7': 'Nghịch Pháo', 'h2e2_b9g7': 'Nghịch Pháo',
+    'b2e2_h9c7': 'Nghịch Pháo', 'b2e2_b9g7': 'Nghịch Pháo',
+    
+    'h2e2_h9g7': 'Bình Phong Mã', 'h2e2_b9c7': 'Bình Phong Mã',
+    'b2e2_h9g7': 'Bình Phong Mã', 'b2e2_b9c7': 'Bình Phong Mã',
+    'h2e2_c9e7': 'Phản Cung Mã', 'h2e2_g9e7': 'Phản Cung Mã',
+    'b2e2_c9e7': 'Phản Cung Mã', 'b2e2_g9e7': 'Phản Cung Mã',
+    'h2e2_h9i7': 'Đơn Đề Mã', 'h2e2_b9a7': 'Đơn Đề Mã',
+
+    // --- BLACK RESPONSES TO PAWN OPENING (c3c4 / g3g4) ---
+    'c3c4_g6g5': 'Đối Binh Cuộc', 'g3g4_c6c5': 'Đối Binh Cuộc',
+    'c3c4_h9g7': 'Tiên Nhân Đối Bình Phong',
+};
+
+/**
+ * Nhận diện tên khai cuộc dựa trên chuỗi nước đi và độ sâu hiện tại.
+ */
+function identifyOpening(moves, ply) {
+    if (!moves || moves.length === 0) return 'Vô Đề';
+    
+    // Kiểm tra từ biến sâu nhất tới biến nông nhất (max 3 nước đầu)
+    const limit = Math.min(ply + 1, 3); 
+    for (let i = limit; i >= 1; i--) {
+        const sig = moves.slice(0, i).join('_');
+        if (VIETNAMESE_OPENINGS[sig]) return VIETNAMESE_OPENINGS[sig];
+    }
+    
+    return 'Biến hóa Lạ';
+}
+
+/**
  * Strips metadata tags, braces, semicolon comments, and parentheses variations from PGN.
  */
 function stripPgnNoise(raw) {
@@ -19,40 +68,56 @@ function stripPgnNoise(raw) {
  * Simulates a PGN token on the Xiangqi board to convert Algebraic Notation (e.g. Hc7) to standard ICCS (e.g. b0c2).
  */
 function parsePgnTokenToIccs(t, g, turn) {
+    // 1. Handle pure ICCS (e.g. h2e2)
     if (/^[a-i][0-9][a-i][0-9]$/i.test(t)) return t.toLowerCase();
-    t = t.replace(/[+?!#x]/g, '');
-    if (t.length < 2 || t.length > 4) return null;
     
+    // Clean noise
+    t = t.replace(/[+?!#x]/g, '');
+    if (t.length < 2) return null;
+    
+    // Extract target square (last 2 chars)
     let dest = t.slice(-2);
     if (!/^[a-i][0-9]$/.test(dest)) return null;
-    
     let toX = dest.charCodeAt(0) - 97;
     let toY = 9 - parseInt(dest[1], 10);
     
-    let type = t.length > 2 ? t[0].toLowerCase() : 'p';
-    let color = turn % 2 === 0 ? 'red' : 'black';
-    let typeMap = {'h':'馬', 'r':'車','c':'炮','e':'相','a':'仕','k':'帥','p':'兵'};
-    if (color === 'black') {
-        typeMap = {'h':'马', 'r':'車','c':'炮','e':'象','a':'士','k':'將','p':'卒'};
+    // Identify piece type
+    let pieceType = 'p'; 
+    let firstChar = t[0].toLowerCase();
+    // Support common PGN piece abbreviations
+    if (t.length > 2) {
+        if (/[hncbeakmrp]/.test(firstChar)) pieceType = firstChar;
+        else return null;
     }
     
-    let pName = typeMap[type];
+    let color = (turn % 2 === 0) ? 'red' : 'black';
+    // Match piece names as defined in game.js
+    let typeMap = {
+        'red':   {'h':'馬', 'r':'車','c':'炮','e':'象','a':'仕','k':'帅','p':'兵', 'n':'馬', 'b':'象', 'm':'仕'},
+        'black': {'h':'马', 'r':'車','c':'砲','e':'相','a':'士','k':'将','p':'卒', 'n':'马', 'b':'相', 'm':'士'}
+    };
+    let pName = typeMap[color][pieceType];
     if (!pName) return null;
 
+    // Disambiguation: Check for source file or rank
     let fromFile = null;
-    if (t.length === 4) {
-        const ch = t[1];
-        if (/[a-i]/.test(ch)) fromFile = ch.charCodeAt(0) - 97;
+    let fromRank = null;
+    if (t.length >= 4) {
+        const dChar = t[1].toLowerCase();
+        if (/[a-i]/.test(dChar)) fromFile = dChar.charCodeAt(0) - 97;
+        else if (/[0-9]/.test(dChar)) fromRank = 9 - parseInt(dChar, 10);
     }
     
     let found = null;
     for (let y = 0; y < 10; y++) {
+        if (fromRank !== null && y !== fromRank) continue;
         for (let x = 0; x < 9; x++) {
+            if (fromFile !== null && x !== fromFile) continue;
             let p = g.board[y][x];
-            if (p && p.color === color && p.name === pName && (fromFile === null || x === fromFile)) {
+            if (p && p.color === color && p.name === pName) {
                 let moves = g.getLegalMoves(x, y);
                 if (moves.some(m => m[0] === toX && m[1] === toY)) {
-                    if (found) return null; // Ambiguous move (should not happen in valid PGN)
+                    if (found) return null; 
                     found = { fx: x, fy: y };
                 }
             }
@@ -66,84 +131,88 @@ function parsePgnTokenToIccs(t, g, turn) {
 }
 
 /**
- * Extracts and validates chess games from a raw PGN string, converting all moves to ICCS.
+ * Trích xuất ván đấu kèm kết quả từ PGN thô.
  */
 function extractIccsGamesFromPgn(raw) {
-    const text = stripPgnNoise(raw);
-    const tokens = text.split(/\s+/).map(t => t.trim()).filter(Boolean);
-
+    // Tách ván đấu dựa trên các tag mở đầu ván mới [Event ...]
+    const gameBlocks = raw.split(/\[Event\s+/).filter(Boolean);
     const games = [];
-    let current = [];
-    let stateHistory = [];
-    let g = new XiangqiGame();
-    g.setupInitialPosition();
-    let turn = 0;
-    stateHistory.push({ fen: g.exportFen(), turn: 0 });
 
-    const stack = [];
+    for (let block of gameBlocks) {
+        block = '[Event ' + block;
+        
+        // 1. Trích xuất kết quả (Result)
+        const resultMatch = block.match(/\[Result\s+"(1-0|0-1|1\/2-1\/2|\*)"\]/);
+        const result = resultMatch ? resultMatch[1] : '*';
 
-    for (const token of tokens) {
-        if (token === '(') {
-            if (current.length === 0) continue;
-            let branchTurn = current.length - 1;
-            let branchCurrent = current.slice(0, branchTurn);
-            
-            stack.push({
-                current: current.slice(),
-                stateHistory: stateHistory.slice(),
-                turn: turn,
-                fen: g.exportFen()
-            });
+        // 2. Làm sạch noise và lấy tokens nước đi
+        const text = stripPgnNoise(block);
+        const tokens = text.split(/\s+/).map(t => t.trim()).filter(Boolean);
 
-            current = branchCurrent;
-            turn = branchTurn;
-            g.importFen(stateHistory[turn].fen);
-            stateHistory = stateHistory.slice(0, turn + 1);
-            continue;
-        }
+        let current = [];
+        let stateHistory = [];
+        let g = new XiangqiGame();
+        g.setupInitialPosition();
+        let turn = 0;
+        stateHistory.push({ fen: g.exportFen(), turn: 0 });
 
-        if (token === ')') {
-            if (current.length > 0) {
-                games.push(current.slice());
+        const stack = [];
+
+        for (const token of tokens) {
+            // Xử lý biến hóa phụ ( )
+            if (token === '(') {
+                if (current.length === 0) continue;
+                let branchTurn = current.length - 1;
+                stack.push({
+                    current: current.slice(),
+                    stateHistory: stateHistory.slice(),
+                    turn: turn,
+                    fen: g.exportFen()
+                });
+                current = current.slice(0, branchTurn);
+                turn = branchTurn;
+                g.importFen(stateHistory[turn].fen);
+                stateHistory = stateHistory.slice(0, turn + 1);
+                continue;
             }
-            if (stack.length > 0) {
-                let restored = stack.pop();
-                current = restored.current;
-                stateHistory = restored.stateHistory;
-                turn = restored.turn;
-                g.importFen(restored.fen);
+
+            if (token === ')') {
+                if (current.length > 0) games.push({ moves: current.slice(), result });
+                if (stack.length > 0) {
+                    let restored = stack.pop();
+                    current = restored.current;
+                    stateHistory = restored.stateHistory;
+                    turn = restored.turn;
+                    g.importFen(restored.fen);
+                }
+                continue;
             }
-            continue;
+
+            const t = token.replace(/[?!+#]+$/g, '');
+
+            // Kết thúc ván
+            if (/^(1-0|0-1|1\/2-1\/2|\*)$/i.test(t)) {
+                if (current.length > 0) games.push({ moves: current.slice(), result });
+                break; // Hết ván này
+            }
+
+            if (/^\d+\.(\.\.)?$/.test(t)) continue;
+
+            // Parser Algebraic Notation sang ICCS
+            const iccs = parsePgnTokenToIccs(t, g, turn);
+            if (iccs) {
+                current.push(iccs);
+                const fx = iccs.charCodeAt(0) - 97;
+                const fy = 9 - parseInt(iccs[1], 10);
+                const tx = iccs.charCodeAt(2) - 97;
+                const ty = 9 - parseInt(iccs[3], 10);
+                g.move(fx, fy, tx, ty);
+                turn++;
+                stateHistory.push({ fen: g.exportFen(), turn: turn });
+            }
         }
-
-        const t = token.replace(/[?!+#]+$/g, '');
-
-        if (/^(1-0|0-1|1\/2-1\/2|\*)$/i.test(t)) {
-            if (current.length > 0) { games.push(current.slice()); }
-            current = [];
-            g = new XiangqiGame();
-            g.setupInitialPosition();
-            turn = 0;
-            stateHistory = [{ fen: g.exportFen(), turn: 0 }];
-            stack.length = 0;
-            continue;
-        }
-
-        if (/^\d+\.(\.\.)?$/.test(t)) continue;
-
-        const iccs = parsePgnTokenToIccs(t, g, turn);
-        if (iccs) {
-            current.push(iccs);
-            const fx = iccs.charCodeAt(0) - 97;
-            const fy = 9 - parseInt(iccs[1], 10);
-            const tx = iccs.charCodeAt(2) - 97;
-            const ty = 9 - parseInt(iccs[3], 10);
-            g.move(fx, fy, tx, ty);
-            turn++;
-            stateHistory.push({ fen: g.exportFen(), turn: turn });
-        }
+        if (current.length > 0) games.push({ moves: current.slice(), result });
     }
-    if (current.length > 0) games.push(current.slice());
     
     return games;
 }
@@ -152,7 +221,7 @@ function extractIccsGamesFromPgn(raw) {
  * Main command-line wrapper to process a PGN file and save as an Opening Book JSON.
  */
 function runConverter() {
-    console.log("Xiangqi PGN to Opening Book JSON Converter");
+    console.log("Xiangqi PGN to Opening Book JSON Converter (Nâng cấp Tên Khai Cuộc & Win-Rate)");
     const args = process.argv.slice(2);
     if (args.length < 2) {
         console.log("Usage: node pgn-to-book-converter.js <input.pgn> <output.json>");
@@ -170,81 +239,116 @@ function runConverter() {
     console.log(`Reading PGN from ${inputFile}...`);
     const rawPgn = fs.readFileSync(inputFile, 'utf8');
     
-    console.log("Parsing algebraic notations and simulating board state...");
-    const maxPly = 24;
-    const maxMovesPerFen = 12;
-    const games = extractIccsGamesFromPgn(rawPgn);
+    console.log("Parsing results and simulating board state with maximum depth...");
+    const maxPly = 200; // Tăng lên 200 để lấy gần như toàn bộ ván đấu
+    const maxMovesPerFen = 30; // Tăng lên để chứa mọi biến thể có trong PGN
+    const gamesData = extractIccsGamesFromPgn(rawPgn);
     
     const positions = Object.create(null);
     let validGames = 0, collectedMoves = 0;
 
-    for (const gameMoves of games) {
+    for (const { moves, result } of gamesData) {
         const sim = new XiangqiGame();
         let gameHadValidMove = false;
         
-        for (let ply = 0; ply < Math.min(maxPly, gameMoves.length); ply++) {
-            const uci = gameMoves[ply];
+        for (let ply = 0; ply < Math.min(maxPly, moves.length); ply++) {
+            const uci = moves[ply];
             const fen = sim.exportFen();
             const fromX = uci.charCodeAt(0) - 97;
             const fromY = 9 - parseInt(uci[1], 10);
-            const toX = uci.charCodeAt(2) - 97;
-            const toY = 9 - parseInt(uci[3], 10);
+            const tx = uci.charCodeAt(2) - 97;
+            const ty = 9 - parseInt(uci[3], 10);
 
-            const ok = sim.move(fromX, fromY, toX, toY);
+            // Xác định tên khai cuộc dựa trên chuỗi nước đi đến tận nước này
+            const openingName = identifyOpening(moves, ply);
+
+            const ok = sim.move(fromX, fromY, tx, ty);
             if (!ok) break;
 
             gameHadValidMove = true;
             collectedMoves++;
             
             if (!positions[fen]) positions[fen] = Object.create(null);
-            if (!positions[fen][uci]) positions[fen][uci] = { count: 0, pv: [] };
+            if (!positions[fen][uci]) {
+                positions[fen][uci] = { 
+                    wins: 0, draws: 0, losses: 0, count: 0,
+                    opening: openingName, 
+                    pv: [] 
+                };
+            }
             
-            positions[fen][uci].count += 1;
-            if (positions[fen][uci].pv.length === 0) {
-                positions[fen][uci].pv = gameMoves.slice(ply, Math.min(gameMoves.length, ply + 6));
+            const data = positions[fen][uci];
+            data.count += 1;
+            
+            // Cập nhật tên khai cuộc nếu tìm thấy tên chi tiết hơn
+            if (openingName !== 'Biến hóa Lạ' && data.opening === 'Biến hóa Lạ') {
+                data.opening = openingName;
+            }
+            
+            // Cập nhật thống kê thắng/thua dựa trên bên nào vừa đi
+            const playerColor = (ply % 2 === 0) ? 'red' : 'black';
+            let isWinForMover = false;
+            
+            if (result === '1-0') { // Đỏ thắng
+                if (playerColor === 'red') { data.wins++; isWinForMover = true; } else data.losses++;
+            } else if (result === '0-1') { // Đen thắng
+                if (playerColor === 'black') { data.wins++; isWinForMover = true; } else data.losses++;
+            } else if (result === '1/2-1/2') { // Hòa
+                data.draws++;
+            }
+            
+            // CẬP NHẬT BIẾN HÓA (PV):
+            // Ưu tiên chuỗi PV DÀI NHẤT để có thông tin tối đa (không lọc win_rate)
+            const fullRemainingPv = moves.slice(ply); 
+            if (data.pv.length < fullRemainingPv.length) {
+                data.pv = fullRemainingPv;
+                data.lastResult = isWinForMover ? 'WIN' : (result === '1/2-1/2' ? 'DRAW' : 'LOSS');
             }
         }
         if (gameHadValidMove) validGames++;
     }
 
-    console.log("Normalizing frequencies and generating JSON tree...");
+    console.log("Normalizing scores with Win-Rate formula...");
     const normalized = Object.create(null);
     
     for (const fen of Object.keys(positions)) {
         const moveEntries = Object.entries(positions[fen]);
         if (moveEntries.length === 0) continue;
         
-        const maxCount = Math.max(...moveEntries.map(([, v]) => v.count));
-        
         normalized[fen] = moveEntries
-            .sort((a, b) => b[1].count - a[1].count)
-            .slice(0, maxMovesPerFen)
             .map(([move, data]) => {
-                const score = maxCount > 0 ? data.count / maxCount : 0;
+                // Công thức: Score = (Wins + 0.5 * Draws) / Total
+                const total = data.wins + data.draws + data.losses;
+                const winProbability = total > 0 ? (data.wins + 0.5 * data.draws) / total : 0.5;
+                
                 return {
                     move,
-                    score: Number(score.toFixed(2)),
-                    note: `PGN freq ${data.count}`,
+                    score: Number(winProbability.toFixed(2)),
+                    note: `${data.opening} (W:${data.wins} D:${data.draws} L:${data.losses})`,
                     pv: Array.isArray(data.pv) ? data.pv.filter(m => /^[a-i][0-9][a-i][0-9]$/.test(m)) : []
                 };
-            });
+            })
+            // Không lọc bỏ nước đi nào, giữ nguyên mọi biến thể
+            .sort((a, b) => b.score - a.score)
+            .slice(0, maxMovesPerFen);
     }
     
     const outputData = {
         meta: { 
-            name: 'Compiled Algebraic PGN Book', 
-            version: '1.0',
-            source: path.basename(inputFile)
+            name: 'Advanced Vietnamese Opening Book', 
+            version: '2.0',
+            source: path.basename(inputFile),
+            processedAt: new Date().toISOString()
         }, 
         positions: normalized 
     };
 
     fs.writeFileSync(outputFile, JSON.stringify(outputData, null, 2));
-    console.log(`Success! Saved opening book to ${outputFile}`);
+    console.log(`Success! Saved advanced book to ${outputFile}`);
     console.log(`Statistics:
-  Games Parsed  : ${games.length}
+  Games Parsed  : ${gamesData.length}
   Valid Games   : ${validGames}
-  Moves Recorded: ${collectedMoves}
+  Moves Processed: ${collectedMoves}
   Unique FENs   : ${Object.keys(normalized).length}
 `);
 }

@@ -724,8 +724,38 @@
                     <td>${engine ? engine.depth : '-'}</td>
                     <td class="pv-cell"></td>
                     <td class="book-cell"></td>
-                    <td class="desc-cell" title="${this.escapeHtml(descriptionText)}">${this.escapeHtml(descriptionText)}</td>
+                    <td class="desc-cell" contenteditable="true" title="Click to edit name" data-uci="${primaryMove}">${this.escapeHtml(descriptionText)}</td>
                 `;
+
+                const descCell = row.querySelector('.desc-cell');
+                let originalNote = descriptionText;
+                
+                descCell.addEventListener('focus', () => {
+                    originalNote = descCell.innerText.trim();
+                });
+
+                descCell.addEventListener('blur', async () => {
+                    const newNote = descCell.innerText.trim();
+                    if (newNote !== originalNote) {
+                        const uci = descCell.dataset.uci;
+                        this.showToast('Saving note...', 2000);
+                        const result = await window.XiangqiGameAPI.updateBookNote(fen, uci, newNote);
+                        if (result.success) {
+                            this.showToast('Note saved!', 2000);
+                            originalNote = newNote;
+                        } else {
+                            this.showToast('Error saving note!', 3000);
+                            descCell.innerText = originalNote;
+                        }
+                    }
+                });
+
+                descCell.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        descCell.blur();
+                    }
+                });
 
                 const moveCell = row.querySelector('td:first-child');
                 moveCell.dataset.move = primaryMove;
@@ -2201,10 +2231,44 @@
                 this.updateBoardDisplay();
             });
         }
+
+        showToast(message, duration = 3000) {
+            let toast = document.getElementById('ui-toast');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'ui-toast';
+                toast.style.cssText = `
+                    position: fixed;
+                    bottom: 20px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    background: rgba(0, 0, 0, 0.82);
+                    color: white;
+                    padding: 8px 16px;
+                    border-radius: 6px;
+                    z-index: 10000;
+                    font-size: 13.5px;
+                    transition: opacity 0.3s, bottom 0.3s;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+                    pointer-events: none;
+                    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+                `;
+                document.body.appendChild(toast);
+            }
+            toast.innerText = message;
+            toast.style.opacity = '1';
+            toast.style.bottom = '20px';
+            
+            if (this.toastTimeout) clearTimeout(this.toastTimeout);
+            this.toastTimeout = setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.bottom = '10px';
+            }, duration);
+        }
     }
 
     window.addEventListener('DOMContentLoaded', () => {
-        new XiangqiUI();
+        window.XiangqiUI = new XiangqiUI();
     });
 })();
 
