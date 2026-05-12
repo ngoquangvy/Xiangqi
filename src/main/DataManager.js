@@ -36,7 +36,7 @@ class DataManager {
             protocol: eng.protocol || 'uci',
             hash:     parseInt(eng.hash)    || 128,
             threads:  parseInt(eng.threads) || 1,
-            depth:    parseInt(eng.depth)   || 20,
+            depth:    parseInt(eng.depth) === 0 ? 0 : (parseInt(eng.depth) || 20),
             multiPV:  parseInt(eng.multiPV) || 3,
             bookFile: eng.bookFile || ''
         };

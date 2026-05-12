@@ -20,6 +20,8 @@ export class BoardRenderer extends BaseView {
         this.isFlipped = false;
         this.highlights = [];
         this.lastBoardData = null;
+        this._previewFrom = null;
+        this._previewTo = null;
 
         if (this.canvas) {
             this.ctx = this.canvas.getContext('2d');
@@ -201,8 +203,8 @@ export class BoardRenderer extends BaseView {
 
         // Style for CAPTURE moves (Attack)
         if (isCapture) {
-            marker.style.setProperty("border", "4px solid #f44336", "important"); // Vivid red
-            marker.style.setProperty("box-shadow", "0 0 15px rgba(244,67,54,0.8)", "important");
+            marker.style.setProperty("border", "3px solid rgba(244,67,54,0.7)", "important");
+            marker.style.setProperty("box-shadow", "0 0 10px rgba(244,67,54,0.5)", "important");
             if (hasEngine && hasBook) {
                 marker.style.setProperty("background", "linear-gradient(135deg, rgba(76,175,80,0.4) 0%, rgba(33,150,243,0.4) 100%)", "important");
             } else if (hasEngine) {
@@ -369,8 +371,11 @@ export class BoardRenderer extends BaseView {
 
         // 3. Render move highlights (legal moves, suggestions)
         this.renderHighlights();
-        
-        // 4. Render Last Move highlights for source square (or empty target square)
+
+        // 4. Render preview highlight (from keyboard Enter or suggestion hover)
+        this.renderPreviewHighlight();
+
+        // 5. Render Last Move highlights for source square (or empty target square)
         const activeLastMove = this.ui.isSimulating ? this.ui.simulatedLastMove : this.ui.lastMove;
         const lastMoveClass = this.ui.isSimulating ? 'sim-move' : 'last-move';
         
@@ -416,16 +421,38 @@ export class BoardRenderer extends BaseView {
     }
 
     highlightMove(fx, fy, tx, ty, className) {
-        this.clearHighlights();
-        this.highlights = [
-            { x: fx, y: fy, isSource: true }, 
-            { x: tx, y: ty, isTarget: true }
-        ];
+        this.highlights = [];
+        this._previewFrom = { x: fx, y: fy };
+        this._previewTo = { x: tx, y: ty };
         this.render(this.lastBoardData);
     }
 
     clearHighlights() {
         this.highlights = [];
+        this._previewFrom = null;
+        this._previewTo = null;
         this.render(this.lastBoardData);
+    }
+
+    renderPreviewHighlight() {
+        if (!this._previewFrom || !this._previewTo || !this.piecesContainer) return;
+        const board = this.lastBoardData;
+        if (!board) return;
+
+        const isCapture = board[this._previewTo.y]?.[this._previewTo.x] != null;
+
+        // Source marker
+        const srcPos = this.getPieceDisplayPosition(this._previewFrom.x, this._previewFrom.y);
+        const srcMarker = document.createElement("div");
+        srcMarker.className = "piece move-preview source";
+        srcMarker.style.cssText = `left:${srcPos.left}px;top:${srcPos.top}px;width:48px;height:48px;z-index:85;`;
+        this.piecesContainer.appendChild(srcMarker);
+
+        // Target marker
+        const tgtPos = this.getPieceDisplayPosition(this._previewTo.x, this._previewTo.y);
+        const tgtMarker = document.createElement("div");
+        tgtMarker.className = `piece move-preview target${isCapture ? ' capture' : ''}`;
+        tgtMarker.style.cssText = `left:${tgtPos.left}px;top:${tgtPos.top}px;width:48px;height:48px;z-index:85;`;
+        this.piecesContainer.appendChild(tgtMarker);
     }
 }

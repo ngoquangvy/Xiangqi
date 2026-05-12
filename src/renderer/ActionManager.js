@@ -215,15 +215,26 @@ export class ActionManager extends BaseView {
             clearBookBtn.onclick = () => document.getElementById('edit-engine-bookFile').value = '';
         }
 
+        const infiniteCb = document.getElementById('edit-engine-infinite');
+        const depthInput = document.getElementById('edit-engine-depth');
+        if (infiniteCb && depthInput) {
+            infiniteCb.onchange = () => {
+                depthInput.disabled = infiniteCb.checked;
+                if (infiniteCb.checked) depthInput.value = 0;
+                else depthInput.value = 20;
+            };
+        }
+
         if (form) {
             form.onsubmit = async (e) => {
                 e.preventDefault();
                 const index = parseInt(form.dataset.engineIndex);
+                const infinite = document.getElementById('edit-engine-infinite')?.checked;
                 const config = {
                     name: document.getElementById('edit-engine-name').value,
                     hash: parseInt(document.getElementById('edit-engine-hash').value),
                     threads: parseInt(document.getElementById('edit-engine-threads').value),
-                    depth: parseInt(document.getElementById('edit-engine-depth').value),
+                    depth: infinite ? 0 : parseInt(document.getElementById('edit-engine-depth').value),
                     multiPV: parseInt(document.getElementById('edit-engine-multipv')?.value || 3),
                     bookFile: document.getElementById('edit-engine-bookFile').value
                 };
@@ -294,7 +305,14 @@ export class ActionManager extends BaseView {
         document.getElementById('edit-engine-name').value = eng.name || '';
         document.getElementById('edit-engine-hash').value = eng.hash || 128;
         document.getElementById('edit-engine-threads').value = eng.threads || 1;
-        document.getElementById('edit-engine-depth').value = eng.depth || 20;
+        const isInfinite = eng.depth === 0;
+        const depthInput = document.getElementById('edit-engine-depth');
+        if (depthInput) {
+            depthInput.value = isInfinite ? 0 : (eng.depth || 20);
+            depthInput.disabled = isInfinite;
+        }
+        const infiniteCb = document.getElementById('edit-engine-infinite');
+        if (infiniteCb) infiniteCb.checked = isInfinite;
         document.getElementById('edit-engine-bookFile').value = eng.bookFile || '';
 
         const overlay = document.getElementById('modal-overlay');

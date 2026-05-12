@@ -60,6 +60,7 @@ export class InputManager extends BaseView {
      * - Otherwise, select the piece at (x, y) if it's the player's turn.
      */
     async handleGridClick(x, y) {
+        this.ui.cancelBestMovePreview();
         if (this.selectedPiece) {
             // Toggle selection: if clicking the SAME piece, deselect it
             if (this.selectedPiece.x === x && this.selectedPiece.y === y) {
@@ -122,9 +123,17 @@ export class InputManager extends BaseView {
 
     setupKeyboardEvents() {
         document.addEventListener('keydown', (e) => {
-            // Ignore if typing in input/textarea
-            if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
-            
+            if (['INPUT', 'TEXTAREA'].includes(e.target.tagName) || e.target.isContentEditable) return;
+
+            if (e.key === 'Escape') {
+                this.ui.cancelBestMovePreview();
+                return;
+            }
+            if (e.key === 'Enter') {
+                this.ui.toggleBestMove();
+                return;
+            }
+
             if (e.key === 'ArrowLeft') {
                 if (this.ui.isSimulating && this.ui.currentSimulation) {
                     const nextStep = Math.max(0, this.ui.currentSimulation.step - 1);

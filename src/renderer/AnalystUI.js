@@ -283,6 +283,7 @@ export class AnalystUI extends BaseView {
             };
             
             notationCell.onmouseenter = () => {
+                this.ui.cancelBestMovePreview();
                 const parts = this.ui.parseUCIMove(moveUci);
                 if (parts) {
                     this.ui.highlightMove(parts.fx, parts.fy, parts.tx, parts.ty, 'hover-move');
@@ -463,11 +464,17 @@ export class AnalystUI extends BaseView {
         }
     }
 
+    getTopSuggestion() {
+        return this.pendingSuggestions.get(1) || null;
+    }
+
     clearTables() {
         this.pendingSuggestions.clear();
         this.pendingEvalSuggestions.clear();
-        this.notationCache.clear(); 
+        this.notationCache.clear();
         this.lastEvalResult = null;
+        if (this.updateTimer) { clearTimeout(this.updateTimer); this.updateTimer = null; }
+        if (this.evalUpdateTimer) { clearTimeout(this.evalUpdateTimer); this.evalUpdateTimer = null; }
         if (this.suggestionsBody) this.suggestionsBody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Analyzing...</td></tr>';
         if (this.evaluationBody) this.evaluationBody.innerHTML = '<tr><td colspan="6" style="text-align:center;">No data available...</td></tr>';
         

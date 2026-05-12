@@ -32,6 +32,7 @@ export class UIManager {
         this.isEnginePaused = false; 
         this.isSimulating = false;
         this.isStudyMode = false;
+        this._bestMovePreviewUci = null;
 
         // Config for move evaluation (Agent 3 - Eval Engine)
         this.evalConfig = {
@@ -128,7 +129,11 @@ export class UIManager {
                 return;
             }
 
-            // 5. Execute: Clear pending and send request
+            // 5. Clear stale engine output that accumulated during debounce
+            //    (prevents showing analysis from previous board position)
+            this.analystUI.clearTables();
+
+            // 6. Execute: Clear pending and send request
             this.pendingReadyAnalysis = false;
             // console.log(`[UIManager] Scheduler executing analyzePosition: ${this.currentFen}`);
             this.api.analyzePosition(this.currentFen);
@@ -142,6 +147,7 @@ export class UIManager {
      * Partial refresh helpers are only acceptable when the change is provably local.
      */
     async syncState() {
+        this.cancelBestMovePreview();
         // 1. Clear old suggestion tables
         this.analystUI.clearTables();
 
@@ -261,6 +267,7 @@ export class UIManager {
      * The only entry point for committing a legal move from renderer input.
      */
     async makeMove(fx, fy, tx, ty) {
+        this.cancelBestMovePreview();
         if (this.isSimulating) {
             alert('Please reset the simulation before making a new move.');
             return false;
@@ -363,6 +370,55 @@ export class UIManager {
 
     clearHighlights() {
         this.boardRenderer.clearHighlights();
+    }
+
+    /**
+     * KEYBOARD BEST MOVE PREVIEW/EXECUTE (Enter key)
+     * Press 1: highlight best move on board
+     * Press 2: execute the move
+     * Cancel: board click, Escape, suggestion hover, any move
+     */
+    toggleBestMove() {
+        if (this.isSimulating) {
+            this.analystUI.showToast('Cannot play best move during simulation');
+            return;
+        }
+        if (this.isStudyMode) {
+            this.analystUI.showToast('Cannot play best move in study mode');
+            return;
+        }
+
+        if (this._bestMovePreviewUci) {
+            // Press 2: execute
+            const uci = this._bestMovePreviewUci;
+            this._bestMovePreviewUci = null;
+            const parts = this.parseUCIMove(uci);
+            if (parts) {
+                this.makeMove(parts.fx, parts.fy, parts.tx, parts.ty);
+            }
+        } else {
+            // Press 1: preview
+            const top = this.analystUI.getTopSuggestion
+                ? this.analystUI.getTopSuggestion()
+                : null;
+            if (!top) {
+                this.analystUI.showToast('No best move available');
+                return;
+            }
+            this._bestMovePreviewUci = top.move;
+            const parts = this.parseUCIMove(top.move);
+            if (parts) {
+                this.highlightMove(parts.fx, parts.fy, parts.tx, parts.ty, 'hover-move');
+                this.analystUI.showToast('Press Enter again to execute, or Esc/click to cancel');
+            }
+        }
+    }
+
+    cancelBestMovePreview() {
+        if (this._bestMovePreviewUci) {
+            this._bestMovePreviewUci = null;
+            this.clearHighlights();
+        }
     }
 
     /**

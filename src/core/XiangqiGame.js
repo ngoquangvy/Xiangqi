@@ -19,6 +19,7 @@ class XiangqiGame {
         this.currentTurn = "red";
         this.moveHistory = []; // Move history
         this.currentMoveIndex = -1; // Current move pointer
+        this._flipped = false; // Board orientation (UI concern, persisted with game state)
         
         // Authority states for custom starting positions
         this.initialBoard = null;
@@ -550,6 +551,14 @@ class XiangqiGame {
         return pgn;
     }
 
+    setFlipped(isFlipped) {
+        this._flipped = !!isFlipped;
+    }
+
+    isFlipped() {
+        return this._flipped;
+    }
+
     getGameState() {
         const lastMove = this.currentMoveIndex >= 0 ? this.moveHistory[this.currentMoveIndex] : null;
         return {
@@ -557,7 +566,8 @@ class XiangqiGame {
             currentTurn: this.currentTurn, moveCount: this.moveCount,
             currentMoveIndex: this.currentMoveIndex, moveHistory: this.getMoveHistory(),
             isCheck: this.isKingInCheck(this.currentTurn), isCheckmate: this.isCheckmate(this.currentTurn),
-            lastMove: lastMove ? { ...lastMove } : null
+            lastMove: lastMove ? { ...lastMove } : null,
+            flipped: this._flipped
         };
     }
 
