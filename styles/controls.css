@@ -62,3 +62,112 @@
 .suggestions-status.visible { opacity: 1; }
 
 #game-over-message { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 40px; font-weight: bold; color: gold; text-shadow: 2px 2px 5px black; z-index: 1000; display: none; }
+
+/* Engine Dashboard */
+#engine-dashboard {
+    display: flex;
+    gap: 12px;
+    margin-top: 12px;
+    width: 100%;
+    max-width: 472px;
+}
+.engine-card {
+    flex: 1;
+    background: #f8f9fa;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    overflow: hidden;
+    font-size: 11px;
+}
+.engine-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 10px;
+    background: #eef0f2;
+    border-bottom: 1px solid #e0e0e0;
+    font-weight: 600;
+}
+.engine-card-name {
+    font-size: 11px;
+    color: #333;
+}
+.engine-card-status {
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 8px;
+    color: #fff;
+    background: #9e9e9e;
+}
+.engine-name {
+    font-weight: 400;
+    color: #555;
+    font-size: 10px;
+}
+.engine-name:empty { display: none; }
+.engine-card-status.searching { background: #2196f3; }
+.engine-card-status.idle { background: #4caf50; }
+.engine-card-status.starting { background: #ff9800; }
+.engine-card-status.stopped { background: #9e9e9e; }
+.engine-card-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2px 8px;
+    padding: 6px 10px;
+}
+.engine-metric {
+    display: flex;
+    justify-content: space-between;
+    gap: 4px;
+}
+.engine-metric .metric-label {
+    color: #777;
+    font-weight: 500;
+}
+.engine-metric .metric-value {
+    color: #222;
+    font-weight: 700;
+    font-family: 'Courier New', Courier, monospace;
+}
+
+/* Tooltip System */
+.tooltip { position: relative; display: inline-flex; align-items: center; }
+.tooltip .tooltiptext {
+    visibility: hidden;
+    width: 220px;
+    background-color: #333;
+    color: #fff;
+    text-align: left;
+    border-radius: 6px;
+    padding: 10px;
+    position: absolute;
+    z-index: 10;
+    top: 120%;
+    left: 50%;
+    transform: translateX(-50%);
+    opacity: 0;
+    transition: opacity 0.3s;
+    font-size: 11px;
+    line-height: 1.5;
+    font-weight: normal;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    pointer-events: none;
+}
+.tooltip .tooltiptext::after {
+    content: "";
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    margin-left: -5px;
+    border-width: 5px;
+    border-style: solid;
+    border-color: transparent transparent #333 transparent;
+}
+.tooltip:hover .tooltiptext { visibility: visible; opacity: 1; }
+.info-icon {
+    font-size: 14px;
+    color: #999;
+    margin-left: 4px;
+    cursor: help;
+    font-style: normal;
+}

@@ -15,7 +15,7 @@ export class AnalystUI extends BaseView {
         this.engineStatus = document.getElementById('engine-status');
         
         this.pendingSuggestions = new Map();
-        this.pendingEvalSuggestions = new Map(); // Separate stream for individual move analysis
+        this.pendingEvalSuggestions = new Map();
         this.updateTimer = null;
         this.evalUpdateTimer = null;
         this.lastEvalResult = null;
@@ -25,20 +25,56 @@ export class AnalystUI extends BaseView {
     }
 
     /**
+     * Cache dashboard element references lazily
+     */
+    _dash(id) {
+        if (!this._dashCache) this._dashCache = {};
+        if (!this._dashCache[id]) this._dashCache[id] = document.getElementById(id);
+        return this._dashCache[id];
+    }
+
+    /**
      * UPDATE ENGINE STATUS ON UI
      */
     updateStatus(status) {
         if (!this.engineStatus) return;
         
-        // Capitalize status for better presentation
         const capStatus = status.charAt(0).toUpperCase() + status.slice(1);
         this.engineStatus.textContent = capStatus;
         
-        // Dynamic coloring for status
         if (status === 'searching') this.engineStatus.style.color = '#2196f3';
         else if (status === 'idle') this.engineStatus.style.color = '#4caf50';
         else if (status === 'starting') this.engineStatus.style.color = '#ff9800';
         else this.engineStatus.style.color = '#5f6368';
+
+        this._updateDashboardStatus(status, false);
+    }
+
+    updateEvalStatus(status) {
+        this._updateDashboardStatus(status, true);
+    }
+
+    async updateDashboardEngineNames() {
+        const engines = await this.api.getEngines();
+        const currentIndex = await this.api.getSelectedEngineIndex();
+        const mainEng = engines[currentIndex];
+        const mainNameEl = this._dash('dash-main-enginename');
+        if (mainNameEl && mainEng) mainNameEl.textContent = '(' + mainEng.name + ')';
+        else if (mainNameEl) mainNameEl.textContent = '';
+
+        const evalPath = this.ui.evalConfig ? this.ui.evalConfig.path : '';
+        const evalEng = evalPath ? engines.find(e => e.path === evalPath) : engines[currentIndex];
+        const evalNameEl = this._dash('dash-eval-enginename');
+        if (evalNameEl && evalEng) evalNameEl.textContent = '(' + evalEng.name + ')';
+        else if (evalNameEl) evalNameEl.textContent = '';
+    }
+
+    _updateDashboardStatus(status, isEval) {
+        const prefix = isEval ? 'dash-eval' : 'dash-main';
+        const el = this._dash(prefix + '-status');
+        if (!el) return;
+        el.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+        el.className = 'engine-card-status ' + status;
     }
 
     /**
@@ -347,6 +383,8 @@ export class AnalystUI extends BaseView {
 
             const suggestion = { move, score: scoreValue, depth, rank, pv, note };
 
+            this.updateDashboard(parts, depth, scoreValue, note, isEval);
+
             if (isEval) {
                 this.pendingEvalSuggestions.set(rank, suggestion);
                 this.scheduleEvalUpdate();
@@ -354,6 +392,41 @@ export class AnalystUI extends BaseView {
                 this.pendingSuggestions.set(rank, suggestion);
                 this.scheduleSuggestionsUpdate();
             }
+        }
+    }
+
+    /**
+     * UPDATE ENGINE DASHBOARD (below board)
+     */
+    updateDashboard(parts, currentDepth, scoreValue, note, isEval) {
+        const prefix = isEval ? 'dash-eval' : 'dash-main';
+        const depthEl = this._dash(prefix + '-depth');
+        const nodesEl = this._dash(prefix + '-nodes');
+        const npsEl = this._dash(prefix + '-nps');
+        const timeEl = this._dash(prefix + '-time');
+        const hashEl = this._dash(prefix + '-hash');
+        const scoreEl = this._dash(prefix + '-score');
+
+        if (depthEl && currentDepth !== '-') depthEl.textContent = currentDepth;
+
+        const nodesIdx = parts.indexOf('nodes');
+        const npsIdx = parts.indexOf('nps');
+        const timeIdx = parts.indexOf('time');
+        const hashIdx = parts.indexOf('hashfull');
+
+        if (nodesEl && nodesIdx !== -1) nodesEl.textContent = parseInt(parts[nodesIdx + 1]).toLocaleString();
+        if (npsEl && npsIdx !== -1) npsEl.textContent = parseInt(parts[npsIdx + 1]).toLocaleString();
+        if (timeEl && timeIdx !== -1) {
+            const timeMs = parseInt(parts[timeIdx + 1]);
+            timeEl.textContent = (timeMs / 1000).toFixed(1) + 's';
+        }
+        if (hashEl && hashIdx !== -1) {
+            const hashFull = parseInt(parts[hashIdx + 1]);
+            hashEl.textContent = (hashFull / 10).toFixed(1) + '%';
+        }
+        if (scoreEl && note) {
+            scoreEl.textContent = note;
+            scoreEl.style.color = (note.startsWith('Mate') || parseFloat(note) >= 0) ? '#4caf50' : '#f44336';
         }
     }
 
@@ -397,6 +470,15 @@ export class AnalystUI extends BaseView {
         this.lastEvalResult = null;
         if (this.suggestionsBody) this.suggestionsBody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Analyzing...</td></tr>';
         if (this.evaluationBody) this.evaluationBody.innerHTML = '<tr><td colspan="6" style="text-align:center;">No data available...</td></tr>';
+        
+        // Reset Dashboard
+        const dashMetrics = ['depth', 'nodes', 'nps', 'time', 'hash', 'score'];
+        ['dash-main', 'dash-eval'].forEach(prefix => {
+            dashMetrics.forEach(m => {
+                const el = document.getElementById(prefix + '-' + m);
+                if (el) el.textContent = '-';
+            });
+        });
     }
 
     async updateEvaluationTable(suggestions) {

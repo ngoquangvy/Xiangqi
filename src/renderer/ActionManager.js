@@ -264,6 +264,7 @@ export class ActionManager extends BaseView {
                 }
                 
                 this.ui.updateEvalConfig(updates);
+                this.ui.analystUI.updateDashboardEngineNames();
             };
         }
 
@@ -365,6 +366,7 @@ export class ActionManager extends BaseView {
                 }
             }
         }
+        this.ui.analystUI.updateDashboardEngineNames();
     }
 
     async selectEngine(index) {
@@ -442,47 +444,47 @@ export class ActionManager extends BaseView {
      * 5. ELECTRON NATIVE MENU INTEGRATION
      */
     setupElectronMenu() {
-        if (!window.ipcRenderer) return;
+        if (!this.api) return;
         
         // File menu
-        window.ipcRenderer.on('menu-export-game', () => {
+        this.api.on('menu-export-game', () => {
             const exportBtn = document.getElementById('export-game-btn');
             if (exportBtn) exportBtn.click();
         });
         
-        window.ipcRenderer.on('menu-import-game', () => {
+        this.api.on('menu-import-game', () => {
             const importGameInput = document.getElementById('import-game-file');
             if (importGameInput) importGameInput.click();
         });
         
-        window.ipcRenderer.on('menu-import-book', () => {
+        this.api.on('menu-import-book', () => {
             const importBookInput = document.getElementById('import-book-file');
             if (importBookInput) importBookInput.click();
         });
         
         // Edit menu
-        window.ipcRenderer.on('menu-undo', () => this.ui.undo());
-        window.ipcRenderer.on('menu-redo', () => this.ui.redo());
-        window.ipcRenderer.on('menu-reset-position', async () => {
+        this.api.on('menu-undo', () => this.ui.undo());
+        this.api.on('menu-redo', () => this.ui.redo());
+        this.api.on('menu-reset-position', async () => {
             await this.api.resetToInitial();
             await this.ui.syncState();
         });
         
         // Tool menu
-        window.ipcRenderer.on('menu-engine-manager', () => {
+        this.api.on('menu-engine-manager', () => {
             const panel = document.getElementById('engine-menu');
             if (panel) panel.style.display = 'block';
             this.renderEngineList();
         });
         
-        window.ipcRenderer.on('menu-book-manager', () => {
+        this.api.on('menu-book-manager', () => {
             const panel = document.getElementById('book-menu');
             if (panel) panel.style.display = 'block';
             this.loadBookList();
         });
         
         // Help menu
-        window.ipcRenderer.on('menu-about', () => {
+        this.api.on('menu-about', () => {
             alert('Xiangqi Analyst Tool v2.0');
         });
     }

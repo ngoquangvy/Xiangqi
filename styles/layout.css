@@ -28,6 +28,7 @@
 #container {
     align-items: flex-start;
     margin-bottom: 20px;
+    align-self: flex-start;
 }
 
 #engine-container {
@@ -37,10 +38,12 @@
     min-width: 1060px;
     margin-left: 20px;
     position: relative;
+    align-self: flex-start;
 }
 
 #board-section {
     display: flex;
     flex-direction: column;
     align-items: center;
+    align-self: flex-start;
 }

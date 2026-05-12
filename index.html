@@ -52,7 +52,7 @@
         </div>
     </header>
 
-    <div id="main-container" style="display: flex; flex-direction: row;">
+    <div id="main-container" style="display: flex; flex-direction: row; align-items: flex-start;">
 
         <div id="container">
             <div id="move-history">
@@ -116,6 +116,38 @@
                 <button id="reset-game-btn" class="action-btn action-danger">New Game</button>
                 <button id="flip-board-btn" class="action-btn action-secondary">Flip Board</button>
             </div>
+
+            <!-- ENGINE DASHBOARD -->
+            <div id="engine-dashboard">
+                <div class="engine-card" id="main-engine-card">
+                    <div class="engine-card-header">
+                        <span class="engine-card-name">Main Engine <span id="dash-main-enginename" class="engine-name"></span></span>
+                        <span class="engine-card-status" id="dash-main-status">Stopped</span>
+                    </div>
+                    <div class="engine-card-body">
+                        <div class="engine-metric"><span class="metric-label">Depth</span><span class="metric-value" id="dash-main-depth">-</span></div>
+                        <div class="engine-metric"><span class="metric-label">Nodes</span><span class="metric-value" id="dash-main-nodes">-</span></div>
+                        <div class="engine-metric"><span class="metric-label">NPS</span><span class="metric-value" id="dash-main-nps">-</span></div>
+                        <div class="engine-metric"><span class="metric-label">Time</span><span class="metric-value" id="dash-main-time">-</span></div>
+                        <div class="engine-metric"><span class="metric-label">Hash</span><span class="metric-value" id="dash-main-hash">-</span></div>
+                        <div class="engine-metric"><span class="metric-label">Score</span><span class="metric-value" id="dash-main-score">-</span></div>
+                    </div>
+                </div>
+                <div class="engine-card" id="eval-engine-card">
+                    <div class="engine-card-header">
+                        <span class="engine-card-name">Eval Engine <span id="dash-eval-enginename" class="engine-name"></span></span>
+                        <span class="engine-card-status" id="dash-eval-status">Stopped</span>
+                    </div>
+                    <div class="engine-card-body">
+                        <div class="engine-metric"><span class="metric-label">Depth</span><span class="metric-value" id="dash-eval-depth">-</span></div>
+                        <div class="engine-metric"><span class="metric-label">Nodes</span><span class="metric-value" id="dash-eval-nodes">-</span></div>
+                        <div class="engine-metric"><span class="metric-label">NPS</span><span class="metric-value" id="dash-eval-nps">-</span></div>
+                        <div class="engine-metric"><span class="metric-label">Time</span><span class="metric-value" id="dash-eval-time">-</span></div>
+                        <div class="engine-metric"><span class="metric-label">Hash</span><span class="metric-value" id="dash-eval-hash">-</span></div>
+                        <div class="engine-metric"><span class="metric-label">Score</span><span class="metric-value" id="dash-eval-score">-</span></div>
+                    </div>
+                </div>
+            </div>
         </div>
 
 
@@ -123,9 +155,15 @@
             <div id="engine-controls-toolbar" style="display: flex; align-items: center; gap: 10px; margin-bottom: 5px;">
                 <button id="load-suggestions-btn">Load Suggestions</button>
                 <button id="engine-control-btn" class="engine-control-btn">Pause</button>
-                <div id="study-mode-container" style="display: flex; align-items: center; gap: 5px; margin-left: 10px;">
+                <div id="study-mode-container" class="tooltip" style="display: flex; align-items: center; gap: 5px; margin-left: 10px;">
                     <input type="checkbox" id="study-mode-toggle" style="cursor: pointer;">
                     <label for="study-mode-toggle" style="font-size: 12px; color: #555; cursor: pointer; font-weight: bold;">Study Mode</label>
+                    <i class="info-icon">ⓘ</i>
+                    <span class="tooltiptext">
+                        <b>Study Mode</b><br>
+                        Dừng phân tích tự động để bạn có thể tự do thử các nước đi nghiên cứu thế trận.<br>
+                        <i>Pauses automated analysis to allow free exploration of moves and variations.</i>
+                    </span>
                 </div>
                 <div id="engine-status-indicator" class="engine-status-ready" style="margin-left: auto;">
                     <span class="status-dot"></span>

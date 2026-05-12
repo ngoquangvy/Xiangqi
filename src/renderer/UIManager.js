@@ -77,7 +77,7 @@ export class UIManager {
         this.api.onEvalEngineStatus((status) => {
             this.evalStatus = status;
             console.log(`[UIManager] Eval Engine Status: ${status}`);
-            // Note: We don't update the global status bar for Agent 3 to avoid flickering.
+            this.analystUI.updateEvalStatus(status);
         });
 
         this.api.onEngineStatus((status) => {
@@ -173,6 +173,7 @@ export class UIManager {
         if (engines[currentIndex]) {
             this.analystUI.updateStatus(`Ready (${engines[currentIndex].name})`);
         }
+        this.analystUI.updateDashboardEngineNames();
         
         // 5. Render board from snapshot
         this.boardRenderer.render(this.board);
