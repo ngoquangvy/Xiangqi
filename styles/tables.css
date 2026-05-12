@@ -1,0 +1,55 @@
+/* tables.css */
+table { width: 100%; border-collapse: collapse; }
+th, td { border: 1px solid #ddd; padding: 5px; text-align: center; }
+th { background-color: #f2f2f2; }
+
+#move-evaluation { border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; }
+#move-suggestions { border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; transition: opacity 0.16s ease; table-layout: fixed; width: 100%; }
+#engine-container.is-loading #move-suggestions { opacity: 0.62; }
+
+#move-suggestions table { width: 100%; border-collapse: collapse; table-layout: auto; }
+#move-suggestions th, #move-suggestions td { border: 1px solid #ddd; padding: 5px; text-align: left; min-width: 50px; white-space: nowrap; }
+#move-suggestions th { background-color: #f2f2f2; font-size: 14px; }
+#move-suggestions th:nth-child(1), #move-suggestions td:nth-child(1) { width: 180px; min-width: 180px; overflow: hidden; text-overflow: ellipsis; }
+#move-suggestions th:nth-child(2), #move-suggestions td:nth-child(2) { width: 160px; min-width: 160px; }
+#move-suggestions th:nth-child(3), #move-suggestions td:nth-child(3), #move-suggestions th:nth-child(4), #move-suggestions td:nth-child(4) { width: 44px; max-width: 44px; min-width: 44px; text-align: center; padding-left: 2px; padding-right: 2px; }
+#move-suggestions th:nth-child(5), #move-suggestions td:nth-child(5), #move-suggestions th:nth-child(6), #move-suggestions td:nth-child(6) { width: 180px; max-width: 180px; }
+#move-suggestions th:nth-child(7), #move-suggestions td:nth-child(7) { width: 280px; max-width: 280px; min-width: 240px; }
+
+.pv-cell, .book-cell { max-width: 180px; overflow-x: auto; overflow-y: hidden; white-space: nowrap; scrollbar-width: thin; scrollbar-color: #909090 #f0f0f0; }
+.pv-cell::-webkit-scrollbar, .book-cell::-webkit-scrollbar { height: 6px; }
+.pv-cell::-webkit-scrollbar-thumb, .book-cell::-webkit-scrollbar-thumb { background: #909090; border-radius: 6px; }
+.pv-cell::-webkit-scrollbar-track, .book-cell::-webkit-scrollbar-track { background: #f0f0f0; }
+
+.row-book-only { background: #fbfff8; }
+
+#move-history { margin-right: 12px; border: none; background: transparent; width: 112px; padding: 0; max-height: 500px; overflow-y: auto; }
+#move-history ul { list-style: none; padding: 0; margin: 0; }
+#move-history li { padding: 5px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+#move-list { margin-top: 6px; width: 112px; max-height: 420px; overflow-y: auto; overflow-x: hidden; scrollbar-width: none; list-style-type: none; padding: 0; }
+#move-list:hover { scrollbar-width: thin; scrollbar-color: #a0a0a0 transparent; }
+#move-list::-webkit-scrollbar { width: 0; }
+#move-list:hover::-webkit-scrollbar { width: 6px; }
+#move-list::-webkit-scrollbar-thumb { background: #a0a0a0; border-radius: 6px; }
+#move-list li { padding: 3px 0; border-bottom: none; font-size: 12px; }
+
+.move-row { display: grid; grid-template-columns: 22px 1fr 1fr; gap: 4px; align-items: center; }
+.move-no { color: #666; font-size: 11px; }
+.move-side { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.move-clickable { cursor: pointer; }
+.move-clickable:hover { color: #1456c8; text-decoration: underline; }
+.move-current { background: #ffef8a; border-radius: 3px; padding: 0 2px; }
+
+.pv-step, .book-step { cursor: pointer; padding: 0 2px; border-radius: 2px; transition: background-color 0.2s, color 0.2s; }
+.pv-step:hover, .book-step:hover { background-color: #e0e0e0; }
+.pv-step.active-sim, .book-step.active-sim { background-color: #ff9800; color: white; font-weight: bold; }
+
+.note-cell { min-width: 150px; text-align: left; white-space: nowrap; }
+.note-engine { color: #2452b8; font-weight: 700; }
+.note-book { color: #26753b; font-weight: 700; }
+.note-sep { color: #666; font-weight: 600; }
+.desc-cell { text-align: left; white-space: normal !important; word-break: break-word; line-height: 1.25; color: #2b2b2b; }
+
+#move-context-panel { background-color: #fffbe6; border: 1px solid #ffe58f; border-radius: 8px; padding: 12px; margin-top: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+#move-context-panel label { font-weight: bold; font-size: 14px; display: block; margin-bottom: 5px; }

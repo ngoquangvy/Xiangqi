@@ -7,52 +7,54 @@
     <meta http-equiv="Content-Security-Policy"
         content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';">
     <title>Chinese Chess</title>
-    <link rel="stylesheet" href="styles/styles.css">
+    <link rel="stylesheet" href="styles/base.css">
+    <link rel="stylesheet" href="styles/layout.css">
+    <link rel="stylesheet" href="styles/board.css">
+    <link rel="stylesheet" href="styles/pieces.css">
+    <link rel="stylesheet" href="styles/tables.css">
+    <link rel="stylesheet" href="styles/controls.css">
 
 </head>
 
 <body>
+    <header id="top-bar" style="display: none;">
+        <div class="menu-item">
+            <button id="file-btn">File</button>
+            <div id="file-menu" class="dropdown-menu">
+                <button id="export-game-btn">Export Game</button>
+                <button id="import-game-btn">Import Game</button>
+                <button id="import-book-btn">Import Book</button>
+                <button id="exit-btn" style="color: #ff4d4f; border-top: 1px solid #eee; margin-top: 5px;">Exit</button>
+                <input type="file" id="import-game-file" style="display: none;" accept=".json">
+                <input type="file" id="import-book-file" style="display: none;" accept=".json,.pgn,.xob">
+            </div>
+        </div>
+        <div class="menu-item">
+            <button id="edit-btn">Edit</button>
+            <div id="edit-menu" class="dropdown-menu">
+                <button id="undo-btn-top">Undo</button>
+                <button id="redo-btn-top">Redo</button>
+                <button id="reset-initial-btn-top">Reset Position</button>
+            </div>
+        </div>
+        <div class="menu-item">
+            <button id="tool-btn">Tool</button>
+            <div id="tool-menu" class="dropdown-menu">
+                <button id="engine-btn">Engine Manager</button>
+                <button id="book-btn">Book Manager</button>
+            </div>
+        </div>
+        <div class="menu-item">
+            <button id="help-btn">Help</button>
+            <div id="help-menu" class="dropdown-menu">
+                <button id="about-btn">About</button>
+            </div>
+        </div>
+    </header>
+
     <div id="main-container" style="display: flex; flex-direction: row;">
 
         <div id="container">
-            <div id="controls">
-                <button id="controls-btn">Controls</button>
-                <div id="controls-menu"
-                    style="display: none; position: absolute; background: white; border: 1px solid #ccc; padding: 5px;">
-                    <button id="export-game-btn">Export Game</button>
-                    <button id="import-game-btn">Import Game</button>
-                    <button id="import-book-btn">Import Book</button>
-                    <input type="file" id="import-game-file" style="display: none;" accept=".json">
-                    <input type="file" id="import-book-file" style="display: none;" accept=".json,.pgn,.xob">
-                </div>
-                <button id="engine-btn">Engine</button>
-                <div id="engine-menu"
-                    style="display: none; position: absolute; background: white; border: 1px solid #ccc; padding: 10px; z-index: 9999; box-shadow: 0px 4px 6px rgba(0,0,0,0.1);">
-                    <div style="text-align: right; margin-bottom: 5px;">
-                        <button id="close-engine-menu"
-                            style="color: red; cursor: pointer; border: none; background: transparent; font-weight: bold;">[X]
-                            Close</button>
-                    </div>
-                    <button id="add-engine-btn">Add Engine</button>
-                    <input type="file" id="engine-file-input" style="display: none;" accept=".exe">
-                    <div id="engine-list"></div>
-                </div>
-                <button id="book-btn">Book</button>
-                <div id="book-menu"
-                    style="display: none; position: absolute; background: white; border: 1px solid #ccc; padding: 10px; z-index: 9999; box-shadow: 0px 4px 6px rgba(0,0,0,0.1);">
-                    <div style="text-align: right; margin-bottom: 5px;">
-                        <button id="close-book-menu"
-                            style="color: red; cursor: pointer; border: none; background: transparent; font-weight: bold;">[X]
-                            Close</button>
-                    </div>
-                    <button id="refresh-book-btn">Refresh</button>
-                    <button id="convert-book-vi-btn">Convert VI</button>
-                    <button id="convert-book-en-btn">Convert EN</button>
-                    <br><br>
-                    <select id="book-select"></select>
-                    <button id="load-book-btn">Load Book</button>
-                </div>
-            </div>
             <div id="move-history">
                 <h3>Move History</h3>
                 <ul id="move-list"></ul>
@@ -90,8 +92,8 @@
             <div id="adjustments">
                 <label>Board Type:
                     <select id="board-type">
-                        <option value="drawn">Drawn Board</option>
-                        <option value="image">Image Board</option>
+                        <option value="drawn" selected>Bàn cờ Vẽ (Canvas)</option>
+                        <option value="image">Bàn cờ Hình ảnh</option>
                     </select>
                 </label>
             </div>
@@ -99,9 +101,9 @@
             <div id="xiangqi-board">
                 <div id="board-container">
                     <img id="board-image" src="assets/XiangqiBoard.png"
-                        style="position: absolute; top: 0; left: 0; display: none;">
+                        style="position: absolute; top: 0; left: 0; display: none; width: 100%; height: 100%;">
                     <canvas id="boardCanvas"
-                        style="position: absolute; top: 0; left: 0; background: transparent;"></canvas>
+                        style="position: absolute; top: 0; left: 0; background: #fceec7; display: block;"></canvas>
                     <div id="pieces"></div>
                     <div id="game-over-message"></div>
                 </div>
@@ -121,7 +123,11 @@
             <div id="engine-controls-toolbar" style="display: flex; align-items: center; gap: 10px; margin-bottom: 5px;">
                 <button id="load-suggestions-btn">Load Suggestions</button>
                 <button id="engine-control-btn" class="engine-control-btn">Pause</button>
-                <div id="engine-status-indicator" class="engine-status-ready">
+                <div id="study-mode-container" style="display: flex; align-items: center; gap: 5px; margin-left: 10px;">
+                    <input type="checkbox" id="study-mode-toggle" style="cursor: pointer;">
+                    <label for="study-mode-toggle" style="font-size: 12px; color: #555; cursor: pointer; font-weight: bold;">Study Mode</label>
+                </div>
+                <div id="engine-status-indicator" class="engine-status-ready" style="margin-left: auto;">
                     <span class="status-dot"></span>
                     <span id="engine-status-text">Ready</span>
                 </div>
@@ -130,13 +136,13 @@
             <table id="move-suggestions">
                 <thead>
                     <tr>
-                        <th>Move</th>
-                        <th>Note</th>
-                        <th>Rank</th>
-                        <th>Depth</th>
+                        <th style="width: 15px;">#</th>
+                        <th style="width: 80px;">Move</th>
+                        <th style="width: 70px;">Note</th>
+                        <th style="width: 60px;">Depth</th>
                         <th>Principal Variation</th>
                         <th>Book</th>
-                        <th>Descriptions</th>
+                        <th style="width: 120px;">Description</th>
                     </tr>
                 </thead>
                 <tbody id="suggestions-body"></tbody>
@@ -149,9 +155,10 @@
                         <table id="evaluation-table">
                             <thead>
                                 <tr>
+                                    <th style="width: 5%;">#</th>
                                     <th style="width: 15%;">Move</th>
-                                    <th style="width: 15%;">Score</th>
-                                    <th style="width: 10%;">Depth</th>
+                                    <th style="width: 12%;">Score</th>
+                                    <th style="width: 8%;">Depth</th>
                                     <th style="width: 45%;">Principal Variation</th>
                                     <th style="width: 15%;">Note</th>
                                 </tr>
@@ -186,6 +193,7 @@
     <div id="modal-overlay"></div>
     <div id="edit-engine-modal">
         <form id="edit-engine-form">
+            <h3>Edit Engine Configuration</h3>
             <label for="edit-engine-name">Engine Name:</label>
             <input type="text" id="edit-engine-name" required><br>
             <label for="edit-engine-hash">Hash (MB):</label>
@@ -197,22 +205,53 @@
             <label for="edit-engine-threads">Threads:</label>
             <input type="number" id="edit-engine-threads" min="1"><br>
             <label for="edit-engine-skill-level">Skill Level:</label>
-            <input type="number" id="edit-engine-skill-level" min="1" max="20"><br><br>
+            <input type="number" id="edit-engine-skill-level" min="1" max="20"><br>
 
-            <label for="edit-engine-bookFile">Engine Book File (.xob / .bin):</label>
-            <div style="display: flex; flex-direction: row; align-items: center; gap: 5px; margin-bottom: 10px;">
+            <label for="edit-engine-bookFile">Opening Book:</label>
+            <div style="display: flex; flex-direction: row; align-items: center; gap: 5px; margin-bottom: 20px;">
                 <input type="text" id="edit-engine-bookFile" placeholder="No book selected" readonly
-                    style="flex-grow: 1; background-color: #f0f0f0; border: 1px solid #ccc;">
-                <button type="button" id="browse-engine-book-btn">Browse</button>
-                <button type="button" id="clear-engine-book-btn" style="color: red;">Clear</button>
+                    style="flex-grow: 1; background-color: #f9f9f9; border: 1px solid #ddd; padding: 6px; border-radius: 4px;">
+                <button type="button" id="browse-engine-book-btn" class="action-btn" style="min-width: 70px;">Browse</button>
+                <button type="button" id="clear-engine-book-btn" style="color: red; border: none; background: transparent; cursor: pointer; font-weight: bold;">&times;</button>
             </div>
 
-            <button type="submit">Save</button>
-            <button type="button" id="cancel-edit-engine">Cancel</button>
+            <div class="form-actions">
+                <button type="button" id="cancel-edit-engine">Cancel</button>
+                <button type="submit">Save Changes</button>
+            </div>
         </form>
     </div>
 
-    <script src="ui.js"></script>
+    <!-- KHỞI CHẠY GIAO DIỆN (Dùng Module mới thay cho ui.js cũ) -->
+    <script type="module" src="src/renderer/index.js"></script>
+    <!-- SUBMENUS (Modals) relocated outside for better positioning -->
+    <div id="engine-menu" class="floating-panel"
+        style="display: none; position: fixed; top: 80px; left: 50%; transform: translateX(-50%); background: white; border: 1px solid #ccc; padding: 15px; z-index: 10001; box-shadow: 0px 8px 30px rgba(0,0,0,0.2); border-radius: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; margin-bottom: 15px; padding-bottom: 10px;">
+            <h3 style="margin: 0; font-size: 16px;">Engine Management</h3>
+            <button id="close-engine-menu" style="color: #ff4d4f; cursor: pointer; border: none; background: transparent; font-size: 20px; font-weight: bold;">&times;</button>
+        </div>
+        <button id="add-engine-btn" class="action-btn action-primary" style="margin-bottom: 10px;">+ Add Engine</button>
+        <input type="file" id="engine-file-input" style="display: none;" accept=".exe">
+        <div id="engine-list" style="max-height: 300px; overflow-y: auto;"></div>
+    </div>
+
+    <div id="book-menu" class="floating-panel"
+        style="display: none; position: fixed; top: 80px; left: 50%; transform: translateX(-50%); background: white; border: 1px solid #ccc; padding: 15px; z-index: 10001; box-shadow: 0px 8px 30px rgba(0,0,0,0.2); border-radius: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; margin-bottom: 15px; padding-bottom: 10px;">
+            <h3 style="margin: 0; font-size: 16px;">Book Management</h3>
+            <button id="close-book-menu" style="color: #ff4d4f; cursor: pointer; border: none; background: transparent; font-size: 20px; font-weight: bold;">&times;</button>
+        </div>
+        <div style="display: flex; gap: 8px; margin-bottom: 15px;">
+            <button id="refresh-book-btn" class="action-btn">Refresh</button>
+            <button id="convert-book-vi-btn" class="action-btn">Convert VI</button>
+            <button id="browse-book-btn" class="action-btn action-primary">+ Add Book</button>
+        </div>
+        <div style="padding: 10px; background: #fafafa; border-radius: 4px;">
+            <select id="book-select" style="width: 100%; padding: 8px; margin-bottom: 10px;"></select>
+            <button id="load-book-btn" class="action-btn action-primary" style="width: 100%;">Load Selected Book</button>
+        </div>
+    </div>
 </body>
 
 </html>

@@ -1,0 +1,46 @@
+/* layout.css */
+.main-container {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: flex-start;
+    width: 100%;
+    max-width: 1200px;
+    gap: 20px;
+}
+
+#game-container {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    width: 100%;
+    max-width: 950px;
+}
+
+.right-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    max-width: 400px;
+    width: 100%;
+}
+
+#container {
+    align-items: flex-start;
+    margin-bottom: 20px;
+}
+
+#engine-container {
+    display: flex;
+    flex-direction: column;
+    width: 1060px;
+    min-width: 1060px;
+    margin-left: 20px;
+    position: relative;
+}
+
+#board-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}

@@ -1,0 +1,88 @@
+/* pieces.css */
+.piece {
+    position: absolute;
+    box-sizing: border-box;
+    width: 46px;
+    height: 46px;
+    line-height: 42px;
+    text-align: center;
+    font-size: 28px;
+    font-weight: 600;
+    font-family: 'STKaiti', 'KaiTi', '楷体', 'Times New Roman', serif;
+    border-radius: 50%;
+    cursor: pointer;
+    user-select: none;
+    pointer-events: auto;
+    transition: left 0.3s ease, top 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.piece.red, .piece.black {
+    background: radial-gradient(circle at 35% 35%, #FFFFFF 0%, #F5EFE0 60%, #D8C7A8 100%);
+    box-shadow: inset 0 -4px 6px rgba(0, 0, 0, 0.15), inset 0 4px 6px rgba(255, 255, 255, 1), 3px 5px 8px rgba(0, 0, 0, 0.5), 0 2px 3px rgba(0, 0, 0, 0.4);
+    border: 2px solid #5C4B37;
+    z-index: 10;
+}
+
+.piece.red { color: #c40000; text-shadow: 1px 1px 0px rgba(255, 255, 255, 0.6), -1px -1px 1px rgba(0, 0, 0, 0.4); }
+.piece.black { color: #111111; text-shadow: 1px 1px 0px rgba(255, 255, 255, 0.5), -1px -1px 1px rgba(0, 0, 0, 0.6); }
+
+.piece.red:hover, .piece.black:hover {
+    transform: scale(1.08);
+    box-shadow: inset 0 -4px 6px rgba(0, 0, 0, 0.15), inset 0 4px 6px rgba(255, 255, 255, 1), 6px 10px 16px rgba(0, 0, 0, 0.55), 0 3px 6px rgba(0, 0, 0, 0.4);
+    z-index: 20;
+}
+
+/* 4 Corner brackets for last move (Real Move = #2196f3 blue, Sim Move = #ff9800 orange) */
+.piece.last-move { --bracket-color: #2196f3; z-index: 30 !important; }
+.piece.sim-move { --bracket-color: #ff9800; z-index: 30 !important; }
+
+.piece.last-move.red, .piece.last-move.black, .piece.sim-move.red, .piece.sim-move.black {
+    border-color: inherit !important; outline: none !important; box-shadow: none !important;
+}
+
+.piece.last-move::after, .piece.sim-move::after {
+    content: '';
+    position: absolute; top: -5px; left: -5px; right: -5px; bottom: -5px;
+    background:
+        linear-gradient(to right, var(--bracket-color) 4px, transparent 4px) 0 0,
+        linear-gradient(to bottom, var(--bracket-color) 4px, transparent 4px) 0 0,
+        linear-gradient(to left, var(--bracket-color) 4px, transparent 4px) 100% 0,
+        linear-gradient(to bottom, var(--bracket-color) 4px, transparent 4px) 100% 0,
+        linear-gradient(to right, var(--bracket-color) 4px, transparent 4px) 0 100%,
+        linear-gradient(to top, var(--bracket-color) 4px, transparent 4px) 0 100%,
+        linear-gradient(to left, var(--bracket-color) 4px, transparent 4px) 100% 100%,
+        linear-gradient(to top, var(--bracket-color) 4px, transparent 4px) 100% 100%;
+    background-repeat: no-repeat; background-size: 14px 14px; border-radius: 4px; pointer-events: none;
+}
+
+.piece.last-move:not(.red):not(.black) { --bracket-color: rgba(33, 150, 243, 0.8); background: transparent !important; border: none !important; }
+.piece.sim-move:not(.red):not(.black) { --bracket-color: rgba(255, 152, 0, 0.8); background: transparent !important; border: none !important; }
+
+/* Legal Moves & Captures Restored */
+.legal-move-dot {
+    width: 14px !important;
+    height: 14px !important;
+    background: rgba(76, 175, 80, 0.8) !important;
+    border-radius: 50% !important;
+    position: absolute;
+    z-index: 80;
+    pointer-events: none;
+    box-shadow: 0 0 5px rgba(76, 175, 80, 0.5);
+}
+
+.legal-move-capture {
+    width: 48px !important;
+    height: 48px !important;
+    border: 4px solid rgba(244, 67, 54, 0.8) !important;
+    border-radius: 50% !important;
+    position: absolute;
+    z-index: 80;
+    pointer-events: none;
+    box-shadow: inset 0 0 10px rgba(244, 67, 54, 0.4), 0 0 8px rgba(244, 67, 54, 0.6);
+}
+
+.highlight { background: rgba(121, 255, 77, 0.4) !important; border: 2px solid rgba(51, 204, 51, 0.9) !important; box-shadow: none !important; opacity: 1 !important; z-index: 5; }
+
+.hover-move { border: none; }
+.piece.hover-move.red, .piece.hover-move.black { border-color: #33cc33; outline: 2px solid rgba(51, 204, 51, 0.8); outline-offset: 2px; z-index: 30; }
+.piece.hover-move:not(.red):not(.black) { background: rgba(51, 204, 51, 0.4) !important; border: 2px dashed #33cc33 !important; border-radius: 50%; }

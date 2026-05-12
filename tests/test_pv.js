@@ -1,4 +1,4 @@
-const XiangqiGame = require('./game.js');
+const XiangqiGame = require('../src/core/XiangqiGame.js');
 
 async function testPV() {
     const game = new XiangqiGame();

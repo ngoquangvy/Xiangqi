@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const XiangqiGame = require('../game.js');
+const XiangqiGame = require('../src/core/XiangqiGame.js');
 
 /**
  * TỪ ĐIỂN KHAI CUỘC TIẾNG VIỆT (VIETNAMESE OPENING DICTIONARY)
