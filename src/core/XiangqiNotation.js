@@ -101,7 +101,7 @@ function getPositionNotation(x, y) {
     return `${col}.${row}`;
 }
 
-module.exports = {
+export {
     FEN_MAP,
     REVERSE_FEN_MAP,
     PIECE_NOTATION_MAP,

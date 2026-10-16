@@ -1,0 +1,30 @@
+@font-face {
+    font-family: 'Xiangqi Symbols';
+    src: url('../assets/fonts/xiangqi-kai.ttf') format('truetype');
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+}
+:root {
+    --board-wood: #c79860;
+    --board-fill: linear-gradient(145deg, #dec094, #cd9e66 60%, #bf8e56);
+    --board-line: #634327;
+    --piece-red: #9e2723;
+    --piece-black: #2d3029;
+    --piece-fill: radial-gradient(circle at 38% 28%, #fff8df, #f4dfad 70%, #d7b77d);
+}
+/* Shared, resolution-independent discs; neither platform needs piece bitmaps. */
+.chess-piece {
+    background: var(--piece-fill);
+    border: 1px solid #886339;
+    box-shadow: inset 0 2px 1px #fff9e9, inset 0 -3px 2px #b8894955, 0 3px 0 #9d7546, 0 4px 6px #4c2b1944;
+    font-family: 'Xiangqi Symbols', serif;
+    font-weight: 400;
+    text-shadow: 0 1px #fff9e7;
+    font-synthesis: none;
+}
+.chess-piece::before { content: ''; position: absolute; inset: 3px; border: 1px solid currentColor; opacity: .45; border-radius: 50%; pointer-events: none; }
+.sound-toggle { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
+.sound-toggle svg { width: 22px; height: 22px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.sound-toggle[aria-pressed='true'] .sound-cross, .sound-toggle[aria-pressed='false'] .sound-waves { display: none; }
+.sound-toggle[aria-pressed='false'] { color: #786c60; }

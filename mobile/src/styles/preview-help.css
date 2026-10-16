@@ -1,0 +1,8 @@
+.inspector { position: relative; }
+.help-button { width: 44px; flex-shrink: 0; font: 600 20px Georgia, serif; color: #205b70; background: #dcebf0; }
+.preview-guide { position: absolute; z-index: 5; top: 56px; left: 12px; right: 12px; max-height: calc(100% - 62px); overflow: auto; padding: 12px; border: 1px solid #72a2ac; border-radius: 12px; background: #f3fbfc; box-shadow: 0 4px 16px #163e4826; }
+.preview-guide h2 { font-size: 13px; color: #205b70; }
+.preview-guide p { margin: 7px 0; font-size: 12px; line-height: 1.4; }
+#preview-guide-done { display: block; margin-left: auto; background: #dcebf0; border-color: #72a2ac; }
+.board-actions #redo.guide-target { outline: 2px solid #39849a; outline-offset: -2px; box-shadow: 0 0 0 3px #39849a26; }
+@media (max-width: 350px) { .inspector-toolbar { gap: 4px; padding-inline: 8px; } .tabs button { font-size: 12px; } }

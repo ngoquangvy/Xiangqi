@@ -1,0 +1,9 @@
+{
+  "appId": "com.ngoquangvy.xiangqi.mobile",
+  "appName": "Xiangqi Mobile",
+  "webDir": "dist",
+  "android": { "backgroundColor": "#faf8f2", "allowMixedContent": false },
+  "plugins": {
+    "SystemBars": { "insetsHandling": "native", "initialViewportFitValueHint": "cover", "style": "LIGHT" }
+  }
+}

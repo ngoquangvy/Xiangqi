@@ -1,0 +1,50 @@
+name: iOS IPA for Sideloadly
+on:
+  push:
+    branches: [master]
+    paths: ['mobile/**', 'src/core/**', 'src/presentation/**', 'styles/chess-theme.css', 'assets/**', '.github/workflows/ios-sideload.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ios-sideload-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - name: Show Xcode environment
+        run: xcodebuild -version
+      - name: Install mobile dependencies
+        run: npm ci --prefix mobile
+      - name: Build, test Simulator, and package unsigned iPhone IPA
+        run: npm run ios:build --prefix mobile
+      - name: Downloadable IPA for Sideloadly
+        uses: actions/upload-artifact@v4
+        with:
+          name: xiangqi-ios-sideload-${{ github.run_number }}
+          path: |
+            mobile/artifacts/xiangqi-ios-unsigned.ipa
+            mobile/artifacts/ios-build.json
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+      - name: Diagnostics and Simulator screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-diagnostics-${{ github.run_number }}
+          path: |
+            mobile/artifacts/ios-smoke-*.json
+            mobile/artifacts/ios-*.png
+            mobile/artifacts/ios-simulator.log
+          retention-days: 14

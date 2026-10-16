@@ -1,0 +1,71 @@
+.board {
+    position: relative;
+    width: min(calc(100% - 24px), 430px, calc((var(--usable-height) - 340px) * .9));
+    min-width: 180px;
+    aspect-ratio: 9 / 10;
+    flex-shrink: 0;
+    background: var(--board-fill);
+    border: 2px solid #76512f;
+    border-radius: 6px;
+    box-shadow: 0 4px 0 #896039, 0 7px 12px #4b2f2529;
+}
+.board-grid { display: block; width: 100%; height: 100%; }
+.board-grid path { stroke: var(--board-line); stroke-width: 1.2; fill: none; }
+.board-grid text { text-anchor: middle; fill: var(--board-line); font: 22px 'Xiangqi Symbols', serif; }
+.squares { position: absolute; inset: 0; }
+.square {
+    position: absolute;
+    width: calc(100% / 9);
+    height: 10%;
+    min-height: 0;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    container-type: inline-size;
+}
+.square:disabled { opacity: 1; }
+.chip {
+    position: relative;
+    width: 86%;
+    height: 86%;
+    max-width: 43px;
+    max-height: 43px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* Reserve space inside the engraved ring, including on the mini board.
+       At 86% disc width, 52cqw is about 60% of the disc diameter. */
+    font: 400 22px/1 'Xiangqi Symbols', serif;
+    font-size: min(52cqw, 23px);
+    pointer-events: none;
+}
+.chip:empty { display: none; }
+.red .chip { color: var(--piece-red); }
+.black .chip { color: var(--piece-black); }
+.square.selected .chip { box-shadow: 0 0 0 3px #32704d; background: #e0eac6; }
+.square.legal::after { content: ''; width: 20%; height: 20%; background: #32704d; border-radius: 50%; position: absolute; }
+.square.legal.red::after, .square.legal.black::after { width: 92%; height: 92%; background: transparent; border: 3px solid #32704d; }
+.square.last { background: #f2c64955; }
+.square.last::before, .square.suggestion::before { content: ''; position: absolute; inset: 5%; border: 2px solid #9e6c16; border-radius: 6px; pointer-events: none; }
+.square.last .chip { outline: 2px solid #ad7b21; outline-offset: 1px; }
+.square.suggestion { background: #1eb8d45c; }
+.square.suggestion::before { border-color: #087d98; }
+.square.suggestion .chip { outline: 2px solid #087d98; outline-offset: 1px; }
+/* An independent, gentle overlay: check never disables a square or a control. */
+.square.checked .chip::after { content: ''; position: absolute; inset: -5%; border-radius: 50%; background: #e7323240; box-shadow: 0 0 0 3px #cf24245c, 0 0 12px 4px #d3252555; pointer-events: none; animation: king-check 1.8s ease-in-out infinite; }
+@keyframes king-check { 0%, 100% { opacity: .25; } 50% { opacity: .9; } }
+@media (prefers-reduced-motion: reduce) { .square.checked .chip::after { animation: none; opacity: .6; } }
+.square:not(:disabled):active { background: #c9b78c55; }
+.app.expanded .board { width: min(210px, calc((var(--usable-height) - 420px) * .9)); }
+@media (min-width: 700px) and (orientation: landscape) {
+    .board, .app.expanded .board { width: min(calc(100% - 30px), calc((var(--usable-height) - 230px) * .9)); min-width: 120px; }
+}
+@media (max-height: 650px) and (orientation: portrait) {
+    .board { width: min(calc(100% - 24px), calc((var(--usable-height) - 290px) * .9)); }
+    .app.expanded .board { width: 180px; }
+}

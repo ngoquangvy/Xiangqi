@@ -1,14 +1,13 @@
-// src/core/XiangqiGame.js
-// Canonical location for Xiangqi game logic (board state, rules, FEN, notation).
-const {
+import {
     FEN_MAP,
     REVERSE_FEN_MAP,
     DIAGONAL_PIECES,
     pieceToFenChar,
     getPieceNotationSymbol,
-    toICCS: iccsFromMove,
-    getPositionNotation: positionNotation,
-} = require('./XiangqiNotation');
+    toICCS as iccsFromMove,
+    getPositionNotation as positionNotation,
+} from './XiangqiNotation.js';
+import { formatPV, translatePVGroups, simulatePV } from './XiangqiPV.js';
 
 const ROWS = 10;
 const COLS = 9;
@@ -47,7 +46,7 @@ class XiangqiGame {
             return false;
         }
         try {
-            const parts = fen.split(' ');
+            const parts = fen.trim().split(/\s+/);
             if (parts.length !== 6) {
                 console.error('Xiangqi FEN requires exactly 6 parts (got ' + parts.length + '):', fen);
                 return false;
@@ -56,10 +55,13 @@ class XiangqiGame {
             const boardFen = parts[0];
             const turn = parts[1];
             // fullmove number is index 5 in standardized FEN
-            const moveNumber = parseInt(parts[5]) || 1;
+            const moveNumber = Number(parts[5]);
+            if (!['w', 'b'].includes(turn) || !Number.isSafeInteger(moveNumber) || moveNumber < 1
+                || parts[2] !== '-' || parts[3] !== '-' || !/^\d+$/.test(parts[4])) return false;
 
             // Reset board
-            this.board = Array(ROWS).fill().map(() => Array(COLS).fill(null));
+            // Parse into a temporary board. A rejected import must preserve the live game.
+            const nextBoard = Array(ROWS).fill().map(() => Array(COLS).fill(null));
             const rows = boardFen.split('/');
             if (rows.length !== ROWS) {
                 console.error('Invalid number of rows in FEN:', rows.length);
@@ -73,23 +75,24 @@ class XiangqiGame {
                 const row = rows[y];
                 for (let i = 0; i < row.length; i++) {
                     const char = row[i];
-                    if (/[0-9]/.test(char)) {
+                    if (/[1-9]/.test(char)) {
                         x += parseInt(char);
                     } else if (x < COLS) {
                         const pieceName = reverseFenMap[char];
                         if (pieceName) {
                             const color = char === char.toUpperCase() ? "red" : "black";
-                            this.board[y][x] = { name: pieceName, color };
+                            nextBoard[y][x] = { name: pieceName, color };
                             x++;
                         } else {
-                            console.warn(`Unknown FEN symbol at row ${y}, col ${x}: ${char}`);
-                            x++;
+                            return false;
                         }
-                    }
+                    } else return false;
                 }
+                if (x !== COLS) return false;
             }
 
             // Update game state
+            this.board = nextBoard;
             this.currentTurn = turn === 'w' ? 'red' : 'black';
             this.moveCount = moveNumber;
             this.moveHistory = []; // Clear history
@@ -177,7 +180,7 @@ class XiangqiGame {
     }
 
     isValidPosition(x, y) {
-        return x >= 0 && x < COLS && y >= 0 && y < ROWS;
+        return Number.isInteger(x) && Number.isInteger(y) && x >= 0 && x < COLS && y >= 0 && y < ROWS;
     }
 
     move(fromX, fromY, toX, toY, isAnalysis = false) {
@@ -491,7 +494,7 @@ class XiangqiGame {
 
     goToMove(index) {
         if (!this.initialBoard || !Array.isArray(this.moveHistory)) return false;
-        if (typeof index !== "number" || index < -1 || index >= this.moveHistory.length) return false;
+        if (!Number.isInteger(index) || index < -1 || index >= this.moveHistory.length) return false;
         this.board = this.initialBoard.map(row => row.map(cell => (cell ? { ...cell } : null)));
         this.currentTurn = this.initialTurn || "red";
         this.moveCount = this.initialMoveCount || 1;
@@ -515,7 +518,7 @@ class XiangqiGame {
     getMoveHistory() {
         if (!this.moveHistory || !Array.isArray(this.moveHistory)) return [];
         // PURE READ: Just return the stored immutable snapshots
-        return this.moveHistory.map(move => ({ ...move }));
+        return structuredClone(this.moveHistory);
     }
 
     exportGame() {
@@ -526,17 +529,51 @@ class XiangqiGame {
         });
     }
 
+    updateMoveNote(index, note) {
+        if (!Number.isInteger(index) || !this.moveHistory[index] || typeof note !== 'string') return false;
+        this.moveHistory[index].note = note;
+        return true;
+    }
+
+    updateMoveVariation(index, variation) {
+        if (!Number.isInteger(index) || !this.moveHistory[index] || !Array.isArray(variation)) return false;
+        this.moveHistory[index].variation = structuredClone(variation);
+        return true;
+    }
+
     importGame(json) {
         try {
-            const data = typeof json === 'string' ? JSON.parse(json) : json;
-            // Support legacy JSON without startingFen
-            this.initialBoard = data.initialBoard;
-            this.initialTurn = data.initialTurn || "red";
-            this.initialMoveCount = data.initialMoveCount || 1;
-            this.startingFen = data.startingFen || DEFAULT_FEN;
-            this.moveHistory = data.moveHistory || [];
-            return this.goToMove(data.currentMoveIndex);
-        } catch (err) { console.error('Error importing JSON:', err); return false; }
+            const data = typeof json === 'string' ? JSON.parse(json) : structuredClone(json);
+            const validPiece = piece => piece === null || (pieceToFenChar(piece)
+                && ['red', 'black'].includes(piece.color));
+            if (!data || !Array.isArray(data.initialBoard) || data.initialBoard.length !== ROWS
+                || !data.initialBoard.every(row => Array.isArray(row) && row.length === COLS && row.every(validPiece))
+                || !Array.isArray(data.moveHistory)) return false;
+            const index = data.currentMoveIndex;
+            if (!Number.isInteger(index) || index < -1 || index >= data.moveHistory.length) return false;
+            const candidate = new XiangqiGame();
+            candidate.board = structuredClone(data.initialBoard);
+            candidate.currentTurn = data.initialTurn || 'red';
+            candidate.moveCount = data.initialMoveCount || 1;
+            if (!['red', 'black'].includes(candidate.currentTurn)
+                || !Number.isSafeInteger(candidate.moveCount) || candidate.moveCount < 1) return false;
+            candidate.saveInitialBoard();
+            candidate.startingFen = data.startingFen || candidate.exportFen();
+            const start = new XiangqiGame();
+            if (!start.importFen(candidate.startingFen) || start.exportFen() !== candidate.exportFen()) return false;
+            // Replay into a candidate first. Invalid JSON cannot partially replace a live timeline.
+            for (const move of data.moveHistory) {
+                if (!move || !candidate.move(move.fromX, move.fromY, move.toX, move.toY)) return false;
+                const restored = candidate.moveHistory.at(-1);
+                restored.note = typeof move.note === 'string' ? move.note : '';
+                restored.variation = Array.isArray(move.variation) ? structuredClone(move.variation) : [];
+            }
+            if (!candidate.goToMove(index)) return false;
+            for (const key of ['board', 'moveHistory', 'currentMoveIndex', 'currentTurn', 'moveCount',
+                'initialBoard', 'initialTurn', 'initialMoveCount', 'startingFen']) this[key] = candidate[key];
+            this.fenBoardSnapshot = null;
+            return true;
+        } catch (err) { console.error('Error importing JSON:', err.message); return false; }
     }
 
     exportPgn() {
@@ -566,12 +603,15 @@ class XiangqiGame {
             currentTurn: this.currentTurn, moveCount: this.moveCount,
             currentMoveIndex: this.currentMoveIndex, moveHistory: this.getMoveHistory(),
             isCheck: this.isKingInCheck(this.currentTurn), isCheckmate: this.isCheckmate(this.currentTurn),
-            lastMove: lastMove ? { ...lastMove } : null,
+            lastMove: lastMove ? structuredClone(lastMove) : null,
             flipped: this._flipped
         };
     }
 
     toICCS(move) { return iccsFromMove(move); }
+    formatPV(fen, moves) { return formatPV(this.constructor, fen || this.exportFen(), moves); }
+    translatePVGroups(fen, groups) { return translatePVGroups(this.constructor, fen || this.exportFen(), groups); }
+    simulatePV(fen, moves, limit) { return simulatePV(this.constructor, fen, moves, limit); }
     getPieceNotation(piece) { return getPieceNotationSymbol(piece); }
     getPositionNotation(x, y) { return positionNotation(x, y); }
     getPiecesInColumn(pieceName, col, color) {
@@ -611,4 +651,6 @@ class XiangqiGame {
     getBoardSnapshot() { return this.board.map(row => row.map(cell => (cell ? { ...cell } : null))); }
 }
 
-module.exports = XiangqiGame;
+export default XiangqiGame;
+// Keep the existing Electron/CommonJS entry points working with Node 22.12+.
+export { XiangqiGame as 'module.exports' };
