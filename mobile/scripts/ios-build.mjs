@@ -19,10 +19,10 @@ if (!/^\d+$/.test(version)) throw Error('Invalid CI build number');
 const common = ['-project', 'ios/App/App.xcodeproj', '-scheme', 'App', 'CODE_SIGNING_ALLOWED=NO',
     'CODE_SIGNING_REQUIRED=NO', 'CODE_SIGN_IDENTITY=', `CURRENT_PROJECT_VERSION=${version}`];
 run('xcodebuild', [...common, '-configuration', 'Debug', '-sdk', 'iphonesimulator', '-destination', 'generic/platform=iOS Simulator',
-    '-derivedDataPath', 'artifacts/ios-simulator', 'build']);
+    `ARCHS=${process.arch === 'arm64' ? 'arm64' : 'x86_64'}`, 'ONLY_ACTIVE_ARCH=YES', '-derivedDataPath', 'artifacts/ios-simulator', 'build']);
 run(process.execPath, ['scripts/ios-simulator.mjs']);
 run('xcodebuild', [...common, '-configuration', 'Release', '-sdk', 'iphoneos', '-destination', 'generic/platform=iOS',
-    '-derivedDataPath', 'artifacts/ios-device', 'build']);
+    'ARCHS=arm64', 'ONLY_ACTIVE_ARCH=YES', '-derivedDataPath', 'artifacts/ios-device', 'build']);
 const application = path.join(root, 'artifacts/ios-device/Build/Products/Release-iphoneos/App.app');
 const binary = path.join(application, 'App');
 const buildInfo = execFileSync('xcrun', ['vtool', '-show-build', binary]).toString();

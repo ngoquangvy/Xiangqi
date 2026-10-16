@@ -5,8 +5,8 @@ import Foundation
 public class LocalSessionPlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "LocalSessionPlugin"
     public let jsName = "LocalSession"
-    public let pluginMethods = [CAPPluginMethod(name: "get", returnType: CAPPluginReturnPromise),
-                                CAPPluginMethod(name: "set", returnType: CAPPluginReturnPromise)]
+    // The initializer is nullable in the SDK; these method names/types are fixed.
+    public let pluginMethods: [CAPPluginMethod] = ["get", "set"].map { CAPPluginMethod(name: $0, returnType: CAPPluginReturnPromise)! }
     private let queue = DispatchQueue(label: "xiangqi.session")
 
     private func location() throws -> URL {

@@ -5,16 +5,20 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const run = args => execFileSync('xcrun', ['simctl', ...args], { cwd: root, timeout: 120000 }).toString().trim();
-const devices = JSON.parse(run(['list', 'devices', 'available', '--json'])).devices;
-const phone = Object.values(devices).flat().find(device => device.isAvailable && device.name.includes('iPhone'));
-if (!phone) throw Error('No available iPhone Simulator runtime on this runner.');
-const id = phone.udid, bundle = 'com.ngoquangvy.xiangqi.mobile';
+const types = JSON.parse(run(['list', 'devicetypes', '--json'])).devicetypes;
+const type = types.find(device => device.name === 'iPhone 13') || types.find(device => device.name.startsWith('iPhone'));
+const runtimes = JSON.parse(run(['list', 'runtimes', '--json'])).runtimes.filter(runtime => runtime.isAvailable && runtime.name.startsWith('iOS'));
+const runtime = runtimes.find(item => item.version.startsWith('26.')) || runtimes[0];
+if (!type || !runtime) throw Error('No available iPhone Simulator type/runtime.');
+// Create our own disposable device; never uninstall an app from someone's
+// existing local simulator. iPhone 13 matches the user's physical test phone.
+const id = run(['create', 'Xiangqi-CI', type.identifier, runtime.identifier]);
+if (!/^[0-9A-F-]{36}$/i.test(id)) throw Error('Unexpected simulator identifier');
+const bundle = 'com.ngoquangvy.xiangqi.mobile';
 const app = path.join(root, 'artifacts/ios-simulator/Build/Products/Debug-iphonesimulator/App.app');
 try {
-    if (phone.state !== 'Booted') run(['boot', id]);
+    run(['boot', id]);
     run(['bootstatus', id, '-b']);
-    // A dedicated hosted CI simulator is disposable; never run on a real phone.
-    try { run(['uninstall', id, bundle]); } catch {}
     run(['install', id, app]);
     const container = run(['get_app_container', id, bundle, 'data']);
     const report = path.join(container, 'Documents/ios-smoke.json');
@@ -38,4 +42,5 @@ try {
         await writeFile(path.join(root, 'artifacts/ios-simulator.log'), log);
     } catch {}
     try { run(['shutdown', id]); } catch {}
+    try { run(['delete', id]); } catch {}
 }

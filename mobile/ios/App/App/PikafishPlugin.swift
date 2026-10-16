@@ -5,7 +5,7 @@ import UIKit
 public class PikafishPlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "PikafishPlugin"
     public let jsName = "Pikafish"
-    public let pluginMethods = ["analyze", "stop", "lookupBook", "status"].map { CAPPluginMethod(name: $0, returnType: CAPPluginReturnPromise) }
+    public let pluginMethods: [CAPPluginMethod] = ["analyze", "stop", "lookupBook", "status"].map { CAPPluginMethod(name: $0, returnType: CAPPluginReturnPromise)! }
     private let control = DispatchQueue(label: "xiangqi.engine", qos: .userInitiated)
     private let bookQueue = DispatchQueue(label: "xiangqi.book", qos: .utility)
     private let engine = XQPikafish()
