@@ -61,10 +61,14 @@ void PikafishSession::analyze(const std::string& id, const std::string& fen,
     });
     // Callbacks must be installed BEFORE resizing: workers copy their context.
     auto& options = engine->get_options();
-    options["EvalFile"] = network;
-    options["Threads"] = std::to_string(config.threads);
-    options["Hash"] = std::to_string(config.hash);
-    options["MultiPV"] = std::to_string(XQ_VARIATION_COUNT);
+    const auto option = [&](const std::string& name, const std::string& value) {
+        std::istringstream command("name " + name + " value " + value);
+        options.setoption(command);
+    };
+    option("EvalFile", network);
+    option("Threads", std::to_string(config.threads));
+    option("Hash", std::to_string(config.hash));
+    option("MultiPV", std::to_string(XQ_VARIATION_COUNT));
     std::vector<std::string> path;
     std::istringstream input(moves);
     for (std::string move; input >> move;) path.push_back(move);

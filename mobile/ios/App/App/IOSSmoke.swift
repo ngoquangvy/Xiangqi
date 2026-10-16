@@ -6,6 +6,10 @@ import WebKit
 enum IOSSmoke {
     static func run(webView: WKWebView?) {
         guard let webView else { write(["pass": false, "error": "Missing WKWebView"]); return }
+        if webView.isLoading || webView.url == nil {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { run(webView: webView) }
+            return
+        }
         do {
             let url = Bundle.main.resourceURL!.appendingPathComponent("analysis/ios-smoke.js")
             let body = try String(contentsOf: url, encoding: .utf8)
