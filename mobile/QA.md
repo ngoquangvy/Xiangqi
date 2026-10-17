@@ -327,3 +327,19 @@ No commit or push made.
   scratch replay, confirmed native save, fresh five-PV analysis and all 17 root
   book choices before leaving a real move for the process-relaunch test.
   Physical iPhone installation and touch/audio testing remain separate checks.
+
+## Opt-In Continuous Analysis
+
+- Added a fourth, persisted `unlimited` profile. The previous three presets
+  and the default balanced profile are unchanged. The zero depth/time pair is
+  a sentinel for Android `go infinite` and iOS `LimitsType.infinite`, not a
+  D0 search. Threads (2), hash (64 MB) and MultiPV (5) remain bounded.
+- Engine-internal MAX_PLY and search safeguards are not modified. Actual depth
+  is device/position dependent, not a promise to reach a specific number.
+  Settings show a localized battery/heat warning only for continuous mode.
+- 60 unit tests cover opt-in/default/persistence, native allowlists, limits
+  mapping, high-depth output and pause/preview/background behavior. Browser
+  coverage verifies the additional option and conditional warning.
+- Android variations and the iOS Simulator gate now require a real search to
+  remain active past the former 10-second cap, then stop through the production
+  Pause action. Android additionally checks continuous mode background release.

@@ -76,6 +76,8 @@ void PikafishSession::analyze(const std::string& id, const std::string& fen,
     Stockfish::Search::LimitsType limits;
     limits.depth = config.depth;
     limits.movetime = config.milliseconds;
+    // Match Android's go infinite. Never raise MAX_PLY or remove engine safeguards.
+    limits.infinite = config.depth == 0 && config.milliseconds == 0;
     limits.startTime = Stockfish::now();
     {
         std::lock_guard<std::mutex> lock(gate);

@@ -50,6 +50,11 @@ luật cờ, không dùng Electron IPC hay backend web của bản desktop.
 **Android có Pikafish 2026-01-02 native và book đã kiểm chứng v3.** Engine,
 NNUE và book đóng gói offline; không có server, tải engine hoặc nhập đường dẫn.
 Browser preview vẫn không chạy engine native và không giả lập điểm phân tích.
+Trong Tùy chọn > Hiệu năng Pikafish, `Tối đa (liên tục) / Maximum (continuous)`
+bỏ giới hạn depth và thời gian của app, không tăng giới hạn 2 luồng / 64 MB.
+Engine tăng độ sâu theo khả năng thiết bị, không bảo đảm đạt một depth cụ thể;
+dừng khi pause, xem thử biến hoặc ra nền. Chế độ này hao pin và có thể nóng máy.
+Ba preset nhẹ hơn và mặc định Cân bằng được giữ nguyên.
 Danh sách "nước hợp lệ" khi chọn quân vẫn tách biệt với gợi ý engine/book.
 Book lấy từ `assets/books/sources/json/game01-validated.json`: 57.558 thế FEN,
 58.350 bản ghi nước đi; native giữ nguyên cả các biến phụ. UI hiện chọn PV

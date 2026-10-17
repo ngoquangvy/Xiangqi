@@ -40,7 +40,7 @@ public class PikafishPlugin: CAPPlugin, CAPBridgedPlugin {
               matches(fen, "^[rnbakcpheRNBAKCPHE1-9/]+ [wb] - - [0-9]+ [0-9]+$"),
               let moves = call.getString("moves"), moves.count <= 50000,
               matches(moves, "^(?:[a-i][0-9][a-i][0-9](?: [a-i][0-9][a-i][0-9])*)?$"),
-              let profile = call.getString("profile"), ["eco", "balanced", "deep"].contains(profile) else {
+              let profile = call.getString("profile"), ["eco", "balanced", "deep", "unlimited"].contains(profile) else {
             call.reject("Invalid analysis request"); return
         }
         let ticket = gate.begin(id); engine.cancel()

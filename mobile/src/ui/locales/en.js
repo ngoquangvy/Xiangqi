@@ -15,6 +15,8 @@ export default {
     enginePaused: 'Paused', engineBackground: 'Paused in background', engineTerminal: 'Game over', engineError: 'Engine error',
     enginePause: 'Pause', engineResume: 'Analyze', engineRetry: 'Retry', engineProfile: 'Pikafish performance',
     profile_eco: 'Battery saver', profile_balanced: 'Balanced', profile_deep: 'Deep analysis',
+    profile_unlimited: 'Maximum (continuous)',
+    unlimitedHint: 'No app depth or time limit. Uses more battery and may warm the phone. Pause to stop; analysis stops in the background.',
     scoreRed: 'Score: Red perspective', webBook: 'Opening book', bookLoading: 'Loading book',
     bookError: 'Book unavailable', bookEmpty: 'Outside book', bookOff: 'Book off',
     legalTitle: 'Legal moves',

@@ -40,9 +40,14 @@ async function checkAnalysisView(evaluate) {
         const escaped=!document.querySelector('#book-results img')&&book.textContent.includes('<img');
         const continuation=book.querySelector('small').textContent;
         const headings=[document.querySelector('#engine-heading').textContent,document.querySelector('#book-status').textContent];
+        const profile=document.querySelector('#engine-profile'), hint=document.querySelector('#engine-unlimited-hint');
+        profile.value='unlimited';profile.dispatchEvent(new Event('change'));
+        const unlimited=!hint.hidden&&profile.value==='unlimited'&&profile.selectedOptions[0].textContent.includes('Maximum (continuous)')&&!profile.selectedOptions[0].textContent.includes('D0');
+        profile.value='balanced';profile.dispatchEvent(new Event('change'));
+        const boundedHintHidden=hint.hidden;
         fixture.changeFen();row.click();
         fixture.view.destroy();
-        return {stable,selectedFrozen,cleared,exclusiveSelection,escaped,continuation,headings,previews:fixture.previews,profileOption:option.textContent};
+        return {stable,selectedFrozen,cleared,exclusiveSelection,escaped,continuation,headings,unlimited,boundedHintHidden,previews:fixture.previews,profileOption:option.textContent};
     })()`);
     assert.equal(result.stable, true);
     assert.equal(result.escaped, true);
@@ -53,6 +58,8 @@ async function checkAnalysisView(evaluate) {
     assert.equal(result.exclusiveSelection, true);
     assert.deepEqual(result.previews, [{move:'h2e2',pv:['h2e2','h9g7']},{move:'b2e2',pv:['b2e2']},{move:'h2e2',pv:['h2e2','h9g7']}]);
     assert.match(result.profileOption, /Battery saver/);
-    return { stableStreamingRows: true, touchedMovePreserved: true, staleFenRejected: true, escapedNotes: true };
+    assert.equal(result.unlimited, true);
+    assert.equal(result.boundedHintHidden, true);
+    return { stableStreamingRows: true, touchedMovePreserved: true, staleFenRejected: true, escapedNotes: true, unlimitedOption: true };
 }
 module.exports = { checkAnalysisView };

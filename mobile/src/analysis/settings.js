@@ -1,5 +1,6 @@
 import profiles from '../../engine/profiles.json' with { type: 'json' };
-// UI and Android consume this same build-time allowlist, never raw UCI options.
+// UI and both native platforms share this allowlist. Zero depth AND time means
+// continuous search, not zero work; memory and thread budgets remain bounded.
 export const PROFILES = Object.freeze(Object.fromEntries(Object.entries(profiles).map(([name, value]) => [name, Object.freeze(value)])));
 export function analysisSettings(value) {
     return { profile: Object.hasOwn(PROFILES, value?.profile) ? value.profile : 'balanced', bookEnabled: value?.bookEnabled !== false };

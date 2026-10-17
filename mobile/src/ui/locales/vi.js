@@ -15,6 +15,8 @@ export default {
     enginePaused: 'T\u1ea1m d\u1eebng', engineBackground: 'D\u1eebng khi xu\u1ed1ng n\u1ec1n', engineTerminal: 'H\u1ebft v\u00e1n', engineError: 'L\u1ed7i engine',
     enginePause: 'D\u1eebng', engineResume: 'Ph\u00e2n t\u00edch', engineRetry: 'Th\u1eed l\u1ea1i', engineProfile: 'Hi\u1ec7u n\u0103ng Pikafish',
     profile_eco: 'Ti\u1ebft ki\u1ec7m pin', profile_balanced: 'C\u00e2n b\u1eb1ng', profile_deep: 'Ph\u00e2n t\u00edch s\u00e2u',
+    profile_unlimited: 'T\u1ed1i \u0111a (li\u00ean t\u1ee5c)',
+    unlimitedHint: 'Kh\u00f4ng gi\u1edbi h\u1ea1n depth hay th\u1eddi gian t\u1eeb app. Hao pin v\u00e0 c\u00f3 th\u1ec3 n\u00f3ng m\u00e1y h\u01a1n. Nh\u1ea5n D\u1eebng \u0111\u1ec3 d\u1eebng; ph\u00e2n t\u00edch t\u1eaft khi ra n\u1ec1n.',
     scoreRed: '\u0110i\u1ec3m theo ph\u00eda \u0110\u1ecf', webBook: 'Opening book', bookLoading: '\u0110ang \u0111\u1ecdc s\u00e1ch',
     bookError: 'Kh\u00f4ng \u0111\u1ecdc \u0111\u01b0\u1ee3c s\u00e1ch', bookEmpty: 'Ngo\u00e0i s\u00e1ch', bookOff: 'T\u1eaft s\u00e1ch',
     legalTitle: 'Nước hợp lệ',

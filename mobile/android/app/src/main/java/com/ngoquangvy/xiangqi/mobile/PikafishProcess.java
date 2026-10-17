@@ -47,7 +47,8 @@ final class PikafishProcess {
         send("position fen " + initialFen + (moves.isEmpty() ? "" : " moves " + moves));
         searchDone = new CompletableFuture<>(); requestId = id;
         int depth = settings.getInt("depth"), time = settings.getInt("milliseconds");
-        send("go depth " + depth + " movetime " + time);
+        // UCI infinite has no app deadline; the existing stop/lifecycle owns cancellation.
+        send(depth == 0 && time == 0 ? "go infinite" : "go depth " + depth + " movetime " + time);
     }
 
     private void start(Context context, BooleanSupplier current) throws Exception {

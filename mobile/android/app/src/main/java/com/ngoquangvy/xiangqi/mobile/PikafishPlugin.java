@@ -26,7 +26,7 @@ public class PikafishPlugin extends Plugin {
         if (id == null || !id.matches("[a-zA-Z0-9-]{1,64}") || fen == null || fen.length() > 256
             || !fen.matches("[rnbakcpheRNBAKCPHE1-9/]+ [wb] - - \\d+ \\d+")
             || moves.length() > 50000 || !moves.matches("(?:[a-i][0-9][a-i][0-9](?: [a-i][0-9][a-i][0-9])*)?")
-            || !(profile.equals("eco") || profile.equals("balanced") || profile.equals("deep"))) {
+            || !(profile.equals("eco") || profile.equals("balanced") || profile.equals("deep") || profile.equals("unlimited"))) {
             call.reject("Invalid analysis request"); return;
         }
         long expected = revision.incrementAndGet(); engine.silence();

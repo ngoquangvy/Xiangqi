@@ -67,6 +67,19 @@ try {
     }, 'New game was not saved natively');
     await wait(() => document.querySelectorAll('#book-results button').length === 17, 'New game did not restore root book');
     await wait(() => document.querySelectorAll('#engine-results button').length === 5 && query('#engine-status').dataset.state === 'complete', 'New game did not restart root analysis');
+    click('#tab-settings');
+    query('#engine-profile').value = 'unlimited'; query('#engine-profile').dispatchEvent(new Event('change'));
+    check(!query('#engine-unlimited-hint').hidden, 'Continuous mode warning missing');
+    await wait(() => document.querySelectorAll('#engine-results button').length === 5, 'Continuous search has no five PVs');
+    // Exceed the largest old 10-second budget; do not assert a hardware-dependent depth.
+    await new Promise(resolve => setTimeout(resolve, 11000));
+    check(query('#engine-status').dataset.state === 'searching' && (await native('Pikafish', 'status')).searching, 'Continuous search stopped at an old limit');
+    click('#engine-pause');
+    await wait(async () => !(await native('Pikafish', 'status')).searching, 'Continuous search did not stop');
+    check(query('#engine-status').dataset.state === 'paused', 'Pause state lost');
+    query('#engine-profile').value = 'balanced'; query('#engine-profile').dispatchEvent(new Event('change'));
+    check(query('#engine-status').dataset.state === 'paused', 'Profile change overrode pause');
+    click('#engine-pause'); click('#tab-analysis');
     // Leave one real move for the independent process-relaunch persistence check.
     click('.square[data-square=h2]'); click('.square[data-square=e2]');
     if (document.documentElement.lang !== 'en') click('#language');
@@ -78,7 +91,7 @@ try {
     check(invalid, 'Invalid native request accepted');
     const box = query('#board').getBoundingClientRect();
     check(box.left >= 0 && box.right <= innerWidth + 1 && box.top >= 0 && box.bottom <= innerHeight, 'Board outside viewport');
-    return { pass: true, engineRows: 5, bookRows: 17, preview: true, coaching: true, newGame: true, saved: true, font: true,
+    return { pass: true, engineRows: 5, bookRows: 17, preview: true, coaching: true, newGame: true, unlimited: true, saved: true, font: true,
         viewport: [innerWidth, innerHeight], userAgent: navigator.userAgent };
 } catch (error) {
     return { pass: false, error: String(error?.stack || error), status: query('#engine-status')?.textContent,

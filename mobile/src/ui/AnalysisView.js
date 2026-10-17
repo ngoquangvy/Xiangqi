@@ -44,11 +44,13 @@ export class AnalysisView {
         pause.setAttribute('aria-pressed', String(state.status === 'paused'));
         this.get('engine-profile-label').textContent = text.engineProfile;
         this.get('engine-profile').value = game.ui.analysis.profile;
+        this.get('engine-unlimited-hint').hidden = game.ui.analysis.profile !== 'unlimited';
         if (this.language !== game.ui.language) {
             this.language = game.ui.language;
             for (const option of this.get('engine-profile').options) {
                 const profile = PROFILES[option.value];
-                option.textContent = `${text[`profile_${option.value}`]} \u00b7 D${profile.depth} \u00b7 ${profile.threads}T / ${profile.hash} MB`;
+                const depth = profile.depth ? ` \u00b7 D${profile.depth}` : '';
+                option.textContent = `${text[`profile_${option.value}`]}${depth} \u00b7 ${profile.threads}T / ${profile.hash} MB`;
             }
         }
         this.get('book-toggle').textContent = `${game.ui.analysis.bookEnabled ? '\u2713' : '\u00d7'} ${text.webBook}`;
