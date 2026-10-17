@@ -11,6 +11,7 @@ const read = async () => (await evaluate("Capacitor.nativePromise('LocalSession'
 const original = await read();
 if (!original) { device.close(); throw Error('A saved session is required.'); }
 const profiles = ['eco', 'balanced', 'deep', 'unlimited'];
+const results = [];
 let activeProfile;
 try {
     for (const profile of profiles) {
@@ -39,7 +40,7 @@ try {
             await wait('document.querySelector("#engine-status").dataset.state==="searching"');
             await wait('document.querySelectorAll("#engine-results button").length===5');
         } else await wait('document.querySelector("#engine-status").dataset.state==="complete"');
-        const rows = await evaluate('[...document.querySelectorAll("#engine-results button")].map(n=>({key:n.dataset.key,move:n.dataset.suggestion,text:n.textContent}))');
+        const rows = await evaluate('[...document.querySelectorAll("#engine-results button")].map(n=>({key:n.dataset.key,move:n.dataset.suggestion,text:n.textContent,pvLength:n.suggestion.pv.length}))');
         assert.deepEqual(rows.map(row => row.key), ['engine-1', 'engine-2', 'engine-3', 'engine-4', 'engine-5']);
         assert.equal(new Set(rows.map(row => row.move)).size, 5);
         assert.ok(rows.every(row => row.text.includes('D')));
@@ -51,11 +52,19 @@ try {
         assert.deepEqual(await evaluate('[...document.querySelectorAll(".chip")].map(n=>n.textContent)'), board);
         await touch('#redo');
         assert.equal(await evaluate('document.querySelector("#preview-position").textContent.startsWith("1 /")'), true);
+        const selectedLength = await evaluate('Number(document.querySelector("#preview-position").textContent.split("/")[1])');
+        let replayed = 1;
+        if (selectedLength >= 13) {
+            for (; replayed < 13; replayed++) await touch('#redo');
+            await wait('document.querySelector("#preview-position").textContent.startsWith("13 /")');
+        }
+        results.push({ profile, pvLengths: rows.map(row => row.pvLength), selectedLength, replayed });
         await touch('#cancel-preview');
         assert.equal(await read(), seeded);
         if (profile === 'balanced') await writeFile('artifacts/android-five-variations.png', adb('exec-out', 'screencap', '-p'));
     }
-    console.log('ANDROID_VARIATIONS_PASS: 5 rows on all four profiles; continuous search beyond 11s; pause/background stop; row 5 replay; saved session preserved');
+    assert.ok(results.some(result => result.replayed === 13), 'Real engine PVs must allow replay past the old 12-ply cap');
+    console.log('ANDROID_VARIATIONS_PASS', JSON.stringify(results));
 } catch (error) {
     console.error('ANDROID_VARIATIONS_FAILED_PROFILE', activeProfile);
     await writeFile('artifacts/android-variations-failure.png', adb('exec-out', 'screencap', '-p'));

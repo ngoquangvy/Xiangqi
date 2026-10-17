@@ -366,3 +366,10 @@ No commit or push made.
   to 12/32, and cancellation restores the live game without a session write.
 - The iOS smoke report records real engine PV lengths and replay distance;
   it steps to 13 when the selected native line contains that many moves.
+- Native verification completed: Android balanced returned a selected 25-ply
+  PV and unlimited returned 20 plies; both replayed to ply 13 with real touches.
+  All four profiles passed and the original session was restored afterward.
+- iOS build 6 (`bdc1213`) passes: five real PV lengths are 22/18/19/13/15,
+  selected row five replays to ply 13 and returns to the root. Native save,
+  process relaunch, continuous mode, New game and offline font checks pass.
+  Reports are in the `ios-diagnostics-6` GitHub Actions artifact.
