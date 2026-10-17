@@ -343,3 +343,11 @@ No commit or push made.
 - Android variations and the iOS Simulator gate now require a real search to
   remain active past the former 10-second cap, then stop through the production
   Pause action. Android additionally checks continuous mode background release.
+- Verification completed: Android four-profile native test passes, including
+  pause, Home/background release, foreground resume and fifth-row touch/replay.
+  The original saved session is restored. Tests wait for foreground input focus;
+  a first attempt was interrupted by an emulator WebView package update.
+- iOS build 5 (`84c0763`) succeeds in GitHub Actions. Simulator initial report
+  has pass/newGame/unlimited/font=true, five engine rows and 17 book rows;
+  the separate process-relaunch report also passes. Screenshots were inspected.
+  Device IPA is unsigned for Sideloadly; physical iPhone behavior is not claimed.
