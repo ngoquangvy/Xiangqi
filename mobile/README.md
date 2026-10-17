@@ -55,6 +55,9 @@ bỏ giới hạn depth và thời gian của app, không tăng giới hạn 2 l
 Engine tăng độ sâu theo khả năng thiết bị, không bảo đảm đạt một depth cụ thể;
 dừng khi pause, xem thử biến hoặc ra nền. Chế độ này hao pin và có thể nóng máy.
 Ba preset nhẹ hơn và mặc định Cân bằng được giữ nguyên.
+Dòng biến engine không còn bị cắt ở 12 nước: app giữ đủ PV do engine trả về,
+với ngưỡng an toàn 256 nước lớn hơn giới hạn nội bộ Pikafish hiện tại (246).
+`0/N` là số nước có trong biến đang chọn, khác với `D` là độ sâu tìm kiếm.
 Danh sách "nước hợp lệ" khi chọn quân vẫn tách biệt với gợi ý engine/book.
 Book lấy từ `assets/books/sources/json/game01-validated.json`: 57.558 thế FEN,
 58.350 bản ghi nước đi; native giữ nguyên cả các biến phụ. UI hiện chọn PV

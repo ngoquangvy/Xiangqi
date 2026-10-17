@@ -8,6 +8,7 @@ const { checkCompactUI } = require('./compact-ui.cjs');
 const { checkAnalysisView } = require('./analysis-view.cjs');
 const { checkBoardFeedback } = require('./board-feedback.cjs');
 const { checkNewGame } = require('./new-game-ui.cjs');
+const { checkEngineLine } = require('./engine-line-ui.cjs');
 const root = path.resolve(__dirname, '..');
 app.setPath('userData', fs.mkdtempSync(path.join(os.tmpdir(), 'xiangqi-mobile-ui-')));
 const artifactDir = path.join(root, 'artifacts');
@@ -229,9 +230,10 @@ app.whenReady().then(async () => {
             capture: async filename => { await evaluate('new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))'); fs.writeFileSync(path.join(artifactDir, filename), (await win.webContents.capturePage()).toPNG()); },
             emulateMotion: reduce => win.webContents.debugger.sendCommand('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: reduce ? 'reduce' : 'no-preference' }] }) });
         const analysisUI = await checkAnalysisView(evaluate);
+        const engineLine = await checkEngineLine({ evaluate, click });
         assert.deepEqual(errors, []);
         assert.deepEqual(requests, []);
-        console.log('MOBILE_UI_PASS', JSON.stringify({ layouts: layouts.length, compact, analysisUI, feedback, newGame, externalRequests: requests.length,
+        console.log('MOBILE_UI_PASS', JSON.stringify({ layouts: layouts.length, compact, analysisUI, feedback, newGame, engineLine, externalRequests: requests.length,
             checks: 'touch, preview/cancel, undo/redo, branch confirmation, flip, notes/XSS, reload, reset, layouts, font, real WAV/MP3 playback/mute' }));
         clearTimeout(timeout);
         app.quit();

@@ -351,3 +351,18 @@ No commit or push made.
   has pass/newGame/unlimited/font=true, five engine rows and 17 book rows;
   the separate process-relaunch report also passes. Screenshots were inspected.
   Device IPA is unsigned for Sideloadly; physical iPhone behavior is not claimed.
+
+## Full Engine PV Replay
+
+- Fixed the separate `ENGINE_LINE_LIMIT = 12` truncation in the result parser
+  and legality validator. Infinite search alone did not address this limit.
+  The input safety bound is now 256, above pinned Pikafish MAX_PLY (246).
+  Compact visual rows still ellipsize text; their full validated PV is retained.
+- 62 unit tests pass. Regression input uses a known legal game to exercise
+  parser/validation at 13, 32, 64 and 246 plies, independently of search depth.
+  Oversized input still clips at the safety bound, not an unbounded allocation.
+- Browser tests feed a 32-ply line through the actual controller and both
+  production views: selection shows 0/32, Next reaches 13/32, Previous returns
+  to 12/32, and cancellation restores the live game without a session write.
+- The iOS smoke report records real engine PV lengths and replay distance;
+  it steps to 13 when the selected native line contains that many moves.

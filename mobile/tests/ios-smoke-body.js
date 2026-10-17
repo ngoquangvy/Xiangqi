@@ -30,6 +30,7 @@ try {
     await wait(() => query('#engine-status').dataset.state === 'complete', 'Engine did not finish');
     await wait(() => document.querySelectorAll('#book-results button').length === 17, 'Bundled book did not return 17 root choices');
     const rows = [...document.querySelectorAll('#engine-results button')];
+    const enginePvLengths = rows.map(row => row.suggestion.pv.length);
     check(new Set(rows.map(row => row.dataset.suggestion)).size === 5, 'Engine ranks overwrote each other');
     const board = [...document.querySelectorAll('.chip')].map(node => node.textContent).join('|');
     click('#engine-results button:last-child');
@@ -39,7 +40,11 @@ try {
     check(query('#engine-results [aria-pressed=true]').dataset.key === 'engine-5', 'Wrong selected row');
     click('#redo'); check(query('#preview-position').textContent.startsWith('1 /'), 'Next did not replay');
     check(query('#preview-guide').hidden, 'Next did not dismiss coaching');
-    click('#undo'); check(query('#preview-position').textContent.startsWith('0 /'), 'Previous did not return to root');
+    const replayed = Math.min(13, enginePvLengths[4]);
+    for (let index = 1; index < replayed; index++) click('#redo');
+    check(query('#preview-position').textContent.startsWith(`${replayed} /`), 'Engine PV replay stopped before its available move');
+    for (let index = 0; index < replayed; index++) click('#undo');
+    check(query('#preview-position').textContent.startsWith('0 /'), 'Previous did not return to root');
     click('.square[data-square=e2]');
     check(query('#cancel-preview').hidden && document.querySelectorAll('.analysis-row[aria-pressed=true]').length === 0, 'Board touch did not cancel');
     click('#preview-help'); check(!query('#preview-guide').hidden, 'Help cannot reopen'); click('#preview-guide-done');
@@ -91,7 +96,7 @@ try {
     check(invalid, 'Invalid native request accepted');
     const box = query('#board').getBoundingClientRect();
     check(box.left >= 0 && box.right <= innerWidth + 1 && box.top >= 0 && box.bottom <= innerHeight, 'Board outside viewport');
-    return { pass: true, engineRows: 5, bookRows: 17, preview: true, coaching: true, newGame: true, unlimited: true, saved: true, font: true,
+    return { pass: true, engineRows: 5, enginePvLengths, replayed, bookRows: 17, preview: true, coaching: true, newGame: true, unlimited: true, saved: true, font: true,
         viewport: [innerWidth, innerHeight], userAgent: navigator.userAgent };
 } catch (error) {
     return { pass: false, error: String(error?.stack || error), status: query('#engine-status')?.textContent,
