@@ -2,6 +2,7 @@
 
 [Kết quả kiểm tra và giới hạn bản thử](QA.md).
 [Kiểm tra dữ liệu book và hướng sửa bộ chuyển đổi](BOOK-REVIEW.md).
+[Bản iOS, CI và cài bằng Sideloadly](ios/README.md).
 
 Bản thử Android chạy offline. Dùng lại core tại `../src/core`, không sao chép
 luật cờ, không dùng Electron IPC hay backend web của bản desktop.
@@ -10,6 +11,10 @@ luật cờ, không dùng Electron IPC hay backend web của bản desktop.
 
 - Chạm quân, xem ô hợp lệ, chạm đích để đi; hỗ trợ lật bàn.
 - Undo/redo, chọn một vị trí trong lịch sử, xác nhận trước khi ghi đè nhánh cũ.
+- Nút `+ Ván mới / New game` nằm ngay dưới bàn, cạnh tiến/lùi, không ẩn trong
+  Tùy chọn. Luôn xác nhận trước khi thay ván; hủy không làm mất trạng thái xem thử.
+  Xác nhận xóa lịch sử/redo/đánh dấu, thoát mô phỏng và thu bảng để hiện bàn lớn;
+  giữ lựa chọn ngôn ngữ, âm thanh, chiều bàn và cấu hình engine/book.
 - Xem thử nước gợi ý; không có nút đánh thay và không tự lưu thành nước thật.
 - Chạm gợi ý engine/book chỉ đánh dấu hai ô và tô nổi dòng đã chọn, chưa đi
   quân. Bàn giữ thế thật ở `0/N`; biến được chốt khi chọn, không đổi theo engine.
@@ -125,7 +130,8 @@ mục socket Java trong `artifacts/java-tmp` để tránh đường dẫn TEMP b
 
 Build APK chạy lại unit tests, build và browser smoke test trước khi đóng gói.
 Kết quả: `artifacts/xiangqi-mobile-debug.apk`. Đây là bản debug để thử, chưa ký
-release hoặc chuẩn bị phát hành store. iOS chưa được tạo trong đợt này.
+release hoặc chuẩn bị phát hành store. Project iOS nằm trong `ios/`; xem hướng
+dẫn CI và Sideloadly riêng, không dùng APK để cài lên iPhone.
 
 ## Engine Và Book
 
@@ -151,19 +157,19 @@ release hoặc chuẩn bị phát hành store. iOS chưa được tạo trong đ
   Khi duyệt PV, danh sách kết quả/book vẫn thuộc thế gốc để chọn biến khác;
   con trỏ không chạy engine cho thế mô phỏng. Snapshot scratch khôi phục từ
   bản sao ván đầy đủ, giữ nguyên glyph quân cờ thay vì chuẩn hóa qua FEN.
-- Book lấy đúng `../assets/books/opening-book.json`: 22.963 khóa nguồn,
-  22.387 thế sau chuẩn hóa bộ đếm, giữ đủ 23.751 bản ghi nguồn. SQLite tra
+- Book dùng `game01-validated.json`: 57.558 khóa nguồn,
+  54.654 thế sau chuẩn hóa bộ đếm, giữ đủ 58.350 bản ghi nguồn. SQLite tra
   cứu theo bàn cờ + bên đi, không tải toàn bộ book vào WebView. Nước được
   kiểm tra bằng core; BOOK không hiển thị trọng số như điểm engine.
 - Preset và bật/tắt book được lưu cùng session cũ, không làm mất ván đã lưu.
-  Chạm gợi ý chỉ mở preview; phải chọn Play this move để commit.
-- NNUE hiện có khoảng 51 MiB; APK debug khoảng 58 MiB, ngân sách riêng 75 MiB.
+  Chạm gợi ý chỉ highlight ở `0/N`; nhấn `›` mới mô phỏng, không commit ván thật.
+- NNUE hiện có khoảng 51 MiB; APK debug khoảng 62,7 MiB, ngân sách riêng 75 MiB.
   Ngân sách app JS/CSS 160 KiB và font/audio 256 KiB vẫn giữ nguyên. Khi cài,
   app cần thêm dung lượng cho bản NNUE/book riêng đã kiểm tra checksum.
 - Đây là build thử nghiệm theo lựa chọn Pikafish của người dùng. NNUE không
   cho dùng thương mại nếu chưa được phép; GPL của engine là điều khoản riêng.
   Xem `engine/NNUE-License.md`. Quyền phân phối nguồn book cũng cần được xác
-  nhận trước khi phát hành. Chưa có engine phụ, adaptive depth hay iOS.
+  nhận trước khi phát hành. Chưa có engine phụ hoặc adaptive depth.
 
 `npm run test:android:engine` cài APK, **xóa dữ liệu app thử trong emulator**,
 kiểm tra PV thật, book parity, pause/preview, undo/redo nhanh, crash/retry,
@@ -229,4 +235,5 @@ preferences với bản ban đầu. Không thao tác app trong lúc test chạy.
    bị 16 KiB thực tế, không suy ra tương thích chỉ từ ELF alignment.
 3. Sau khi một engine ổn mới thêm phân tích nước riêng và adaptive depth.
 4. Thêm import/export hoặc engine/book khác theo từng lát nhỏ có regression test.
-5. Khi Android ổn mới tạo project iOS và kiểm tra trên môi trường Apple.
+5. Kiểm tra bản iOS qua CI/Sideloadly và iPhone thật, không suy ra độ ổn định
+   từ Android hoặc chỉ từ việc biên dịch thành công.

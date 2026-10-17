@@ -7,6 +7,7 @@ const { instrumentMedia } = require('../../tests/helpers/mediaProbe.cjs');
 const { checkCompactUI } = require('./compact-ui.cjs');
 const { checkAnalysisView } = require('./analysis-view.cjs');
 const { checkBoardFeedback } = require('./board-feedback.cjs');
+const { checkNewGame } = require('./new-game-ui.cjs');
 const root = path.resolve(__dirname, '..');
 app.setPath('userData', fs.mkdtempSync(path.join(os.tmpdir(), 'xiangqi-mobile-ui-')));
 const artifactDir = path.join(root, 'artifacts');
@@ -142,6 +143,7 @@ app.whenReady().then(async () => {
         await click('#confirm-accept');
         assert.equal(await chip('b2'), '炮');
         assert.equal(await evaluate('document.querySelectorAll(".history-move").length'), 0);
+        const newGame = await checkNewGame({ evaluate, click, resize });
         // Decode and actually play capture and check too, using legal games.
         await click('.square[data-square="h2"]'); await click('.square[data-square="h9"]');
         for (let i = 0; i < 100 && !(await evaluate('window.__media.some(clip=>clip.src.endsWith("capture.mp3") && clip.playing>0)')); i++) await new Promise(r => setTimeout(r, 20));
@@ -229,7 +231,7 @@ app.whenReady().then(async () => {
         const analysisUI = await checkAnalysisView(evaluate);
         assert.deepEqual(errors, []);
         assert.deepEqual(requests, []);
-        console.log('MOBILE_UI_PASS', JSON.stringify({ layouts: layouts.length, compact, analysisUI, feedback, externalRequests: requests.length,
+        console.log('MOBILE_UI_PASS', JSON.stringify({ layouts: layouts.length, compact, analysisUI, feedback, newGame, externalRequests: requests.length,
             checks: 'touch, preview/cancel, undo/redo, branch confirmation, flip, notes/XSS, reload, reset, layouts, font, real WAV/MP3 playback/mute' }));
         clearTimeout(timeout);
         app.quit();

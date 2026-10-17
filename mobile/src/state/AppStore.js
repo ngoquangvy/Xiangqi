@@ -143,6 +143,7 @@ export class AppStore {
     reset() {
         this.#game.reset();
         this.#clearTransient();
+        this.#ui.expanded = false;
         this.#notify(true);
     }
     preview(uci, pv = [uci], suggestion = null) {

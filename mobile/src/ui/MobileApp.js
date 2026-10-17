@@ -108,6 +108,8 @@ export class MobileApp {
         this.get('undo').setAttribute('aria-label', preview ? text.previewPrevious : text.undo);
         this.get('redo').setAttribute('aria-label', preview ? text.previewNext : text.redo);
         for (const button of [this.get('undo'), this.get('redo')]) button.querySelector('[data-text]').hidden = Boolean(preview);
+        // Keep New game reachable in both modes without crowding preview navigation.
+        this.get('new-game').querySelector('[data-text]').hidden = Boolean(preview);
         this.get('cancel-preview').hidden = !preview;
         this.get('preview-position').hidden = !preview;
         this.get('preview-position').textContent = preview ? `${preview.cursor} / ${preview.length}` : '';

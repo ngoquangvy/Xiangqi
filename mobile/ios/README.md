@@ -50,7 +50,16 @@ public/commercial release; including source alone is not a compliance guarantee.
 NNUE commercial use needs permission under the bundled license. These are
 prototype test artifacts, not a declaration of App Store eligibility.
 
+Development dependency audit currently reports three moderate advisories in
+the Capacitor CLI/xcode/uuid chain; production dependency audit reports zero.
+Do not run audit fix --force blindly: it currently proposes downgrading the
+pinned CLI. This toolchain limitation is separate from runtime app validation.
+
 ## Physical iPhone Checklist
+
+First physical test target: iPhone 13, iOS 26.6.2 (user-provided). CI prefers
+an isolated iPhone 13 Simulator with an installed iOS-26 runtime; that is not
+a claim of testing the exact physical OS version or its thermal behavior.
 
 - Open the app offline; confirm all 32 pieces and correct font/board lines.
 - Make a move; undo/redo, flip, language and sound toggle must work.

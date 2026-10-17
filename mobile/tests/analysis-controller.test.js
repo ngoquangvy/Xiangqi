@@ -163,3 +163,28 @@ test('Board-touch preview exit restores live analysis without overriding a user 
     assert.equal(analysis.snapshot().status, 'paused'); assert.equal(calls.at(-1), 'stop');
     analysis.destroy();
 });
+
+test('New game exits preview, analyzes the initial position and rejects old engine/book responses', async () => {
+    const { store, analysis, calls, books, emit, fail } = fixture(); await analysis.started;
+    store.tap(7, 7); store.tap(4, 7);
+    const oldId = calls.at(-1).id;
+    emit(oldId, 'info depth 8 score cp 10 pv h9g7');
+    store.preview('h9g7'); store.stepPreview(1);
+    store.reset();
+    const current = calls.at(-1);
+    assert.equal(current.moves, '');
+    assert.equal(current.fen, store.snapshot().game.fen);
+    assert.notEqual(current.id, oldId);
+    assert.equal(analysis.snapshot().status, 'searching');
+    assert.deepEqual(analysis.snapshot().rows, []);
+    emit(oldId, 'info depth 50 score cp 999 pv h9g7'); fail(oldId);
+    books[1].resolve([{ move: 'h9g7' }]); await tick();
+    assert.equal(analysis.snapshot().status, 'searching');
+    assert.deepEqual(analysis.snapshot().rows, []);
+    assert.deepEqual(analysis.snapshot().book, []);
+    books.at(-1).resolve([{ move: 'h2e2' }]); await tick();
+    assert.equal(analysis.snapshot().book[0].move, 'h2e2');
+    emit(current.id, 'info depth 8 score cp 10 pv h2e2');
+    assert.equal(analysis.snapshot().rows[0].move, 'h2e2');
+    analysis.destroy();
+});

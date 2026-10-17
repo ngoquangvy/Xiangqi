@@ -50,6 +50,25 @@ try {
     check(chip('h2') === '' && chip('e2') !== '', 'Real move failed');
     click('#undo'); check(chip('h2') !== '', 'Undo failed');
     click('#redo'); check(chip('h2') === '', 'Redo failed');
+    const newGame = query('#new-game');
+    check(newGame.closest('.board-actions') && newGame.getBoundingClientRect().height >= 44, 'New game not visible beside navigation');
+    click('.square[data-square=h9]'); click('[data-uci="h9g7"]'); click('#redo'); click('#expand');
+    const cursor = query('#preview-position').textContent;
+    click('#new-game'); check(query('#confirm-dialog').open, 'New game has no confirmation');
+    click('#confirm-cancel');
+    check(query('#preview-position').textContent === cursor && query('#mobile-app').classList.contains('previewing'), 'Cancel discarded preview');
+    click('#new-game'); click('#confirm-accept');
+    check(!query('#mobile-app').classList.contains('previewing') && !query('#mobile-app').classList.contains('expanded'), 'New game did not exit preview');
+    check(chip('h2') !== '' && chip('e2') === '' && query('#undo').disabled && query('#redo').disabled, 'New game did not reset board/history');
+    check(document.querySelectorAll('.square.last,.square.suggestion,.square.checked,.history-move').length === 0, 'New game left stale highlights/history');
+    await wait(async () => {
+        const value = await read();
+        return value && JSON.parse(JSON.parse(value).game).moveHistory.length === 0;
+    }, 'New game was not saved natively');
+    await wait(() => document.querySelectorAll('#book-results button').length === 17, 'New game did not restore root book');
+    await wait(() => document.querySelectorAll('#engine-results button').length === 5 && query('#engine-status').dataset.state === 'complete', 'New game did not restart root analysis');
+    // Leave one real move for the independent process-relaunch persistence check.
+    click('.square[data-square=h2]'); click('.square[data-square=e2]');
     if (document.documentElement.lang !== 'en') click('#language');
     await wait(async () => { const value = await read(); return value && JSON.parse(value).language === 'en'; }, 'Native save did not finish');
     const saved = JSON.parse(await read());
@@ -59,7 +78,7 @@ try {
     check(invalid, 'Invalid native request accepted');
     const box = query('#board').getBoundingClientRect();
     check(box.left >= 0 && box.right <= innerWidth + 1 && box.top >= 0 && box.bottom <= innerHeight, 'Board outside viewport');
-    return { pass: true, engineRows: 5, bookRows: 17, preview: true, coaching: true, saved: true, font: true,
+    return { pass: true, engineRows: 5, bookRows: 17, preview: true, coaching: true, newGame: true, saved: true, font: true,
         viewport: [innerWidth, innerHeight], userAgent: navigator.userAgent };
 } catch (error) {
     return { pass: false, error: String(error?.stack || error), status: query('#engine-status')?.textContent,

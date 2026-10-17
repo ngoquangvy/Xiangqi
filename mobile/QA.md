@@ -308,3 +308,22 @@ No commit or push made.
   2 GB RAM triggered Android LOW_MEMORY kills of the app/WebView. Retesting
   uses 4 GB via an emulator runtime argument, without wiping data or changing
   the AVD configuration. This is not a low-memory fix or a phone benchmark.
+
+## New Game Discoverability
+
+- Moved the existing New game control out of Settings into the persistent
+  navigation row below the board. English/Vietnamese labels share the same
+  plus icon; preview mode retains a compact 44 px icon button with a full
+  accessible label. No duplicate reset entry or alternate state path.
+- Confirmation cancellation preserves the live game, scratch cursor and saved
+  session. Acceptance resets the core, clears redo/preview/highlights/help,
+  collapses the panel and saves the initial position, without a move sound.
+  Language, audio, orientation, tutorial and analysis preferences remain intact.
+- 58 unit tests pass, including persisted reset and rejection of stale engine
+  and book responses. The browser suite passes its 50 baseline/compact layouts,
+  8 coaching layouts and 6 new preview reset layouts in both languages.
+  Existing font, audio, keyboard and selected-row checks also pass.
+- The iOS Simulator gate now exercises the visible button, cancellation during
+  scratch replay, confirmed native save, fresh five-PV analysis and all 17 root
+  book choices before leaving a real move for the process-relaunch test.
+  Physical iPhone installation and touch/audio testing remain separate checks.

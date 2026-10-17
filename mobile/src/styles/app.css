@@ -67,6 +67,8 @@ h1 { font: 500 25px Georgia, 'Times New Roman', serif; margin: 0; }
 .board-actions[data-mode='preview'] button { background: #dcebf0; color: #205b70; }
 .board-actions[data-mode='preview'] .control-symbol { margin: 0; }
 .board-actions #cancel-preview { flex: 0 0 44px; background: #f3e3da; color: #8c392c; font-size: 24px; }
+.board-actions #new-game { width: auto; margin: 0; background: #f7e4dd; color: var(--red); border-color: #dcbfba; }
+.board-actions[data-mode='preview'] #new-game { flex: 0 0 44px; }
 .footer { display: flex; align-items: center; padding: 3px 12px; font-size: 10px; min-height: 24px; border-top: 1px solid var(--line); gap: 8px; color: var(--muted); }
 .footer.warning { color: var(--red); }
 .primary { color: #fff; background: var(--green); }
