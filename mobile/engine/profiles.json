@@ -2,5 +2,6 @@
   "eco": { "threads": 1, "hash": 16, "depth": 14, "milliseconds": 2000 },
   "balanced": { "threads": 1, "hash": 32, "depth": 18, "milliseconds": 5000 },
   "deep": { "threads": 2, "hash": 64, "depth": 22, "milliseconds": 10000 },
-  "unlimited": { "threads": 2, "hash": 64, "depth": 0, "milliseconds": 0 }
+  "unlimited": { "threads": 2, "hash": 64, "depth": 0, "milliseconds": 0 },
+  "deep_cool": { "threads": 1, "hash": 64, "depth": 22, "milliseconds": 0 }
 }

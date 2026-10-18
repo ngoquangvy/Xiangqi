@@ -2,6 +2,7 @@ import { LocalGame } from '../domain/LocalGame.js';
 import { moveSound } from '../../../src/presentation/GameSound.js';
 import { analysisSettings } from '../analysis/settings.js';
 import { positionStatus } from '../domain/positionStatus.js';
+import { PREVIEW_LINE_LIMIT } from '../domain/lineLimits.js';
 
 export class AppStore {
     #game;
@@ -10,6 +11,7 @@ export class AppStore {
     #storage;
     #saveRevision = 0;
     #preview = null;
+    #pending = null;
     #ui = { selected: null, suggestion: null, helpOpen: false, previewHelpSeen: false,
         expanded: false, flipped: false, tab: 'analysis', storageError: null, language: 'vi', soundEnabled: true, analysis: analysisSettings(), saving: false };
     constructor(storage, game = new LocalGame()) {
@@ -50,14 +52,15 @@ export class AppStore {
     }
     snapshot() {
         const game = this.#game.snapshot();
-        const ui = { ...structuredClone(this.#ui), preview: this.#preview?.snapshot() || null };
+        const ui = { ...structuredClone(this.#ui), preview: this.#preview?.snapshot() || null,
+            pending: this.#pending ? { uci: this.#pending.uci, length: this.#pending.pv.length } : null };
         return { game, ui, board: ui.preview?.board || game.board,
             turn: ui.preview?.turn || game.currentTurn,
             lastMove: ui.preview ? ui.preview.lastMove : game.lastMove,
             ...positionStatus(ui.preview || game),
-            suggestionMove: ui.preview?.firstMoveHighlight || null,
+            suggestionMove: this.#pending ? structuredClone(this.#pending.firstMove) : ui.preview?.firstMoveHighlight || null,
             legalMoves: ui.selected ? this.#game.legalMoves(ui.selected.x, ui.selected.y) : [],
-            boardLocked: ui.expanded || Boolean(ui.preview) };
+            boardLocked: (ui.expanded && !ui.pending) || Boolean(ui.preview) };
     }
     #notify(persist = false) {
         if (persist) {
@@ -79,7 +82,7 @@ export class AppStore {
     }
     #clearTransient() {
         this.#ui.selected = null; this.#ui.suggestion = null;
-        this.#ui.helpOpen = false; this.#preview = null;
+        this.#ui.helpOpen = false; this.#preview = null; this.#pending = null;
     }
     togglePreviewHelp() { this.#ui.helpOpen = !this.#ui.helpOpen; this.#notify(); }
     completePreviewHelp() {
@@ -90,7 +93,6 @@ export class AppStore {
         this.#notify(changed);
     }
     tap(x, y, confirmBranch = false) {
-        const state = this.snapshot();
         if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || x > 8 || y < 0 || y > 9) return 'locked';
         // The first touch exits the scratch position only. Never interpret its
         // coordinates against the different live board or commit a suggestion.
@@ -99,6 +101,10 @@ export class AppStore {
             this.cancelPreview();
             return 'preview-cancelled';
         }
+        // A highlighted row is not a scratch board. Clear its markers, then
+        // interpret this SAME touch against the live position (no wasted tap).
+        if (this.#pending) { this.#clearTransient(); this.#ui.expanded = false; }
+        const state = this.snapshot();
         if (state.boardLocked) return 'locked';
         const selected = this.#ui.selected;
         const destination = state.legalMoves.find(move => move.x === x && move.y === y);
@@ -150,6 +156,7 @@ export class AppStore {
         const preview = this.#game.preview(uci, pv);
         if (!preview) return false;
         this.#preview = preview;
+        this.#pending = null;
         this.#ui.selected = null;
         this.#ui.suggestion = suggestion ? structuredClone(suggestion) : null;
         this.#ui.helpOpen = !this.#ui.previewHelpSeen;
@@ -157,7 +164,26 @@ export class AppStore {
         return true;
     }
     cancelPreview() { this.#clearTransient(); this.#notify(); }
+    selectSuggestion(uci, pv = [uci], suggestion = null) {
+        if (!Array.isArray(pv) || pv[0] !== uci) return false;
+        const first = this.#game.preview(uci, [uci]);
+        if (!first) return false;
+        this.#preview = null;
+        this.#pending = { uci, pv: pv.slice(0, PREVIEW_LINE_LIMIT), firstMove: first.snapshot().firstMoveHighlight };
+        this.#ui.selected = null;
+        this.#ui.suggestion = suggestion ? structuredClone(suggestion) : null;
+        this.#ui.helpOpen = !this.#ui.previewHelpSeen;
+        this.#notify();
+        return true;
+    }
     stepPreview(direction) {
+        if (this.#pending) {
+            if (direction !== 1) return false;
+            const preview = this.#game.preview(this.#pending.uci, this.#pending.pv);
+            if (!preview?.step(1)) return false;
+            this.#pending = null; this.#preview = preview;
+            this.#notify(); return true;
+        }
         if (!this.#preview?.step(direction)) return false;
         this.#notify();
         return true;
@@ -179,7 +205,7 @@ export class AppStore {
     }
     back() {
         if (this.#ui.helpOpen) { this.togglePreviewHelp(); return true; }
-        if (this.#preview) { this.cancelPreview(); return true; }
+        if (this.#preview || this.#pending) { this.cancelPreview(); return true; }
         if (this.#ui.expanded) { this.toggleExpanded(); return true; }
         if (this.#ui.selected) { this.cancelPreview(); return true; }
         return false;

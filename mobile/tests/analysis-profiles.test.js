@@ -21,7 +21,7 @@ test('Maximum analysis is opt-in and unbounded in time/depth, not in CPU or memo
     for (const path of [`${android}PikafishPlugin.java`, '../ios/App/App/PikafishPlugin.swift', '../ios/App/App/AnalysisAssets.swift']) {
         for (const profile of Object.keys(PROFILES)) assert.ok(read(path).includes(`"${profile}"`), `${path}: ${profile}`);
     }
-    assert.ok(read('../ios/App/App/AnalysisAssets.swift').includes('(depth == 0 && time == 0) : (depth > 0 && time > 0)'));
+    assert.deepEqual(PROFILES.deep_cool, { threads: 1, hash: 64, depth: 22, milliseconds: 0 });
 });
 
 test('Continuous analysis persists, accepts deep output and still respects pause, preview and background', async () => {
@@ -31,7 +31,7 @@ test('Continuous analysis persists, accepts deep output and still respects pause
     let emit;
     const analysis = new AnalysisController(store, { available: true,
         listen: async output => { emit = output; return () => {}; },
-        analyze: async request => calls.push(request), stop: async () => calls.push('stop'), lookupBook: async () => [] });
+        analyze: async request => calls.push(request), stop: async () => calls.push('stop'), lookupBook: async () => [] }, { delayMs: 0 });
     try {
         await analysis.started;
         store.setAnalysis({ profile: 'unlimited' });

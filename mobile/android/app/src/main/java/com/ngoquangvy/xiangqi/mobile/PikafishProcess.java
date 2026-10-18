@@ -19,7 +19,7 @@ final class PikafishProcess {
     private volatile String requestId;
     private volatile CompletableFuture<Void> searchDone = CompletableFuture.completedFuture(null);
     private BufferedWriter input;
-    private String profile;
+    private int currentThreads, currentHash;
     private volatile BlockingQueue<String> barriers = new LinkedBlockingQueue<>(32);
     private final BiConsumer<String, String> output;
     private final BiConsumer<String, String> failure;
@@ -35,13 +35,9 @@ final class PikafishProcess {
         if (!alive()) start(context, current);
         if (!current.getAsBoolean()) return;
         org.json.JSONObject settings = new AnalysisAssets(context).profile(mode);
-        if (!mode.equals(profile)) {
-            int threads = settings.getInt("threads"), hash = settings.getInt("hash");
-            send("setoption name Threads value " + threads);
-            send("setoption name Hash value " + hash);
-            send("setoption name MultiPV value " + VARIATION_COUNT);
-            profile = mode;
-        }
+        int threads = settings.getInt("threads"), hash = settings.getInt("hash");
+        if (threads != currentThreads) { send("setoption name Threads value " + threads); currentThreads = threads; }
+        if (hash != currentHash) { send("setoption name Hash value " + hash); currentHash = hash; }
         barriers.clear(); send("isready"); await("readyok", 10000);
         if (!current.getAsBoolean()) return;
         send("position fen " + initialFen + (moves.isEmpty() ? "" : " moves " + moves));
@@ -57,7 +53,7 @@ final class PikafishProcess {
         File network = new AnalysisAssets(context).network();
         if (!current.getAsBoolean()) return;
         BlockingQueue<String> signals = new LinkedBlockingQueue<>(32);
-        barriers = signals; profile = null;
+        barriers = signals; currentThreads = currentHash = 0;
         Process child = new ProcessBuilder(binary.getAbsolutePath()).directory(network.getParentFile()).redirectErrorStream(true).start();
         process = child;
         input = new BufferedWriter(new OutputStreamWriter(child.getOutputStream(), StandardCharsets.UTF_8));
@@ -66,6 +62,7 @@ final class PikafishProcess {
         if (!current.getAsBoolean()) { close(); return; }
         send("uci"); await("uciok", 10000);
         send("setoption name EvalFile value " + network.getAbsolutePath());
+        send("setoption name MultiPV value " + VARIATION_COUNT);
         send("isready"); await("readyok", 10000);
     }
 

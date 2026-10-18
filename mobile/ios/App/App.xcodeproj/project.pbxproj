@@ -16,6 +16,8 @@
 		A10000000000000000000007 = {isa = PBXBuildFile; fileRef = A20000000000000000000007; };
 		A10000000000000000000008 = {isa = PBXBuildFile; fileRef = A20000000000000000000008; };
 		A10000000000000000000009 = {isa = PBXBuildFile; fileRef = A20000000000000000000009; };
+		A10000000000000000000010 = {isa = PBXBuildFile; fileRef = A20000000000000000000010; };
+		A10000000000000000000011 = {isa = PBXBuildFile; fileRef = A20000000000000000000011; };
 		2FAD9763203C412B000D30F8 /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 2FAD9762203C412B000D30F8 /* config.xml */; };
 		4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */ = {isa = PBXBuildFile; productRef = 4D22ABE82AF431CB00220026 /* CapApp-SPM */; };
 		50379B232058CBB4000EE86E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
@@ -37,6 +39,8 @@
 		A20000000000000000000007 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOSSmoke.swift; sourceTree = "<group>"; };
 		A20000000000000000000008 = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = XQPikafish.mm; sourceTree = "<group>"; };
 		A20000000000000000000009 = {isa = PBXFileReference; lastKnownFileType = folder; path = analysis; sourceTree = "<group>"; };
+		A20000000000000000000010 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThermalPolicy.swift; sourceTree = "<group>"; };
+		A20000000000000000000011 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThermalMonitor.swift; sourceTree = "<group>"; };
 		2FAD9762203C412B000D30F8 /* config.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = config.xml; sourceTree = "<group>"; };
 		50379B222058CBB4000EE86E /* capacitor.config.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = capacitor.config.json; sourceTree = "<group>"; };
 		504EC3041FED79650016851F /* App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = App.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -91,6 +95,8 @@
 				A20000000000000000000007,
 				A20000000000000000000008,
 				A20000000000000000000009,
+				A20000000000000000000010,
+				A20000000000000000000011,
 				9582B6822FE993A50072D4E8 /* SceneDelegate.swift */,
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
 				504EC3071FED79650016851F /* AppDelegate.swift */,
@@ -194,6 +200,8 @@
 				A10000000000000000000006,
 				A10000000000000000000007,
 				A10000000000000000000008,
+				A10000000000000000000010,
+				A10000000000000000000011,
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
 				9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */,
 			);

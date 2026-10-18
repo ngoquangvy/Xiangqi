@@ -21,7 +21,7 @@ test('UCI results preserve mate and bound semantics, reject noise and invalid PV
     assert.equal(row.source, 'engine'); assert.equal(row.value, 45); assert.equal(row.pv.length, 2);
     const game = new LocalGame(); game.move(7, 7, 4, 7);
     const mate = engineRow(game.snapshot().fen, parseInfo('info depth 3 score mate -2 upperbound pv h9g7'));
-    assert.equal(mate.value, 2); assert.equal(mate.kind, 'mate'); assert.equal(mate.bound, 'lowerbound');
+    assert.equal(mate.value, -2); assert.equal(mate.kind, 'mate'); assert.equal(mate.bound, 'upperbound');
     assert.equal(engineRow(fen, { ...info, pv: ['h2e3'] }), null);
     for (const bad of ['info string pv h2e2', 'bestmove h2e2', 'info depth 2 score cp 3 pv z2e2', 'info depth 2 multipv 6 score cp 3 pv h2e2']) assert.equal(parseInfo(bad), null);
 });

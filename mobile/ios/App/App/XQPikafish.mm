@@ -31,4 +31,6 @@
 - (void)cancel { _session->cancel(); }
 - (void)releaseEngine { _session->release(); }
 - (BOOL)searching { return _session->searching(); }
+- (NSUInteger)configurationChanges { return _session->configurationChanges(); }
+- (NSInteger)effectiveThreads { return _session->effectiveThreads(); }
 @end

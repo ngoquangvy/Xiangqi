@@ -8,6 +8,10 @@ if (process.platform !== 'darwin') throw Error('Run the iOS GitHub Actions workf
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const run = (command, args) => execFileSync(command, args, { cwd: root, stdio: 'inherit' });
 await mkdir(path.join(root, 'artifacts'), { recursive: true });
+run('xcrun', ['clang++', '-std=c++17', 'tests/native-options.cpp', '-o', 'artifacts/native-options-test']);
+run('artifacts/native-options-test', []);
+run('xcrun', ['swiftc', 'ios/App/App/ThermalPolicy.swift', 'tests/ios-thermal-policy.swift', '-o', 'artifacts/thermal-policy-test']);
+run('artifacts/thermal-policy-test', []);
 const tests = (await readdir(path.join(root, 'tests'))).filter(name => name.endsWith('.test.js'));
 run(process.execPath, ['--test', ...tests.map(name => `tests/${name}`)]);
 run(process.execPath, ['scripts/build.mjs']);
@@ -27,6 +31,7 @@ const application = path.join(root, 'artifacts/ios-device/Build/Products/Release
 const binary = path.join(application, 'App');
 const buildInfo = execFileSync('xcrun', ['vtool', '-show-build', binary]).toString();
 if (!/platform IOS\b/.test(buildInfo) || /platform IOSSIMULATOR\b/.test(buildInfo)) throw Error('IPA must contain an iPhone device binary, not a Simulator build.');
+if (execFileSync('strings', [binary]).toString().includes('debugThermal')) throw Error('Release must not expose the thermal test hook.');
 const staging = path.join(root, 'artifacts/ios-package/Payload');
 await mkdir(staging, { recursive: true });
 await cp(application, path.join(staging, 'App.app'), { recursive: true });

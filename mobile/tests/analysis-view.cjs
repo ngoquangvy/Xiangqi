@@ -15,7 +15,7 @@ async function checkAnalysisView(evaluate) {
             let state={status:'searching',id:'fixture-1',fen,rows:[base],bookStatus:'ready',book:[{...base,rank:undefined,source:'book',note:'<img src=x onerror=alert(1)>'}]};
             const previews=[], callbacks=new Set(); let render;
             const store={snapshot:()=>structuredClone(game),subscribe:callback=>{callbacks.add(callback);callback();return()=>callbacks.delete(callback);},
-                preview:(move,pv,suggestion)=>{previews.push({move,pv});game.ui.suggestion=structuredClone(suggestion);game.ui.preview={cursor:0};for(const callback of callbacks)callback();},
+                selectSuggestion:(move,pv,suggestion)=>{previews.push({move,pv});game.ui.suggestion=structuredClone(suggestion);game.ui.pending={length:pv.length};for(const callback of callbacks)callback();},
                 setAnalysis:settings=>{Object.assign(game.ui.analysis,settings);for(const callback of callbacks)callback();}};
             const analysis={transport:{available:true},snapshot:()=>structuredClone(state),subscribe:callback=>{render=callback;callback();return()=>{};},togglePause:()=>{state.status='paused';render();}};
             const view=new AnalysisViewFixture.AnalysisView(document.querySelector('#mobile-app'),store,analysis);

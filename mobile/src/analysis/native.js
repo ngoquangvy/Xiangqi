@@ -5,11 +5,15 @@ export function nativeAnalysis() {
     const available = ['android', 'ios'].includes(Capacitor.getPlatform());
     return {
         available,
-        async listen(output, failure) {
+        async listen(output, failure, thermal = () => {}) {
             const handles = [];
             try {
                 handles.push(await plugin.addListener('output', output));
                 handles.push(await plugin.addListener('failure', failure));
+                if (Capacitor.getPlatform() === 'ios') {
+                    handles.push(await plugin.addListener('thermal', thermal));
+                    thermal((await plugin.status()).thermal);
+                }
                 return async () => { for (const handle of handles) await handle.remove(); };
             } catch (error) { for (const handle of handles) await handle.remove(); throw error; }
         },

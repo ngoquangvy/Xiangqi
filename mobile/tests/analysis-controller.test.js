@@ -15,7 +15,7 @@ function fixture() {
         analyze: async request => calls.push(request), stop: async () => calls.push('stop'),
         lookupBook: fen => new Promise((resolve, reject) => books.push({ fen, resolve, reject })),
     };
-    const analysis = new AnalysisController(store, transport);
+    const analysis = new AnalysisController(store, transport, { delayMs: 0 });
     return { store, analysis, calls, books, storage, transport, removed: () => removed,
         emit: (id, line) => output({ id, line }), fail: id => failure({ id }) };
 }
@@ -46,7 +46,7 @@ test('Late output, old book replies and old errors cannot overwrite a newer posi
     books.at(-1).resolve([{ move: 'h9g7', score: .7 }]); await tick();
     assert.equal(analysis.snapshot().book[0].move, 'h9g7');
     emit(id, 'info depth 7 score cp 25 pv h9g7');
-    assert.equal(analysis.snapshot().rows[0].value, -25);
+    assert.equal(analysis.snapshot().rows[0].value, 25);
     emit(id, 'info depth 6 score cp 100 pv h9g7'); assert.equal(analysis.snapshot().rows[0].depth, 7);
     emit(id, 'bestmove h9g7'); assert.equal(analysis.snapshot().status, 'complete');
     emit(id, 'info depth 10 score cp 500 pv h9g7'); assert.equal(analysis.snapshot().rows[0].depth, 7);

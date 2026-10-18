@@ -1,4 +1,5 @@
 import { parseInfo, engineRow, bookRows } from './results.js';
+import { SearchScheduler } from './SearchScheduler.js';
 
 // Engine state is derived from committed core positions, never from board DOM.
 export class AnalysisController {
@@ -16,9 +17,11 @@ export class AnalysisController {
     #position;
     #snapshot;
     #removeTransport;
+    #thermal = { state: 'nominal', limited: false, blocked: false, revision: -1 };
     #state = { status: 'unavailable', id: null, fen: null, rows: [], book: [], bookStatus: 'off' };
-    constructor(store, transport) {
+    constructor(store, transport, { delayMs = 500, clock = globalThis } = {}) {
         this.store = store; this.transport = transport;
+        this.scheduler = new SearchScheduler(delayMs, clock);
         this.#state.status = transport.available ? 'starting' : 'unavailable';
         this.unsubscribe = store.subscribe(state => {
             this.#snapshot = state; this.#position = store.analysisPosition(); this.#refresh();
@@ -28,7 +31,7 @@ export class AnalysisController {
     async #start() {
         if (!this.transport.available) return;
         try {
-            const remove = await this.transport.listen(event => this.#output(event), event => this.#fail(event.id));
+            const remove = await this.transport.listen(event => this.#output(event), event => this.#fail(event.id), event => this.setThermal(event));
             if (this.#destroyed) { await remove(); return; }
             this.#removeTransport = remove; this.#ready = true; this.#refresh();
         } catch { if (!this.#destroyed) { this.#state.status = 'error'; this.#notify(); } }
@@ -41,20 +44,28 @@ export class AnalysisController {
         const state = this.#snapshot, position = this.#position;
         const profile = state.ui.analysis.profile;
         const positionKey = `${position.initialFen}|${position.moves}`;
-        const blocked = !this.#foreground ? 'background' : state.ui.preview ? 'preview' : this.#paused ? 'paused' : null;
-        const engineKey = `${positionKey}|${profile}|${blocked}`;
+        const blocked = !this.#foreground ? 'background' : state.ui.preview ? 'preview' : this.#paused ? 'paused' : this.#thermal.blocked ? 'thermal' : null;
+        const engineKey = `${positionKey}|${profile}|${blocked}|${this.#thermal.limited}`;
         if (engineKey !== this.#engineKey) {
+            const initial = this.#engineKey === undefined;
+            this.scheduler.cancel();
             const id = `${this.#session}-${++this.#sequence}`;
             const changedPosition = this.#positionKey !== positionKey;
             if (changedPosition || this.#state.profile !== profile) this.#state.rows = [];
             this.#engineKey = engineKey;
             this.#positionKey = positionKey;
-            Object.assign(this.#state, { id, fen: position.fen, profile, status: blocked || 'searching' });
+            Object.assign(this.#state, { id, fen: position.fen, profile, status: blocked || 'waiting' });
             this.#notify();
             // Native also serializes stop -> bestmove -> readyok -> next go.
             // IDs are invalidated here immediately, not after an async round trip.
-            const action = blocked ? this.transport.stop() : this.transport.analyze({ id, ...position, profile });
-            Promise.resolve(action).catch(() => this.#fail(id));
+            if (blocked || (!initial && this.scheduler.delay > 0)) {
+                Promise.resolve(this.transport.stop()).catch(() => this.#fail(id));
+            }
+            if (!blocked) this.scheduler.schedule(() => {
+                if (this.#destroyed || this.#state.id !== id) return;
+                this.#state.status = 'searching'; this.#notify();
+                Promise.resolve(this.transport.analyze({ id, ...position, profile })).catch(() => this.#fail(id));
+            }, initial);
         }
         const bookKey = `${positionKey}|${state.ui.analysis.bookEnabled}`;
         if (bookKey !== this.#bookKey) {
@@ -90,7 +101,8 @@ export class AnalysisController {
         this.#state.rows = [...rows, row].sort((a, b) => a.rank - b.rank); this.#notify();
     }
     #fail(id) {
-        if (this.#destroyed || this.#state.id !== id || !['searching', 'complete'].includes(this.#state.status)) return;
+        if (this.#destroyed || this.#state.id !== id || !['waiting', 'searching', 'complete'].includes(this.#state.status)) return;
+        this.scheduler.cancel();
         this.#state.status = 'error'; this.#notify();
     }
     togglePause() {
@@ -102,8 +114,17 @@ export class AnalysisController {
         this.#refresh();
     }
     setForeground(active) { this.#foreground = Boolean(active); this.#refresh(); }
+    setThermal(value) {
+        if (this.#destroyed || !value || value.revision < this.#thermal.revision) return;
+        const previous = this.#thermal;
+        this.#thermal = { state: value.state, blocked: value.blocked === true, limited: value.limited === true, revision: value.revision };
+        if (previous.blocked === this.#thermal.blocked && previous.limited === this.#thermal.limited && previous.state === value.state) return;
+        this.#state.thermal = { ...this.#thermal };
+        this.#refresh(); this.#notify();
+    }
     destroy() {
         this.#destroyed = true; ++this.#sequence; ++this.#bookSequence;
+        this.scheduler.cancel();
         this.unsubscribe(); this.#listeners.clear();
         Promise.resolve(this.#removeTransport?.()).catch(() => {});
         Promise.resolve(this.transport.stop()).catch(() => {});

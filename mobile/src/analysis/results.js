@@ -33,10 +33,9 @@ export function legalLine(fen, pv, limit = ENGINE_LINE_LIMIT) {
 export function engineRow(fen, info) {
     const line = legalLine(fen, info.pv);
     if (!line) return null;
-    // All displayed scores use Red's perspective, regardless of board flipping.
-    const sign = fen.split(' ')[1] === 'b' ? -1 : 1;
-    const bound = sign < 0 ? ({ lowerbound: 'upperbound', upperbound: 'lowerbound' }[info.bound] || null) : info.bound;
-    return { ...info, ...line, value: sign * info.value, bound, source: 'engine' };
+    // UCI already scores for the side to move. Keep cp, mate and bounds in
+    // that perspective so rank one is the best option for either color.
+    return { ...info, ...line, source: 'engine' };
 }
 
 export function bookRows(fen, candidates) {

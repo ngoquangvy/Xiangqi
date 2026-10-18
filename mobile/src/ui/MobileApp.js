@@ -18,7 +18,7 @@ export class MobileApp {
         // One control row, two explicit modes. Preview never commits a move.
         this.get('undo').onclick = () => store.snapshot().ui.preview ? store.stepPreview(-1) : store.navigate('undo');
         this.get('redo').onclick = () => {
-            if (!store.snapshot().ui.preview) return store.navigate('redo');
+            if (!store.snapshot().ui.preview && !store.snapshot().ui.pending) return store.navigate('redo');
             if (store.stepPreview(1)) store.completePreviewHelp();
         };
         this.get('flip').onclick = () => store.flip();
@@ -87,6 +87,7 @@ export class MobileApp {
         if (this.toastKey) this.get('toast').textContent = text[this.toastKey];
         this.element.classList.toggle('expanded', state.ui.expanded);
         this.element.classList.toggle('previewing', Boolean(state.ui.preview));
+        this.element.classList.toggle('suggestion-selected', Boolean(state.ui.pending));
         this.board.render(state);
         const turn = this.get('turn-label'), winner = this.get('winner-label');
         const side = state.winner || state.turn;
@@ -94,13 +95,13 @@ export class MobileApp {
         const label = state.winner ? text[`${side}Win`] : `${text[side]} ${text.turn}${state.checkedKing ? ', ' + text.check : ''}`;
         if (turn.getAttribute('aria-label') !== label) turn.setAttribute('aria-label', label);
         winner.hidden = !state.winner; winner.textContent = state.winner ? text[`${side}Win`] : '';
-        this.get('position-label').textContent = state.ui.preview ? (state.ui.preview.cursor === 0 ? text.suggestionSelected : text.preview)
+        this.get('position-label').textContent = state.ui.pending ? text.suggestionSelected : state.ui.preview ? text.preview
             : state.game.currentMoveIndex < 0 ? text.initial : `${text.move} ${state.game.currentMoveIndex + 1}/${state.game.moveHistory.length}`;
         this.get('expand-label').textContent = state.ui.expanded ? text.collapse : text.expand;
         this.get('expand').title = state.ui.expanded ? text.collapse : text.expand;
         this.get('expand').setAttribute('aria-expanded', String(state.ui.expanded));
         this.get('expand-icon').textContent = state.ui.expanded ? '\u2199' : '\u2197';
-        const preview = state.ui.preview;
+        const preview = state.ui.preview || (state.ui.pending ? { cursor: 0, length: state.ui.pending.length } : null);
         this.element.querySelector('.board-actions').dataset.mode = preview ? 'preview' : 'game';
         this.element.querySelector('.board-actions').setAttribute('aria-label', preview ? text.previewNavigation : text.controlsRegion);
         this.get('undo').disabled = preview ? preview.cursor === 0 : state.game.currentMoveIndex < 0;
@@ -144,7 +145,7 @@ export class MobileApp {
             // Visible rows stay one line; accessibility retains the action and UCI.
             button.setAttribute('aria-label', `${text.previewAction}: ${move.notation}, ${move.uci}`);
             const small = document.createElement('small'); small.textContent = move.uci;
-            button.append(small); button.onclick = () => this.store.preview(move.uci);
+            button.append(small); button.onclick = () => this.store.selectSuggestion(move.uci);
             fragment.append(button);
         }
         this.get('legal-moves').replaceChildren(fragment);

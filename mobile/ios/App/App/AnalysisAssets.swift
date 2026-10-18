@@ -27,13 +27,14 @@ final class AnalysisAssets {
         return url
     }
     func profile(_ name: String) throws -> [String: Int] {
-        guard ["eco", "balanced", "deep", "unlimited"].contains(name),
+        guard ["eco", "balanced", "deep", "unlimited", "deep_cool"].contains(name),
               let profiles = manifest["profiles"] as? [String: [String: Int]], let config = profiles[name],
               let threads = config["threads"], (1...2).contains(threads),
               let hash = config["hash"], (16...64).contains(hash),
               let depth = config["depth"], (0...32).contains(depth),
               let time = config["milliseconds"], (0...10000).contains(time),
-              (name == "unlimited" ? (depth == 0 && time == 0) : (depth > 0 && time > 0)) else { throw Self.invalid("Invalid engine profile") }
+              (name == "unlimited" ? (depth == 0 && time == 0) :
+                name == "deep_cool" ? (depth == 22 && time == 0 && threads == 1) : (depth > 0 && time > 0)) else { throw Self.invalid("Invalid engine profile") }
         return config
     }
 }

@@ -6,5 +6,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)cancel;
 - (void)releaseEngine;
 - (BOOL)searching;
+- (NSUInteger)configurationChanges;
+- (NSInteger)effectiveThreads;
 @end
 NS_ASSUME_NONNULL_END

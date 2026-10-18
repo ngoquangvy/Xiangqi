@@ -25,9 +25,9 @@ export class PreviewHelp {
         const visible = state.ui.helpOpen;
         this.card.hidden = !visible;
         this.button.setAttribute('aria-expanded', String(visible));
-        this.element.querySelector('#preview-guide-intro').textContent = !state.ui.preview ? text.guideSelect
+        this.element.querySelector('#preview-guide-intro').textContent = state.ui.pending ? text.guideSelected : !state.ui.preview ? text.guideSelect
             : state.ui.preview.cursor === 0 ? text.guideSelected : text.guideExploring;
-        this.element.querySelector('#redo').classList.toggle('guide-target', visible && Boolean(state.ui.preview));
+        this.element.querySelector('#redo').classList.toggle('guide-target', visible && Boolean(state.ui.preview || state.ui.pending));
     }
     destroy() { this.unsubscribe(); this.element.removeEventListener('keydown', this.escape); }
 }

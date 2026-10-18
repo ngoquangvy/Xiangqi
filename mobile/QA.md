@@ -373,3 +373,29 @@ No commit or push made.
   selected row five replays to ply 13 and returns to the root. Native save,
   process relaunch, continuous mode, New game and offline font checks pass.
   Reports are in the `ios-diagnostics-6` GitHub Actions artifact.
+
+## Cooler Analysis And Selection Ownership
+
+- Scores now follow the side to move, including cp/mate/bounds; native MultiPV
+  rank remains authoritative, best-first for red and blue regardless of flip.
+- Engine/book row selection stores a frozen pending line, not a simulation.
+  The board stays live and the same first board touch selects a piece. Only
+  Next starts scratch replay; an actual scratch board still exits on first touch.
+- Position changes immediately stop/invalidate old work, then wait 500 ms for
+  the latest position. Pause, background, thermal block and disposal cancel
+  pending timers. UI-only changes do not postpone the trailing-edge deadline.
+- Added optional deep_cool: 1 thread, 64 MB, D22, no time cutoff, still 5 PVs.
+  Existing presets/default are unchanged. This trades response time for a lower
+  parallel CPU load, not a guarantee of lower total energy or equal evaluations.
+- Native option caching avoids repeated EvalFile/Threads/Hash/MultiPV writes.
+  Worker callbacks now capture session-owned output buffers, not prior-search
+  stack locals, because workers are reused instead of recreated each search.
+- iOS observes public ProcessInfo thermal notifications. Fair limits to one
+  thread; serious/critical blocks native search. Ten stable nominal seconds
+  are required to remove limits/resume. User pause/background/preview still win.
+  Thermal tests inject states only into Debug; the Release binary is checked
+  for absence of the test hook. Physical temperature/battery remain unmeasured.
+- Unit and browser suites pass, including a real DOM one-touch piece selection,
+  13-ply replay, font/audio checks, both languages and small-screen layouts.
+  CI additionally runs standalone C++ cache and Swift thermal-policy assertions
+  before the native Simulator integration and Release packaging checks.

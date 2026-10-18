@@ -41,7 +41,8 @@ test('Native iOS compiler shares the five-PV bound and the smoke body is valid a
     assert.doesNotThrow(() => new AsyncFunction('restore', read('./ios-smoke-body.js')));
     const native = read('../native/PikafishSession.cpp');
     assert.ok(native.includes('engine->wait_for_search_finished()'));
-    assert.ok(native.includes('generation.load() == ticket'));
+    assert.ok(read('../native/PikafishSession.h').includes('generation.load() == requestTicket'));
+    assert.ok(native.includes('set_on_update_full([this]'));
 });
 
 test('IPA workflow is unsigned, validates iPhone platform and requires simulator success before packaging', () => {

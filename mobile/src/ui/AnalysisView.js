@@ -18,7 +18,7 @@ export class AnalysisView {
         this.get('engine-settings').hidden = !available;
         if (!available) return;
         this.get('engine-empty').hidden = true;
-        const statuses = { searching: text.engineSearching, starting: text.engineStarting, complete: text.engineComplete,
+        const statuses = { waiting: text.engineWaiting, thermal: text.engineThermal, searching: text.engineSearching, starting: text.engineStarting, complete: text.engineComplete,
             paused: text.enginePaused, background: text.engineBackground, preview: text.preview, terminal: text.engineTerminal, error: text.engineError };
         const statusText = statuses[state.status] || text.engine;
         // Streaming PVs must not repeatedly announce an unchanged live status.
@@ -40,11 +40,12 @@ export class AnalysisView {
         shape.setAttribute('d', resume ? 'M5 2 17 10 5 18Z' : 'M4 3H8V17H4ZM12 3H16V17H12Z');
         label.textContent = caption;
         pause.setAttribute('aria-label', state.status === 'error' ? text.engineRetry : resume ? text.engineResume : text.enginePause);
-        pause.disabled = ['starting', 'background', 'preview'].includes(state.status);
+        pause.disabled = ['starting', 'background', 'preview', 'thermal'].includes(state.status);
         pause.setAttribute('aria-pressed', String(state.status === 'paused'));
         this.get('engine-profile-label').textContent = text.engineProfile;
         this.get('engine-profile').value = game.ui.analysis.profile;
         this.get('engine-unlimited-hint').hidden = game.ui.analysis.profile !== 'unlimited';
+        this.get('engine-cool-hint').hidden = game.ui.analysis.profile !== 'deep_cool';
         if (this.language !== game.ui.language) {
             this.language = game.ui.language;
             for (const option of this.get('engine-profile').options) {
@@ -95,7 +96,7 @@ export class AnalysisView {
                 button.onclick = event => {
                     const chosen = event.detail ? button.pressedSuggestion || button.suggestion : button.suggestion;
                     button.pressedSuggestion = null;
-                    if (this.store.snapshot().game.fen === chosen.fen) this.store.preview(chosen.move, chosen.pv, chosen);
+                    if (this.store.snapshot().game.fen === chosen.fen) this.store.selectSuggestion(chosen.move, chosen.pv, chosen);
                 };
             }
             const [title, score, pv] = button.children;
@@ -106,7 +107,7 @@ export class AnalysisView {
             const bound = row.bound === 'lowerbound' ? '\u2265' : row.bound === 'upperbound' ? '\u2264' : '';
             score.textContent = row.source === 'book' ? row.note : `${bound}${row.kind === 'mate' ? '#' + row.value : (row.value >= 0 ? '+' : '') + (row.value / 100).toFixed(2)} \u00b7 D${row.depth}`;
             if (row.source === 'book') score.title = row.note;
-            if (row.source === 'engine') score.title = text.scoreRed;
+            if (row.source === 'engine') score.title = text.scoreSide;
             // Opening labels and continuation are independent fields, not fallbacks.
             pv.textContent = row.notation.slice(1).join(' ') || row.move;
             pv.title = row.notation.join(' ');

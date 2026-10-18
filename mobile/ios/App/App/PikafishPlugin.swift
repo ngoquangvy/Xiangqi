@@ -5,15 +5,35 @@ import UIKit
 public class PikafishPlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "PikafishPlugin"
     public let jsName = "Pikafish"
-    public let pluginMethods: [CAPPluginMethod] = ["analyze", "stop", "lookupBook", "status"].map { CAPPluginMethod(name: $0, returnType: CAPPluginReturnPromise)! }
+    public let pluginMethods: [CAPPluginMethod] = {
+        var names = ["analyze", "stop", "lookupBook", "status"]
+        #if DEBUG
+        names.append("debugThermal")
+        #endif
+        return names.map { CAPPluginMethod(name: $0, returnType: CAPPluginReturnPromise)! }
+    }()
     private let control = DispatchQueue(label: "xiangqi.engine", qos: .userInitiated)
     private let bookQueue = DispatchQueue(label: "xiangqi.book", qos: .utility)
     private let engine = XQPikafish()
     private let book = BundledBook()
     private let gate = AnalysisGate()
+    private let thermal = ThermalMonitor()
+    private var previousThermal = ""
     private var observers = [NSObjectProtocol]()
 
     public override func load() {
+        thermal.onChange = { [weak self] state in
+            guard let self else { return }
+            let key = "\(state["blocked"]!)|\(state["limited"]!)"
+            if key != self.previousThermal {
+                self.previousThermal = key
+                // Native enforcement is immediate even if JS is busy/debouncing.
+                self.gate.invalidate(thermal: state["blocked"] as? Bool ?? true)
+                self.engine.cancel()
+            }
+            self.notifyListeners("thermal", data: state)
+        }
+        thermal.start()
         engine.output = { [weak self] id, line in
             DispatchQueue.main.async {
                 guard let self, self.gate.accepts(id) else { return }
@@ -40,7 +60,7 @@ public class PikafishPlugin: CAPPlugin, CAPBridgedPlugin {
               matches(fen, "^[rnbakcpheRNBAKCPHE1-9/]+ [wb] - - [0-9]+ [0-9]+$"),
               let moves = call.getString("moves"), moves.count <= 50000,
               matches(moves, "^(?:[a-i][0-9][a-i][0-9](?: [a-i][0-9][a-i][0-9])*)?$"),
-              let profile = call.getString("profile"), ["eco", "balanced", "deep", "unlimited"].contains(profile) else {
+              let profile = call.getString("profile"), ["eco", "balanced", "deep", "unlimited", "deep_cool"].contains(profile) else {
             call.reject("Invalid analysis request"); return
         }
         let ticket = gate.begin(id); engine.cancel()
@@ -49,7 +69,8 @@ public class PikafishPlugin: CAPPlugin, CAPBridgedPlugin {
             do {
                 let assets = try AnalysisAssets()
                 let network = try assets.checkedFile("pikafish.nnue", hashKey: "nnueSha256")
-                let config = try assets.profile(profile)
+                var config = try assets.profile(profile)
+                if self.thermal.snapshot()["limited"] as? Bool == true { config["threads"] = 1 }
                 guard self.gate.current(ticket) else { call.resolve(); return }
                 var request: [String: Any] = config
                 request.merge(["id": id, "initialFen": fen, "moves": moves, "network": network.path]) { _, new in new }
@@ -70,6 +91,15 @@ public class PikafishPlugin: CAPPlugin, CAPBridgedPlugin {
     }
     @objc func status(_ call: CAPPluginCall) {
         let (foreground, request) = gate.state()
-        call.resolve(["alive": true, "searching": engine.searching(), "id": request as Any? ?? NSNull(), "foreground": foreground])
+        call.resolve(["alive": true, "searching": engine.searching(), "id": request as Any? ?? NSNull(), "foreground": foreground,
+            "configurationChanges": engine.configurationChanges(), "threads": engine.effectiveThreads(), "thermal": thermal.snapshot()])
     }
+    #if DEBUG
+    @objc func debugThermal(_ call: CAPPluginCall) {
+        guard let state = call.getString("state"), ["system", "nominal", "fair", "serious", "critical"].contains(state) else {
+            call.reject("Invalid thermal test state"); return
+        }
+        thermal.simulate(state); call.resolve(thermal.snapshot())
+    }
+    #endif
 }
