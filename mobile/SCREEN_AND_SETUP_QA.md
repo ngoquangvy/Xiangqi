@@ -34,7 +34,8 @@
 - `npm run test:android:compact --prefix mobile`: passed for native Back, flip, disclosure panels, compact legal moves and unchanged saved game.
 - `npm run test:android:variations --prefix mobile`: all five native presets returned five independent lines; replay through ply 13 verified for Eco/Balanced/Deep/Maximum. Maximum also verified beyond 11 seconds, Settings stop/resume and OS background/foreground. One-thread Deep was checked for five available lines, without assuming a hardware-dependent depth.
 - Handwritten source guard: 260 lines / 18 KiB per module. Frontend about 105 KiB / 160 KiB; existing media 248.1 KiB / 256 KiB.
-- iOS simulator regression is extended with Home/Settings gates, setup cancel/apply and actual custom-position analysis. Its result must be confirmed in the GitHub build; a Windows/Android pass is not an iPhone test.
+- iOS build 9 passed on GitHub: https://github.com/ngoquangvy/Xiangqi/actions/runs/39090463694 (app/test commit `d276cb3`). Initial and process-relaunch reports both have `pass: true`; Home/Settings engine gates, position setup, native custom-position analysis, five PVs, 17 root book rows, thermal simulation, cache preservation, font and saved-game restore passed.
+- The first iOS setup regression exposed a test-baseline race: a queued Deep-to-Balanced preference write could complete after the baseline read, even though no draft was saved. The simulator test now waits for that preference to reach native storage before comparing the baseline; a controlled delayed-write experiment reproduced this case with exactly one preference write and unchanged saved game data.
 
 ## Limits
 
