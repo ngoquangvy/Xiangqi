@@ -13,7 +13,7 @@ exports.checkNewGame = async function ({ evaluate, click, resize }) {
             chips: Array.from(document.querySelectorAll('.chip'), chip => chip.textContent),
             save: localStorage.getItem('xiangqi.mobile.session.v1') };
     })()`);
-    for (const tab of ['analysis', 'history', 'settings']) {
+    for (const tab of ['analysis', 'history']) {
         await click(`#tab-${tab}`);
         const state = await inspect();
         assert.equal(state.count, 1);

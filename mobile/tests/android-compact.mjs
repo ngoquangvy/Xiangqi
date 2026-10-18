@@ -8,6 +8,7 @@ const connection = await connect();
 try {
     const { evaluate, wait, touch } = connection;
     await wait('document.querySelectorAll(".square").length===90');
+    await connection.enterAnalysis();
     const saved = async () => JSON.parse((await evaluate("Capacitor.nativePromise('LocalSession','get',{})")).value);
     const original = await saved();
     assert.ok(original, 'An existing saved game is required for this preserving test.');

@@ -19,9 +19,13 @@ const touch = async selector => {
     await device.touch(selector);
 };
 const engineReady = () => device.wait('document.querySelectorAll("#engine-results [data-source=engine]").length > 0');
-const toggleEngine = async () => { await click('#tab-settings'); await touch('#engine-pause'); await click('#tab-analysis'); };
+const toggleEngine = async () => {
+    const inactive = await device.evaluate('document.querySelector("#mobile-app").dataset.screen === "settings"');
+    await touch(inactive ? '#settings-back' : '#workspace-settings');
+};
 const rootFen = new LocalGame().snapshot().fen;
 try {
+    await device.enterAnalysis();
     await engineReady();
     await device.wait('document.querySelectorAll("#book-results [data-source=book]").length > 0');
     const initial = await nativeStatus(); assert.equal(initial.alive, true);
@@ -36,11 +40,11 @@ try {
     assert.equal(await device.evaluate(`Capacitor.nativePromise('Pikafish','analyze',{id:'bad',initialFen:${JSON.stringify(rootFen + '\nquit')},profile:'balanced'}).then(()=>false,()=>true)`), true);
     assert.equal(await device.evaluate(`Capacitor.nativePromise('Pikafish','analyze',{id:'bad',initialFen:${JSON.stringify(rootFen)},profile:'../../other'}).then(()=>false,()=>true)`), true);
 
-    await click('#tab-settings');
+    await click('#workspace-settings');
     await device.evaluate("document.querySelector('#engine-profile').value='deep';document.querySelector('#engine-profile').dispatchEvent(new Event('change'))");
-    await click('#tab-analysis');
+    await click('#settings-back');
     await toggleEngine();
-    await device.wait('document.querySelector("#engine-status").dataset.state === "paused"');
+    await device.wait('document.querySelector("#engine-status").dataset.state === "inactive"');
     await pause(300); assert.equal((await nativeStatus()).searching, false);
     await toggleEngine(); await engineReady();
     await touch('#book-results button');
@@ -63,35 +67,35 @@ try {
     assert.match(pid, /^\d+$/);
     adb('shell', 'run-as', packageId, 'kill', '-9', pid);
     await device.wait('document.querySelector("#engine-status").dataset.state === "error"');
-    await toggleEngine(); await engineReady();
+    await toggleEngine(); await toggleEngine(); await engineReady();
 
-    // Background releases native memory. A user pause survives foreground return.
-    if (await device.evaluate('document.querySelector("#engine-status").dataset.state') === 'complete') { await toggleEngine(); }
+    // Background releases native memory. Settings stays inactive on return.
     await toggleEngine();
-    await device.wait('document.querySelector("#engine-status").dataset.state === "paused"');
+    await device.wait('document.querySelector("#engine-status").dataset.state === "inactive"');
     adb('shell', 'input', 'keyevent', 'KEYCODE_HOME'); await pause(700);
     assert.equal((await nativeStatus()).alive, false);
     adb('shell', 'am', 'start', '-n', `${packageId}/.MainActivity`);
-    await device.wait('document.querySelector("#engine-status").dataset.state === "paused"');
+    await device.wait('document.querySelector("#engine-status").dataset.state === "inactive"');
     assert.equal((await nativeStatus()).alive, false);
     await toggleEngine(); await engineReady();
     // Book toggles persist, but must not restart an unrelated engine request.
+    await click('#workspace-settings');
     const beforeBook = await device.evaluate('document.querySelector("#engine-analysis").dataset.request');
-    await click('#tab-settings'); await click('#book-toggle');
+    await click('#book-toggle');
     assert.equal(await device.evaluate('document.querySelector("#engine-analysis").dataset.request'), beforeBook);
     await device.wait('document.querySelector("#save-status").textContent !== ""');
     await pause(300);
     device.close();
     adb('shell', 'am', 'force-stop', packageId);
     adb('shell', 'am', 'start', '-n', `${packageId}/.MainActivity`); await pause(700);
-    device = await connect(); await engineReady();
+    device = await connect(); await device.enterAnalysis(); await engineReady();
     assert.equal(await device.evaluate('document.querySelector("#engine-profile").value'), 'deep');
     assert.equal(await device.evaluate('document.querySelector("#book-toggle").getAttribute("aria-pressed")'), 'false');
     assert.equal(await device.evaluate('document.querySelectorAll(".history-move").length'), 1);
     // Leave a fresh, balanced game open for manual testing.
-    await click('#tab-settings'); await click('#book-toggle');
+    await click('#workspace-settings'); await click('#book-toggle');
     await device.evaluate("document.querySelector('#engine-profile').value='balanced';document.querySelector('#engine-profile').dispatchEvent(new Event('change'))");
-    await click('#new-game'); await click('#confirm-accept'); await click('#tab-analysis'); await engineReady();
+    await click('#settings-back'); await click('#new-game'); await click('#confirm-accept'); await click('#tab-analysis'); await engineReady();
     let layouts = 0;
     for (const language of ['vi', 'en']) {
         if (await device.evaluate('document.documentElement.lang') !== language) await click('#language');

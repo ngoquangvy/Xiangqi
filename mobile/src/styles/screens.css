@@ -1,0 +1,48 @@
+/* Keep workspace layout intact. Hidden screens have no hit targets or focus. */
+.app[data-screen='home'] > :not(#screen-home):not(dialog):not(.toast),
+.app[data-screen='settings'] > :not(#panel-settings):not(dialog):not(.toast) { display: none; }
+.screen {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    background: var(--paper); overflow: hidden;
+    padding: var(--safe-area-inset-top, env(safe-area-inset-top, 0px)) var(--safe-area-inset-right, env(safe-area-inset-right, 0px)) var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
+}
+.screen-header { display: flex; align-items: center; gap: 12px; padding: 12px 18px; }
+.screen-header button { width: 44px; font-size: 24px; background: var(--soft-green); }
+.home-screen .screen-header { justify-content: space-between; }
+.home-content { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 24px; gap: 24px; background: radial-gradient(ellipse at 50% 35%, #eddec5 0, transparent 65%); }
+.home-content h2 { text-align: center; font: 26px Georgia, serif; }
+.home-emblem { position: relative; border: 3px double #a96f37; border-radius: 50%; width: 90px; height: 90px; display: grid; place-items: center; align-self: center; color: var(--red); background: #edd5ad; font-size: 58px; box-shadow: 0 6px 20px #704a1e20; }
+.mode-card { display: flex; align-items: center; gap: 16px; padding: 22px; background: var(--green); color: white; font-size: 20px; border-radius: 16px; }
+.mode-card span:last-child { margin-left: auto; font-size: 30px; }
+.settings-content { padding: 8px 18px 24px; overflow: auto; overscroll-behavior: contain; }
+.preference-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.preference-row .sound-toggle { display: flex; align-items: center; gap: 8px; background: var(--soft-green); }
+.sound-toggle svg { width: 24px; height: 24px; }
+.settings-content .engine-settings { margin: 20px 0; }
+.topbar > button, .header-actions button { min-width: 44px; font-size: 22px; background: var(--soft-green); }
+.topbar h1 { flex: 1; font-size: 22px; }
+.position-editor { overflow-y: auto; overscroll-behavior: contain; min-height: 0; padding: 6px 12px; border-top: 1px solid var(--line); }
+.setup-toolbar, .setup-tools, .setup-actions { display: flex; gap: 5px; align-items: center; }
+.setup-toolbar label { margin-left: auto; font-size: 12px; }
+.setup-toolbar select { min-height: 44px; font: inherit; max-width: 92px; }
+.setup-palette { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; margin: 6px 0; }
+.setup-piece { position: relative; font-size: 28px; min-width: 0; padding: 4px 0; background: #ecd8b7; }
+.setup-piece[data-side='red'] { color: var(--red); }
+.setup-piece[data-side='black'] { color: #245557; }
+.setup-tools button { flex: 1; font-size: 12px; padding: 4px; }
+.position-editor [aria-pressed='true'] { border-color: var(--green); box-shadow: inset 0 0 0 2px var(--green); background: var(--soft-green); }
+.setup-actions { position: sticky; bottom: -6px; background: var(--paper); padding: 6px 0; }
+.setup-actions button { flex: 1; }
+#setup-validation { margin: 6px 0 0; color: var(--red); }
+#setup-validation[data-valid='true'] { color: var(--green); }
+.app.setting-up .inspector, .app.setting-up .board-actions { display: none; }
+.app.setting-up { grid-template-rows: auto auto minmax(0, auto) minmax(0, 1fr) auto; }
+.app.setting-up .board { width: min(calc(100vw - 24px), 400px, calc((var(--usable-height) - 300px) * .9)); }
+@media (min-width: 700px) and (orientation: landscape) {
+    .app.setting-up { grid-template-rows: auto auto minmax(0, 1fr) auto auto; }
+    .position-editor { grid-column: 2; grid-row: 2 / 5; border-left: 1px solid var(--line); }
+    .app.setting-up .board { width: min(100%, calc((var(--usable-height) - 118px) * .9)); }
+    .app.setting-up .footer { grid-row: 5; }
+    .home-content { max-width: 540px; width: 100%; align-self: center; gap: 12px; padding: 10px 24px; }
+    .home-emblem { width: 64px; height: 64px; font-size: 40px; }
+}

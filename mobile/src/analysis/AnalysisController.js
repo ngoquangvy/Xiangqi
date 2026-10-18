@@ -9,6 +9,7 @@ export class AnalysisController {
     #bookSequence = 0;
     #paused = false;
     #foreground = true;
+    #enabled = true;
     #destroyed = false;
     #ready = false;
     #engineKey;
@@ -19,8 +20,9 @@ export class AnalysisController {
     #removeTransport;
     #thermal = { state: 'nominal', limited: false, blocked: false, revision: -1 };
     #state = { status: 'unavailable', id: null, fen: null, rows: [], book: [], bookStatus: 'off' };
-    constructor(store, transport, { delayMs = 500, clock = globalThis } = {}) {
+    constructor(store, transport, { delayMs = 500, clock = globalThis, enabled = true } = {}) {
         this.store = store; this.transport = transport;
+        this.#enabled = enabled;
         this.scheduler = new SearchScheduler(delayMs, clock);
         this.#state.status = transport.available ? 'starting' : 'unavailable';
         this.unsubscribe = store.subscribe(state => {
@@ -44,7 +46,8 @@ export class AnalysisController {
         const state = this.#snapshot, position = this.#position;
         const profile = state.ui.analysis.profile;
         const positionKey = `${position.initialFen}|${position.moves}`;
-        const blocked = !this.#foreground ? 'background' : state.ui.preview ? 'preview' : this.#paused ? 'paused' : this.#thermal.blocked ? 'thermal' : null;
+        const blocked = !this.#enabled ? 'inactive' : !this.#foreground ? 'background' : state.ui.setup ? 'setup'
+            : state.ui.preview ? 'preview' : this.#paused ? 'paused' : this.#thermal.blocked ? 'thermal' : null;
         const engineKey = `${positionKey}|${profile}|${blocked}|${this.#thermal.limited}`;
         if (engineKey !== this.#engineKey) {
             const initial = this.#engineKey === undefined;
@@ -67,12 +70,13 @@ export class AnalysisController {
                 Promise.resolve(this.transport.analyze({ id, ...position, profile })).catch(() => this.#fail(id));
             }, initial);
         }
-        const bookKey = `${positionKey}|${state.ui.analysis.bookEnabled}`;
+        const bookEnabled = this.#enabled && !state.ui.setup && state.ui.analysis.bookEnabled;
+        const bookKey = `${positionKey}|${bookEnabled}`;
         if (bookKey !== this.#bookKey) {
             this.#bookKey = bookKey;
             const version = ++this.#bookSequence;
             this.#state.book = [];
-            this.#state.bookStatus = !state.ui.analysis.bookEnabled ? 'off' : 'loading';
+            this.#state.bookStatus = !bookEnabled ? 'off' : 'loading';
             this.#notify();
             if (this.#state.bookStatus === 'loading') Promise.resolve(this.transport.lookupBook(position.fen)).then(rows => {
                 if (this.#destroyed || version !== this.#bookSequence) return;
@@ -114,6 +118,13 @@ export class AnalysisController {
         this.#refresh();
     }
     setForeground(active) { this.#foreground = Boolean(active); this.#refresh(); }
+    setEnabled(active) {
+        this.#enabled = Boolean(active);
+        if (active && !this.#ready && this.transport.available && this.#state.status === 'error') {
+            this.#state.status = 'starting'; this.#notify(); this.started = this.#start(); return;
+        }
+        this.#refresh();
+    }
     setThermal(value) {
         if (this.#destroyed || !value || value.revision < this.#thermal.revision) return;
         const previous = this.#thermal;

@@ -19,6 +19,7 @@ const seed = async fen => {
     await evaluate(`Capacitor.nativePromise('LocalSession','set',{value:${JSON.stringify(JSON.stringify(data))}})`);
     await device.call('Page.reload');
     await wait('document.querySelectorAll(".square").length===90');
+    await device.enterAnalysis();
 };
 const move = async (from, to) => { await touch(`.square[data-square=${from}]`); await touch(`.square[data-square=${to}]`); };
 try {
@@ -31,14 +32,13 @@ try {
     await touch('#undo'); assert.equal(await evaluate('document.querySelector("#winner-label").hidden'), true);
     await touch('#redo'); assert.equal(await evaluate('document.querySelector("#winner-label").hidden'), false);
     await wait('document.querySelector("#engine-status").dataset.state==="terminal"');
-    await touch('#tab-settings');
-    assert.equal(await evaluate('document.querySelector("#engine-pause").disabled'), false);
+    await touch('#workspace-settings');
     const request = await evaluate('document.querySelector("#engine-analysis").dataset.request');
-    await touch('#engine-pause');
+    await touch('#settings-back');
     assert.notEqual(await evaluate('document.querySelector("#engine-analysis").dataset.request'), request);
     await touch('#tab-analysis');
     await writeFile('artifacts/android-red-win.png', adb('exec-out', 'screencap', '-p'));
-    await touch('#tab-settings'); await touch('#new-game'); await touch('#confirm-accept'); await touch('#tab-analysis');
+    await touch('#new-game'); await touch('#confirm-accept'); await touch('#tab-analysis');
     assert.equal(await evaluate('document.querySelectorAll(".square.checked,.square.last,.square.suggestion").length'), 0);
     await wait('document.querySelectorAll("#engine-results button").length>0');
     const boardWidth = await evaluate('document.querySelector("#board").getBoundingClientRect().width');

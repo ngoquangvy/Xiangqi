@@ -17,6 +17,9 @@ try {
     await document.fonts.ready;
     check(document.fonts.check('24px "Xiangqi Symbols"'), 'Missing offline chess font');
     check(!document.body.textContent.includes('\ufffd'), 'Encoding corruption');
+    check(query('#mobile-app').dataset.screen === 'home', 'Launch must show Home');
+    check(!(await native('Pikafish', 'status')).searching, 'Engine ran on Home');
+    click('#open-analysis');
     if (restore) {
         const saved = JSON.parse(await read());
         check(saved.previewHelpSeen === true && saved.language === 'en', 'Preferences did not survive relaunch');
@@ -56,7 +59,7 @@ try {
     click('#preview-help'); check(!query('#preview-guide').hidden, 'Help cannot reopen'); click('#preview-guide-done');
     // Real move, undo/redo, reload persistence and sound preference all use the
     // production UI and native plugins, not a second game implementation.
-    click('#sound-toggle');
+    click('#workspace-settings'); click('#sound-toggle'); click('#settings-back');
     click('.square[data-square=h2]'); click('.square[data-square=e2]');
     check(chip('h2') === '' && chip('e2') !== '', 'Real move failed');
     click('#undo'); check(chip('h2') !== '', 'Undo failed');
@@ -82,21 +85,24 @@ try {
     }, 'New game was not saved natively');
     await wait(() => document.querySelectorAll('#book-results button').length === 17, 'New game did not restore root book');
     await wait(() => document.querySelectorAll('#engine-results button').length === 5 && query('#engine-status').dataset.state === 'complete', 'New game did not restart root analysis');
-    click('#tab-settings');
+    click('#workspace-settings');
     query('#engine-profile').value = 'unlimited'; query('#engine-profile').dispatchEvent(new Event('change'));
     check(!query('#engine-unlimited-hint').hidden, 'Continuous mode warning missing');
+    await new Promise(resolve => setTimeout(resolve, 700));
+    check(!(await native('Pikafish', 'status')).searching, 'Settings/profile bypassed the inactive screen gate');
+    click('#settings-back');
     await wait(() => document.querySelectorAll('#engine-results button').length === 5, 'Continuous search has no five PVs');
     // Exceed the largest old 10-second budget; do not assert a hardware-dependent depth.
     await new Promise(resolve => setTimeout(resolve, 11000));
     check(query('#engine-status').dataset.state === 'searching' && (await native('Pikafish', 'status')).searching, 'Continuous search stopped at an old limit');
-    click('#engine-pause');
+    click('#workspace-settings');
     await wait(async () => !(await native('Pikafish', 'status')).searching, 'Continuous search did not stop');
-    check(query('#engine-status').dataset.state === 'paused', 'Pause state lost');
+    check(query('#engine-status').dataset.state === 'inactive', 'Inactive screen state lost');
     query('#engine-profile').value = 'deep_cool'; query('#engine-profile').dispatchEvent(new Event('change'));
     check(!query('#engine-cool-hint').hidden, 'One-thread Deep hint missing');
-    click('#engine-pause');
+    click('#settings-back');
     await wait(async () => (await native('Pikafish', 'status')).threads === 1 && document.querySelectorAll('#engine-results button').length === 5, 'One-thread Deep did not return five lines');
-    query('#engine-profile').value = 'deep'; query('#engine-profile').dispatchEvent(new Event('change'));
+    click('#workspace-settings'); query('#engine-profile').value = 'deep'; query('#engine-profile').dispatchEvent(new Event('change')); click('#settings-back');
     await wait(async () => (await native('Pikafish', 'status')).threads === 2 && document.querySelectorAll('#engine-results button').length === 5, 'Deep did not use two threads');
     await native('Pikafish', 'debugThermal', { state: 'fair' });
     await wait(async () => (await native('Pikafish', 'status')).threads === 1 && (await native('Pikafish', 'status')).searching, 'Fair heat did not limit threads');
@@ -109,14 +115,27 @@ try {
     check((await native('Pikafish', 'status')).thermal.blocked, 'Thermal cooldown did not hold');
     await wait(async () => !(await native('Pikafish', 'status')).thermal.blocked && (await native('Pikafish', 'status')).searching, 'Thermal recovery did not resume');
     await native('Pikafish', 'debugThermal', { state: 'system' });
-    click('#engine-pause');
+    click('#workspace-settings');
     await wait(async () => !(await native('Pikafish', 'status')).searching, 'Pause after thermal recovery failed');
     query('#engine-profile').value = 'balanced'; query('#engine-profile').dispatchEvent(new Event('change'));
-    check(query('#engine-status').dataset.state === 'paused', 'Profile change overrode pause');
-    click('#engine-pause'); click('#tab-analysis');
+    check(query('#engine-status').dataset.state === 'inactive', 'Profile change bypassed screen gate');
+    click('#settings-back');
+    const beforeSetup = await read();
+    click('#setup-position'); click('[data-setup-action=clear]');
+    check(document.querySelectorAll('.square.red,.square.black').length === 2, 'Clear must leave two generals');
+    check(query('#setup-apply').disabled, 'Facing generals accepted');
+    await wait(async () => !(await native('Pikafish', 'status')).searching, 'Setup did not stop native engine');
+    click('#setup-palette [data-type=p]'); click('.square[data-square=e4]');
+    check(!query('#setup-apply').disabled && await read() === beforeSetup, 'Draft leaked into saved game');
+    click('#setup-cancel'); check(await read() === beforeSetup, 'Cancel overwrote the game');
+    click('#setup-position'); click('[data-setup-action=clear]');
+    click('#setup-palette [data-type=p]'); click('.square[data-square=e4]'); click('#setup-apply'); click('#confirm-accept');
+    await wait(() => document.querySelectorAll('#engine-results button').length > 0, 'Custom starting position did not analyze');
+    check(query('#engine-analysis').dataset.fen.startsWith('4k4/9/9/9/9/4P4/9/9/9/4K4'), 'Engine did not receive custom position');
+    click('#new-game'); click('#confirm-accept');
     // Leave one real move for the independent process-relaunch persistence check.
     click('.square[data-square=h2]'); click('.square[data-square=e2]');
-    if (document.documentElement.lang !== 'en') click('#language');
+    if (document.documentElement.lang !== 'en') { click('#workspace-settings'); click('#language'); click('#settings-back'); }
     await wait(async () => { const value = await read(); return value && JSON.parse(value).language === 'en'; }, 'Native save did not finish');
     const saved = JSON.parse(await read());
     check(saved.previewHelpSeen === true && saved.soundEnabled === false, 'Preferences were not saved');
@@ -126,7 +145,7 @@ try {
     const box = query('#board').getBoundingClientRect();
     check(box.left >= 0 && box.right <= innerWidth + 1 && box.top >= 0 && box.bottom <= innerHeight, 'Board outside viewport');
     return { pass: true, engineRows: 5, enginePvLengths, replayed, blueScores: blueRows.map(row => row.value), cachePreserved: true, thermalSimulation: true, oneThreadDeep: true,
-        pendingBoardTouch: true, bookRows: 17, preview: true, coaching: true, newGame: true, unlimited: true, saved: true, font: true,
+        homeGate: true, settingsGate: true, positionSetup: true, pendingBoardTouch: true, bookRows: 17, preview: true, coaching: true, newGame: true, unlimited: true, saved: true, font: true,
         viewport: [innerWidth, innerHeight], userAgent: navigator.userAgent };
 } catch (error) {
     return { pass: false, error: String(error?.stack || error), status: query('#engine-status')?.textContent,

@@ -61,6 +61,11 @@ export async function connect() {
             adb('shell', 'input', 'tap', ...point.map(String));
             await pause(80);
         };
-        return { call, evaluate, wait, touch, close };
+        const enterAnalysis = async () => {
+            await wait('document.querySelectorAll(".square").length===90');
+            if (await evaluate('document.querySelector("#mobile-app").dataset.screen') === 'home') await touch('#open-analysis');
+        };
+        const changeLanguage = async () => { await touch('#workspace-settings'); await touch('#language'); await touch('#settings-back'); };
+        return { call, evaluate, wait, touch, close, enterAnalysis, changeLanguage };
     } catch (error) { close(); throw error; }
 }

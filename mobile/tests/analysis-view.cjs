@@ -25,10 +25,10 @@ async function checkAnalysisView(evaluate) {
     `);
     const result = await evaluate(`(()=>{
         const fixture=engineUIFixture, row=document.querySelector('#engine-results button'), book=document.querySelector('#book-results button');
-        const pause=document.querySelector('#engine-pause'), icon=pause.querySelector('svg'), option=document.querySelector('#engine-profile option');
+        const option=document.querySelector('#engine-profile option');
         row.focus();row.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true}));
         fixture.update({rows:[{source:'engine',rank:1,move:'b2e2',notation:['C8=5'],pv:['b2e2'],kind:'cp',value:40,depth:9}]});
-        const stable=row===document.querySelector('#engine-results button')&&book===document.querySelector('#book-results button')&&icon===pause.querySelector('svg')&&document.activeElement===row;
+        const stable=row===document.querySelector('#engine-results button')&&book===document.querySelector('#book-results button')&&option===document.querySelector('#engine-profile option')&&document.activeElement===row;
         row.dispatchEvent(new MouseEvent('click',{detail:1,bubbles:true}));
         fixture.update({rows:[{source:'engine',rank:1,move:'b2e2',notation:['C8=5'],pv:['b2e2'],kind:'cp',value:50,depth:10}]});
         const selectedFrozen=row.getAttribute('aria-pressed')==='true'&&row.dataset.suggestion==='h2e2'&&row.querySelector('small').textContent==='N8+7';

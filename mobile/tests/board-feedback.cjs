@@ -12,7 +12,7 @@ async function checkBoardFeedback({ evaluate, click, resize, capture, emulateMot
         window.feedback = {mount(fen) {
             this.ui?.destroy();
             const old=document.querySelector('#mobile-app'), shell=old.cloneNode(true);
-            shell.querySelector('.squares').replaceChildren();shell.querySelector('.board-grid').replaceChildren();old.replaceWith(shell);
+            shell.querySelector('.squares').replaceChildren();shell.querySelector('.board-grid').replaceChildren();shell.querySelector('#setup-palette').replaceChildren();old.replaceWith(shell);
             const local=new FeedbackFixture.LocalGame();
             if(fen){const game=new FeedbackFixture.Game();if(!game.importFen(fen)||!local.restore(game.exportGame()))throw Error('fixture FEN');}
             this.writes=0;
@@ -79,7 +79,7 @@ async function checkBoardFeedback({ evaluate, click, resize, capture, emulateMot
     await click('#redo'); await click('#language'); await click('#flip');
     assert.equal(await evaluate('document.querySelector("#winner-label").textContent'), 'Red wins');
     await capture('mobile-red-win.png');
-    await click('#tab-settings'); await click('#new-game'); await click('#confirm-accept');
+    await click('#new-game'); await click('#confirm-accept');
     assert.equal(await evaluate('document.querySelector("#winner-label").hidden'), true);
     assert.equal(await evaluate('document.querySelectorAll(".square.checked,.square.suggestion,.square.last").length'), 0);
     await evaluate('feedback.mount("5k3/9/9/9/9/9/9/3r5/3p1r3/4K4 b - - 0 1");feedback.store.preview("d2e2");feedback.store.stepPreview(1);feedback.store.applyPreview();true');

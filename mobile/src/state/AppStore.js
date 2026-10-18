@@ -3,6 +3,7 @@ import { moveSound } from '../../../src/presentation/GameSound.js';
 import { analysisSettings } from '../analysis/settings.js';
 import { positionStatus } from '../domain/positionStatus.js';
 import { PREVIEW_LINE_LIMIT } from '../domain/lineLimits.js';
+import { PositionDraft } from '../domain/PositionDraft.js';
 
 export class AppStore {
     #game;
@@ -12,6 +13,7 @@ export class AppStore {
     #saveRevision = 0;
     #preview = null;
     #pending = null;
+    #editor = null;
     #ui = { selected: null, suggestion: null, helpOpen: false, previewHelpSeen: false,
         expanded: false, flipped: false, tab: 'analysis', storageError: null, language: 'vi', soundEnabled: true, analysis: analysisSettings(), saving: false };
     constructor(storage, game = new LocalGame()) {
@@ -52,7 +54,7 @@ export class AppStore {
     }
     snapshot() {
         const game = this.#game.snapshot();
-        const ui = { ...structuredClone(this.#ui), preview: this.#preview?.snapshot() || null,
+        const ui = { ...structuredClone(this.#ui), setup: this.#editor?.snapshot() || null, preview: this.#preview?.snapshot() || null,
             pending: this.#pending ? { uci: this.#pending.uci, length: this.#pending.pv.length } : null };
         return { game, ui, board: ui.preview?.board || game.board,
             turn: ui.preview?.turn || game.currentTurn,
@@ -94,6 +96,7 @@ export class AppStore {
     }
     tap(x, y, confirmBranch = false) {
         if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || x > 8 || y < 0 || y > 9) return 'locked';
+        if (this.#editor) { this.#editor.tap(x, y); this.#notify(); return 'setup'; }
         // The first touch exits the scratch position only. Never interpret its
         // coordinates against the different live board or commit a suggestion.
         if (this.#preview) {
@@ -121,6 +124,7 @@ export class AppStore {
         return 'selected';
     }
     navigate(action, index) {
+        if (this.#editor) return false;
         if (!['undo', 'redo', 'goTo'].includes(action)) return false;
         const changed = this.#game[action](index);
         if (!changed) return false;
@@ -129,11 +133,12 @@ export class AppStore {
         return true;
     }
     toggleExpanded() {
+        if (this.#editor) return;
         this.#ui.expanded = !this.#ui.expanded;
         this.#notify();
     }
     setTab(tab) {
-        if (!['analysis', 'history', 'settings'].includes(tab)) return;
+        if (!['analysis', 'history'].includes(tab)) return;
         this.#ui.tab = tab;
         this.#ui.helpOpen = false;
         this.#notify();
@@ -147,12 +152,14 @@ export class AppStore {
         return true;
     }
     reset() {
+        this.#editor = null;
         this.#game.reset();
         this.#clearTransient();
         this.#ui.expanded = false;
         this.#notify(true);
     }
     preview(uci, pv = [uci], suggestion = null) {
+        if (this.#editor) return false;
         const preview = this.#game.preview(uci, pv);
         if (!preview) return false;
         this.#preview = preview;
@@ -165,6 +172,7 @@ export class AppStore {
     }
     cancelPreview() { this.#clearTransient(); this.#notify(); }
     selectSuggestion(uci, pv = [uci], suggestion = null) {
+        if (this.#editor) return false;
         if (!Array.isArray(pv) || pv[0] !== uci) return false;
         const first = this.#game.preview(uci, [uci]);
         if (!first) return false;
@@ -198,12 +206,27 @@ export class AppStore {
         return true;
     }
     saveNote(text) {
+        if (this.#editor) return false;
         const index = this.#game.snapshot().currentMoveIndex;
         if (typeof text !== 'string' || text.length > 2000 || !this.#game.note(index, text)) return false;
         this.#notify(true);
         return true;
     }
+    beginSetup() {
+        if (this.#editor) return;
+        this.#editor = new PositionDraft(this.#game.snapshot());
+        this.#clearTransient(); this.#ui.expanded = false; this.#notify();
+    }
+    editSetup(action, value) {
+        if (this.#editor?.edit(action, value)) this.#notify();
+    }
+    endSetup(apply = false) {
+        if (!this.#editor) return false;
+        if (apply && (this.#editor.validate() || !this.#game.importPosition(this.#editor.fen()))) return false;
+        this.#editor = null; this.#clearTransient(); this.#notify(apply); return true;
+    }
     back() {
+        if (this.#editor) { this.endSetup(); return true; }
         if (this.#ui.helpOpen) { this.togglePreviewHelp(); return true; }
         if (this.#preview || this.#pending) { this.cancelPreview(); return true; }
         if (this.#ui.expanded) { this.toggleExpanded(); return true; }

@@ -3,6 +3,7 @@ import { HistoryView } from './HistoryView.js';
 import { getText } from './strings.js';
 import { SoundControl } from './SoundControl.js';
 import { PreviewHelp } from './PreviewHelp.js';
+import { SetupView, setupBoardState } from './SetupView.js';
 
 export class MobileApp {
     constructor(element, store) {
@@ -41,6 +42,7 @@ export class MobileApp {
         this.get('confirm-dialog').addEventListener('cancel', () => { this.confirmAction = null; });
         this.unsubscribe = store.subscribe(state => this.render(state));
         this.help = new PreviewHelp(element, store);
+        this.setup = new SetupView(element, store, action => this.confirm('setup', action));
     }
     get(id) { return this.element.querySelector(`#${id}`); }
     tap(x, y) {
@@ -49,8 +51,9 @@ export class MobileApp {
     confirm(kind, action) {
         const text = this.copy;
         this.confirmAction = action;
-        this.get('confirm-title').textContent = kind === 'new' ? text.confirmNew : text.confirmBranch;
-        this.get('confirm-body').textContent = kind === 'new' ? text.confirmNewBody : text.confirmBranchBody;
+        const keys = kind === 'new' ? ['confirmNew', 'confirmNewBody'] : kind === 'setup' ? ['confirmSetup', 'confirmSetupBody'] : ['confirmBranch', 'confirmBranchBody'];
+        this.get('confirm-title').textContent = text[keys[0]];
+        this.get('confirm-body').textContent = text[keys[1]];
         this.get('confirm-dialog').showModal();
     }
     closeDialog() {
@@ -88,14 +91,15 @@ export class MobileApp {
         this.element.classList.toggle('expanded', state.ui.expanded);
         this.element.classList.toggle('previewing', Boolean(state.ui.preview));
         this.element.classList.toggle('suggestion-selected', Boolean(state.ui.pending));
-        this.board.render(state);
+        const displayed = setupBoardState(state);
+        this.board.render(displayed);
         const turn = this.get('turn-label'), winner = this.get('winner-label');
-        const side = state.winner || state.turn;
-        turn.dataset.side = side; turn.dataset.result = state.winner ? 'win' : 'turn';
-        const label = state.winner ? text[`${side}Win`] : `${text[side]} ${text.turn}${state.checkedKing ? ', ' + text.check : ''}`;
+        const side = displayed.winner || displayed.turn;
+        turn.dataset.side = side; turn.dataset.result = displayed.winner ? 'win' : 'turn';
+        const label = displayed.winner ? text[`${side}Win`] : `${text[side]} ${text.turn}${displayed.checkedKing ? ', ' + text.check : ''}`;
         if (turn.getAttribute('aria-label') !== label) turn.setAttribute('aria-label', label);
-        winner.hidden = !state.winner; winner.textContent = state.winner ? text[`${side}Win`] : '';
-        this.get('position-label').textContent = state.ui.pending ? text.suggestionSelected : state.ui.preview ? text.preview
+        winner.hidden = !displayed.winner; winner.textContent = displayed.winner ? text[`${side}Win`] : '';
+        this.get('position-label').textContent = state.ui.setup ? text.setupPosition : state.ui.pending ? text.suggestionSelected : state.ui.preview ? text.preview
             : state.game.currentMoveIndex < 0 ? text.initial : `${text.move} ${state.game.currentMoveIndex + 1}/${state.game.moveHistory.length}`;
         this.get('expand-label').textContent = state.ui.expanded ? text.collapse : text.expand;
         this.get('expand').title = state.ui.expanded ? text.collapse : text.expand;
@@ -150,5 +154,5 @@ export class MobileApp {
         }
         this.get('legal-moves').replaceChildren(fragment);
     }
-    destroy() { this.unsubscribe(); this.sound.destroy(); this.help.destroy(); clearTimeout(this.toastTimer); }
+    destroy() { this.unsubscribe(); this.sound.destroy(); this.help.destroy(); this.setup.destroy(); clearTimeout(this.toastTimer); }
 }

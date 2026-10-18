@@ -2,8 +2,6 @@
 .engine-toolbar > div { display: flex; gap: 7px; align-items: baseline; min-width: 0; }
 #engine-status { color: var(--muted); font-size: 11px; }
 #engine-status[data-state='error'] { color: var(--red); }
-#engine-pause { display: inline-flex; align-items: center; justify-content: center; gap: 5px; background: var(--soft-green); min-width: 90px; font-size: 12px; }
-#engine-pause svg { width: 14px; height: 14px; fill: currentColor; }
 .analysis-caption { color: var(--muted); font-size: 11px; font-weight: 600; margin: 4px 0 3px; }
 #book-status[data-state='error'] { color: var(--red); }
 .analysis-results { display: grid; gap: 3px; }

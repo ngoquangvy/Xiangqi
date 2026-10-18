@@ -106,7 +106,7 @@ async function checkCompactUI({ evaluate, click, resize, capture }) {
     await evaluate('document.querySelector("#mobile-app").scrollTop=200');
     assert.equal(await evaluate('document.querySelector("#mobile-app").scrollTop'), 0);
     assert.equal(await evaluate('document.querySelector(".topbar").getBoundingClientRect().top>=0'), true);
-    await click('#tab-settings'); await click('#new-game'); await click('#confirm-accept');
+    await click('#new-game'); await click('#confirm-accept');
     await click('#tab-analysis');
     return { layouts, visibleLegalMovesAt390: visibleAt390 };
 }

@@ -56,6 +56,7 @@ async function attach() {
         if (msg.error) item.reject(Error(msg.error.message)); else item.resolve(msg.result);
     };
     await waitFor('document.querySelectorAll(".square.red, .square.black").length === 32');
+    await evaluate('document.querySelector("#open-analysis").click()');
     return pid;
 }
 async function detach() {

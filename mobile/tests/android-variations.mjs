@@ -20,16 +20,17 @@ try {
             flipped: false, soundEnabled: false, previewHelpSeen: true, analysis: { profile, bookEnabled: false } });
         await evaluate(`Capacitor.nativePromise('LocalSession','set',{value:${JSON.stringify(seeded)}})`);
         await device.call('Page.reload');
+        await device.enterAnalysis();
         // Deep preset can spend ten seconds searching, plus startup overhead.
         await wait('document.querySelectorAll("#engine-results button").length===5');
         if (profile === 'unlimited') {
             await pause(11000);
             assert.equal(await evaluate('document.querySelector("#engine-status").dataset.state'), 'searching');
             assert.equal((await evaluate("Capacitor.nativePromise('Pikafish','status',{})")).searching, true);
-            await touch('#tab-settings'); await touch('#engine-pause');
+            await touch('#workspace-settings');
             await wait("Capacitor.nativePromise('Pikafish','status',{}).then(s=>!s.searching)");
-            assert.equal(await evaluate('document.querySelector("#engine-status").dataset.state'), 'paused');
-            await touch('#engine-pause'); await touch('#tab-analysis');
+            assert.equal(await evaluate('document.querySelector("#engine-status").dataset.state'), 'inactive');
+            await touch('#settings-back');
             await wait('document.querySelectorAll("#engine-results button").length===5');
             adb('shell', 'input', 'keyevent', 'KEYCODE_HOME'); await pause(700);
             assert.equal((await evaluate("Capacitor.nativePromise('Pikafish','status',{})")).alive, false);

@@ -15,6 +15,7 @@ try {
         language: 'vi', soundEnabled: false, previewHelpSeen: false, analysis: { profile: 'eco', bookEnabled: true } });
     await evaluate(`Capacitor.nativePromise('LocalSession','set',{value:${JSON.stringify(seeded)}})`);
     await device.call('Page.reload');
+    await device.enterAnalysis();
     await wait('document.querySelectorAll("#book-results button").length===17');
     const board = () => evaluate('[...document.querySelectorAll(".square")].map(n=>[n.dataset.square,n.querySelector(".chip").textContent])');
     const before = await board();
@@ -54,7 +55,7 @@ try {
     assert.deepEqual(JSON.parse(completed.game), JSON.parse(JSON.parse(seeded).game));
     await touch('#preview-help');
     assert.equal(await evaluate('document.querySelector("#preview-guide-intro").textContent.includes("ch\u01b0a")'), false);
-    await touch('#language');
+    await device.changeLanguage();
     assert.equal(await evaluate('document.querySelector("#preview-guide-title").textContent'), 'How to explore a suggestion');
     await touch('.square[data-square=e2]');
     assert.equal(await evaluate('document.querySelector("#preview-guide").hidden'), true);
@@ -62,6 +63,7 @@ try {
     assert.deepEqual(await board(), before);
     await touch('#preview-help'); await touch('#preview-guide-done');
     await device.call('Page.reload');
+    await device.enterAnalysis();
     await wait('document.querySelectorAll("#book-results button").length===17');
     await touch(selector);
     assert.equal(await evaluate('document.querySelector("#preview-guide").hidden'), true);

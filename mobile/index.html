@@ -10,13 +10,40 @@
   <script type="module" src="app.js"></script>
 </head>
 <body>
-  <main id="mobile-app" class="app">
+  <main id="mobile-app" class="app" data-screen="home">
+    <section id="screen-home" class="screen home-screen" aria-labelledby="home-title">
+      <header class="screen-header"><h1 id="home-title" data-text="title"></h1><button id="open-settings" type="button" data-label="settings">&#9881;</button></header>
+      <div class="home-content">
+        <div class="home-emblem chess-piece" aria-hidden="true">&#24101;</div>
+        <h2 data-text="welcomeTitle"></h2>
+        <button id="open-analysis" class="mode-card" type="button"><span aria-hidden="true">&#9678;</span><span data-text="analysis"></span><span aria-hidden="true">&#8250;</span></button>
+      </div>
+    </section>
+    <section id="panel-settings" class="screen settings-screen" aria-labelledby="settings-title" hidden>
+      <header class="screen-header"><button id="settings-back" type="button" data-label="back">&#8249;</button><h1 id="settings-title" data-text="settings"></h1></header>
+      <div class="settings-content">
+        <div class="preference-row"><span data-text="sound"></span><button id="sound-toggle" class="sound-toggle" type="button" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4 6 8H3v8h3l5 4Z"/><path class="sound-waves" d="M15 8q4 4 0 8m3-11q7 7 0 14"/><path class="sound-cross" d="m15 9 6 6m0-6-6 6"/></svg><span data-sound-label></span></button></div>
+        <div class="preference-row"><span data-text="language"></span><button id="language" class="language-button" type="button">EN / VI</button></div>
+        <div id="engine-settings" class="engine-settings" hidden>
+          <label for="engine-choice" data-text="engineChoice"></label>
+          <select id="engine-choice"><option value="pikafish">Pikafish 2026-01-02</option></select>
+          <div class="engine-toolbar"><span id="engine-status" role="status"></span></div>
+          <label id="engine-profile-label" for="engine-profile"></label>
+          <select id="engine-profile" aria-describedby="engine-unlimited-hint engine-cool-hint"><option value="eco"></option><option value="balanced"></option><option value="deep"></option><option value="unlimited"></option><option value="deep_cool"></option></select>
+          <p id="engine-unlimited-hint" class="hint" data-text="unlimitedHint" hidden></p>
+          <p id="engine-cool-hint" class="hint" data-text="coolHint" hidden></p>
+          <button id="book-toggle" type="button" aria-pressed="true"></button>
+        </div>
+        <p class="hint" data-text="storageHelp"></p>
+      </div>
+    </section>
     <header class="topbar">
-      <h1 data-text="title"></h1>
+      <button id="workspace-home" type="button" data-label="back">&#8249;</button>
+      <h1 data-text="analysis"></h1>
       <div class="header-actions">
         <button id="flip" type="button" data-label="flip"><span class="control-symbol" aria-hidden="true">⇅</span></button>
-        <button id="sound-toggle" class="sound-toggle" type="button" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4 6 8H3v8h3l5 4Z"/><path class="sound-waves" d="M15 8q4 4 0 8m3-11q7 7 0 14"/><path class="sound-cross" d="m15 9 6 6m0-6-6 6"/></svg><span class="visually-hidden" data-sound-label></span></button>
-        <button id="language" class="language-button" type="button">EN / VI</button>
+        <button id="setup-position" type="button" data-label="setupPosition">&#9638;</button>
+        <button id="workspace-settings" type="button" data-label="settings">&#9881;</button>
       </div>
     </header>
     <div class="statusbar"><span id="turn-label" class="turn-indicator" role="status"><span id="turn-dot" aria-hidden="true"></span><span id="winner-label" hidden></span></span><span id="position-label"></span></div>
@@ -38,10 +65,9 @@
         <nav class="tabs" role="tablist" data-label="tabsRegion">
           <button id="tab-analysis" role="tab" aria-controls="panel-analysis" aria-selected="true" data-tab="analysis" data-text="analysis"></button>
           <button id="tab-history" role="tab" aria-controls="panel-history" aria-selected="false" data-tab="history" data-text="history"></button>
-          <button id="tab-settings" role="tab" aria-controls="panel-settings" aria-selected="false" data-tab="settings" data-text="settings"></button>
         </nav>
         <button id="preview-help" class="help-button" type="button" data-label="previewHelp" aria-controls="preview-guide" aria-expanded="false">?</button>
-        <button id="expand" class="expand-button" aria-expanded="false" aria-controls="panel-analysis panel-history panel-settings"><span id="expand-icon" aria-hidden="true">↗</span><span id="expand-label" class="visually-hidden"></span></button>
+        <button id="expand" class="expand-button" aria-expanded="false" aria-controls="panel-analysis panel-history"><span id="expand-icon" aria-hidden="true">↗</span><span id="expand-label" class="visually-hidden"></span></button>
       </div>
       <aside id="preview-guide" class="preview-guide" role="region" aria-labelledby="preview-guide-title" hidden>
         <h2 id="preview-guide-title" data-text="previewHelp"></h2>
@@ -72,20 +98,23 @@
           </form>
         </details>
       </div>
-      <div id="panel-settings" class="panel" role="tabpanel" aria-labelledby="tab-settings" hidden>
-        <div id="engine-settings" class="engine-settings" hidden>
-          <label for="engine-choice" data-text="engineChoice"></label>
-          <select id="engine-choice"><option value="pikafish">Pikafish 2026-01-02</option></select>
-          <div class="engine-toolbar"><span id="engine-status" role="status"></span><button id="engine-pause" type="button"></button></div>
-          <label id="engine-profile-label" for="engine-profile"></label>
-          <select id="engine-profile" aria-describedby="engine-unlimited-hint engine-cool-hint"><option value="eco"></option><option value="balanced"></option><option value="deep"></option><option value="unlimited"></option><option value="deep_cool"></option></select>
-          <p id="engine-unlimited-hint" class="hint" data-text="unlimitedHint" hidden></p>
-          <p id="engine-cool-hint" class="hint" data-text="coolHint" hidden></p>
-          <button id="book-toggle" type="button" aria-pressed="true"></button>
-        </div>
-        <p class="hint" data-text="storageHelp"></p>
-        <div class="version" data-text="capabilities"></div>
+    </section>
+    <section id="position-editor" class="position-editor" data-label="setupPosition" hidden>
+      <div class="setup-toolbar">
+        <button data-setup-action="color" data-value="red" data-text="red" type="button"></button>
+        <button data-setup-action="color" data-value="black" data-text="black" type="button"></button>
+        <label for="setup-turn" data-text="setupTurn"></label>
+        <select id="setup-turn"><option value="red" data-text="red"></option><option value="black" data-text="black"></option></select>
       </div>
+      <div id="setup-palette" class="setup-palette" role="group" data-label="setupPieces"></div>
+      <div class="setup-tools">
+        <button data-setup-action="tool" data-value="move" type="button" data-text="setupMove"></button>
+        <button data-setup-action="tool" data-value="erase" type="button" data-text="setupErase"></button>
+        <button data-setup-action="clear" type="button" data-text="setupClear"></button>
+        <button data-setup-action="initial" type="button" data-text="setupInitial"></button>
+      </div>
+      <p id="setup-validation" class="hint" role="status"></p>
+      <div class="setup-actions"><button id="setup-cancel" type="button" data-text="cancel"></button><button id="setup-apply" class="primary" type="button" data-text="setupApply"></button></div>
     </section>
     <footer class="footer"><span id="save-status" role="status" data-text="localSave"></span></footer>
     <p id="toast" class="toast" role="status" hidden></p>

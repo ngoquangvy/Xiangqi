@@ -15,7 +15,7 @@ exports.checkEngineLine = async function ({ evaluate, click }) {
     const fen = await evaluate(bundle + `(async () => {
         const {AppStore,GameStorage,MobileApp,AnalysisController,AnalysisView}=EngineLineModules;
         const old=document.querySelector('#mobile-app'), shell=old.cloneNode(true);
-        shell.querySelector('.squares').replaceChildren();shell.querySelector('.board-grid').replaceChildren();old.replaceWith(shell);
+        shell.querySelector('.squares').replaceChildren();shell.querySelector('.board-grid').replaceChildren();shell.querySelector('#setup-palette').replaceChildren();old.replaceWith(shell);
         const values=new Map(), store=new AppStore(new GameStorage({getItem:k=>values.get(k),setItem:(k,v)=>values.set(k,v)}));
         store.completePreviewHelp(); let output, request;
         const transport={available:true,listen:async fn=>{output=fn;return ()=>{};},

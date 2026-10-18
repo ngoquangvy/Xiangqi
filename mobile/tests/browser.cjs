@@ -9,6 +9,7 @@ const { checkAnalysisView } = require('./analysis-view.cjs');
 const { checkBoardFeedback } = require('./board-feedback.cjs');
 const { checkNewGame } = require('./new-game-ui.cjs');
 const { checkEngineLine } = require('./engine-line-ui.cjs');
+const { checkApplicationScreens } = require('./screens-ui.cjs');
 const root = path.resolve(__dirname, '..');
 app.setPath('userData', fs.mkdtempSync(path.join(os.tmpdir(), 'xiangqi-mobile-ui-')));
 const artifactDir = path.join(root, 'artifacts');
@@ -40,7 +41,10 @@ app.whenReady().then(async () => {
     }
     async function ready() {
         for (let i = 0; i < 100; i++) {
-            if (await evaluate('document.querySelectorAll(".square.red, .square.black").length === 32')) return;
+            if (await evaluate('document.querySelectorAll(".square.red, .square.black").length === 32')) {
+                assert.equal(await evaluate('document.querySelector("#mobile-app").dataset.screen'), 'home');
+                await click('#open-analysis'); return;
+            }
             await new Promise(resolve => setTimeout(resolve, 30));
         }
         throw Error('Mobile board failed to initialize');
@@ -49,6 +53,10 @@ app.whenReady().then(async () => {
         await instrumentMedia(win);
         await win.loadFile(path.join(root, 'dist/index.html'));
         await ready();
+        const screens = await checkApplicationScreens({ evaluate, click, resize,
+            capture: async name => { win.showInactive(); await new Promise(r => setTimeout(r, 100)); fs.writeFileSync(path.join(artifactDir, name), (await win.webContents.capturePage()).toPNG()); win.hide(); } });
+        // Media assertions need a foreground document after screenshot captures.
+        win.showInactive();
         await evaluate('document.fonts.ready');
         assert.equal(await evaluate('document.fonts.check(\'24px "Xiangqi Symbols"\')'), true);
         assert.equal(await evaluate('document.querySelector("#sound-toggle").getAttribute("aria-pressed")'), 'true');
@@ -136,7 +144,6 @@ app.whenReady().then(async () => {
         await click('#expand');
         assert.equal(await evaluate('document.querySelectorAll(".square:not(:disabled)").length'), 0);
         await click('#expand');
-        await click('#tab-settings');
         await click('#new-game');
         await click('#confirm-cancel');
         assert.equal(await chip('b2'), '');
@@ -233,7 +240,7 @@ app.whenReady().then(async () => {
         const engineLine = await checkEngineLine({ evaluate, click });
         assert.deepEqual(errors, []);
         assert.deepEqual(requests, []);
-        console.log('MOBILE_UI_PASS', JSON.stringify({ layouts: layouts.length, compact, analysisUI, feedback, newGame, engineLine, externalRequests: requests.length,
+        console.log('MOBILE_UI_PASS', JSON.stringify({ screens, layouts: layouts.length, compact, analysisUI, feedback, newGame, engineLine, externalRequests: requests.length,
             checks: 'touch, preview/cancel, undo/redo, branch confirmation, flip, notes/XSS, reload, reset, layouts, font, real WAV/MP3 playback/mute' }));
         clearTimeout(timeout);
         app.quit();

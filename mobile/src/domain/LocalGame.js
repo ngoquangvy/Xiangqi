@@ -13,6 +13,7 @@ export class LocalGame {
     redo() { return this.#game.redo(); }
     goTo(index) { return this.#game.goToMove(index); }
     reset() { return this.#game.resetGame(); }
+    importPosition(fen) { return this.#game.importFen(fen); }
     note(index, text) { return this.#game.updateMoveNote(index, text); }
     analysisPosition() {
         // Replaying the committed path preserves repetition information. Future

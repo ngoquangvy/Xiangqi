@@ -24,6 +24,7 @@ try {
     await call('Page.enable');
     injection = (await call('Page.addScriptToEvaluateOnNewDocument', { source: probe.mediaProbeSource(false) })).identifier;
     await call('Page.reload');
+    await connection.enterAnalysis();
     await wait('document.querySelector("#position-label")?.textContent === "Starting position"');
     await evaluate('document.fonts.ready.then(()=>true)');
     assert.equal(await evaluate('document.fonts.check(\'24px "Xiangqi Symbols"\')'), true);
@@ -32,7 +33,7 @@ try {
         await wait('document.querySelector("#save-status").textContent === "Autosaved on this device"');
     };
     const reset = async () => {
-        await touch('#tab-settings'); await touch('#new-game'); await touch('#confirm-accept'); await touch('#tab-analysis');
+        await touch('#new-game'); await touch('#confirm-accept'); await touch('#tab-analysis');
     };
     await move('h2', 'e2');
     await wait('window.__media.some(clip=>clip.src.endsWith("sidestick.wav") && clip.playing===1)');
@@ -45,7 +46,7 @@ try {
     for (const [from, to] of [['h2','e2'], ['a6','a5'], ['e3','e4'], ['c6','c5'], ['e4','e5'], ['g6','g5'], ['e5','e6']]) await move(from, to);
     await wait('window.__media.some(clip=>clip.src.endsWith("check.mp3") && clip.playing>0)');
     const beforeMute = await evaluate('window.__media.reduce((n,clip)=>n+clip.calls,0)');
-    await touch('#sound-toggle');
+    await touch('#workspace-settings'); await touch('#sound-toggle'); await touch('#settings-back');
     await reset(); await move('h2', 'e2');
     assert.equal(await evaluate('window.__media.reduce((n,clip)=>n+clip.calls,0)'), beforeMute);
     assert.equal(await evaluate('window.__media.every(clip=>!clip.errors)'), true);

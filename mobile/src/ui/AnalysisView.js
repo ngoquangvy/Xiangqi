@@ -4,7 +4,6 @@ import { PROFILES } from '../analysis/settings.js';
 export class AnalysisView {
     constructor(element, store, analysis) {
         this.element = element; this.store = store; this.analysis = analysis;
-        this.get('engine-pause').onclick = () => analysis.togglePause();
         this.get('engine-profile').onchange = event => store.setAnalysis({ profile: event.target.value });
         this.get('book-toggle').onclick = () => store.setAnalysis({ bookEnabled: !store.snapshot().ui.analysis.bookEnabled });
         this.unsubscribeStore = store.subscribe(() => this.render());
@@ -19,29 +18,13 @@ export class AnalysisView {
         if (!available) return;
         this.get('engine-empty').hidden = true;
         const statuses = { waiting: text.engineWaiting, thermal: text.engineThermal, searching: text.engineSearching, starting: text.engineStarting, complete: text.engineComplete,
-            paused: text.enginePaused, background: text.engineBackground, preview: text.preview, terminal: text.engineTerminal, error: text.engineError };
+            inactive: text.engineInactive, setup: text.setupPosition, paused: text.enginePaused, background: text.engineBackground, preview: text.preview, terminal: text.engineTerminal, error: text.engineError };
         const statusText = statuses[state.status] || text.engine;
         // Streaming PVs must not repeatedly announce an unchanged live status.
         if (this.get('engine-status').textContent !== statusText) this.get('engine-status').textContent = statusText;
         this.get('engine-status').dataset.state = state.status;
         this.get('engine-analysis').dataset.fen = state.fen || '';
         this.get('engine-analysis').dataset.request = state.id || '';
-        const resume = ['paused', 'error', 'complete', 'terminal'].includes(state.status);
-        const pause = this.get('engine-pause');
-        const caption = state.status === 'error' ? text.engineRetry : resume ? text.engineResume : text.enginePause;
-        let icon = pause.querySelector('svg'), label = pause.querySelector('span');
-        if (!icon) {
-            icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-            icon.setAttribute('viewBox', '0 0 20 20'); icon.setAttribute('aria-hidden', 'true');
-            icon.append(document.createElementNS(icon.namespaceURI, 'path'));
-            label = document.createElement('span'); pause.replaceChildren(icon, label);
-        }
-        const shape = icon.firstChild;
-        shape.setAttribute('d', resume ? 'M5 2 17 10 5 18Z' : 'M4 3H8V17H4ZM12 3H16V17H12Z');
-        label.textContent = caption;
-        pause.setAttribute('aria-label', state.status === 'error' ? text.engineRetry : resume ? text.engineResume : text.enginePause);
-        pause.disabled = ['starting', 'background', 'preview', 'thermal'].includes(state.status);
-        pause.setAttribute('aria-pressed', String(state.status === 'paused'));
         this.get('engine-profile-label').textContent = text.engineProfile;
         this.get('engine-profile').value = game.ui.analysis.profile;
         this.get('engine-unlimited-hint').hidden = game.ui.analysis.profile !== 'unlimited';

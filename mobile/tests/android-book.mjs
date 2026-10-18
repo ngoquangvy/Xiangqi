@@ -18,6 +18,7 @@ try {
         flipped: false, soundEnabled: false, previewHelpSeen: true, analysis: { profile: 'eco', bookEnabled: true } });
     await evaluate(`Capacitor.nativePromise('LocalSession','set',{value:${JSON.stringify(seeded)}})`);
     await device.call('Page.reload');
+    await device.enterAnalysis();
     await wait('document.querySelectorAll("#book-results button").length===5');
     const selector = '#book-results button:first-child';
     assert.equal(await evaluate(`document.querySelector('${selector} strong').textContent`), expected.note);

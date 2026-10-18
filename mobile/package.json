@@ -15,6 +15,7 @@
     "ios:sync": "npm run build && cap sync ios",
     "ios:build": "node scripts/ios-build.mjs",
     "test:android": "node tests/android-smoke.mjs",
+    "test:android:screens": "node tests/android-screens.mjs",
     "test:android:media": "node tests/android-media.mjs",
     "test:android:compact": "node tests/android-compact.mjs",
     "test:android:engine": "node tests/android-engine.mjs",
