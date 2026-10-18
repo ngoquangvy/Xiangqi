@@ -10,7 +10,7 @@ await wait('typeof Capacitor!=="undefined" && document.querySelectorAll(".square
 const read = async () => (await evaluate("Capacitor.nativePromise('LocalSession','get',{})")).value;
 const original = await read();
 if (!original) { device.close(); throw Error('A saved session is required.'); }
-const profiles = ['eco', 'balanced', 'deep', 'unlimited'];
+const profiles = ['eco', 'balanced', 'deep', 'unlimited', 'deep_cool'];
 const results = [];
 let activeProfile;
 try {
@@ -39,7 +39,7 @@ try {
             await pause(700); await wait('document.hasFocus()');
             await wait('document.querySelector("#engine-status").dataset.state==="searching"');
             await wait('document.querySelectorAll("#engine-results button").length===5');
-        } else await wait('document.querySelector("#engine-status").dataset.state==="complete"');
+        } else if (profile !== 'deep_cool') await wait('document.querySelector("#engine-status").dataset.state==="complete"');
         const rows = await evaluate('[...document.querySelectorAll("#engine-results button")].map(n=>({key:n.dataset.key,move:n.dataset.suggestion,text:n.textContent,pvLength:n.suggestion.pv.length}))');
         assert.deepEqual(rows.map(row => row.key), ['engine-1', 'engine-2', 'engine-3', 'engine-4', 'engine-5']);
         assert.equal(new Set(rows.map(row => row.move)).size, 5);
@@ -50,6 +50,7 @@ try {
         assert.equal(await evaluate('document.querySelector("#preview-position").textContent.startsWith("0 /")'), true);
         assert.equal(await evaluate('document.querySelector("#engine-results [aria-pressed=true]").dataset.key'), 'engine-5');
         assert.deepEqual(await evaluate('[...document.querySelectorAll(".chip")].map(n=>n.textContent)'), board);
+        assert.equal(await evaluate('document.querySelector("#mobile-app").classList.contains("previewing")'), false);
         await touch('#redo');
         assert.equal(await evaluate('document.querySelector("#preview-position").textContent.startsWith("1 /")'), true);
         const selectedLength = await evaluate('Number(document.querySelector("#preview-position").textContent.split("/")[1])');

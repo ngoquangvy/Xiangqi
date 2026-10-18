@@ -28,6 +28,11 @@ try {
     assert.equal(await evaluate('document.querySelector("#preview-guide").hidden'), false);
     assert.equal(await evaluate('document.querySelectorAll(".analysis-row[aria-pressed=true]").length'), 1);
     assert.equal(await read(), seeded);
+    await touch('.square[data-square=h2]');
+    assert.equal(await evaluate('document.querySelector(".square[data-square=h2]").classList.contains("selected")'), true);
+    assert.equal(await evaluate('document.querySelector("#mobile-app").classList.contains("previewing")'), false);
+    assert.equal(await read(), seeded);
+    await touch('.square[data-square=h2]'); await touch(selector);
     await writeFile('artifacts/android-preview-help.png', adb('exec-out', 'screencap', '-p'));
     adb('shell', 'input', 'keyevent', '4');
     await wait('document.querySelector("#preview-guide").hidden');

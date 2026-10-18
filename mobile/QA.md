@@ -399,3 +399,13 @@ No commit or push made.
   13-ply replay, font/audio checks, both languages and small-screen layouts.
   CI additionally runs standalone C++ cache and Swift thermal-policy assertions
   before the native Simulator integration and Release packaging checks.
+- Verification completed: 69 JS unit tests and the browser suite pass.
+  Native C++ cache assertions also run successfully as an Android executable.
+  Android tests pass all five presets, pause/background/replay and a physical
+  first touch selecting a live piece after a book-row highlight. A cold-boot
+  CDP timeout was retested successfully after startup settled; session restored.
+- iOS build 7 (`73565e0`) passes C++/Swift policy assertions, Simulator integration
+  and unsigned Release/device packaging. Native report confirms cachePreserved,
+  oneThreadDeep, pendingBoardTouch and thermalSimulation; blue scores are
+  -23/-26/-35/-38/-40, best-first. Five PVs, 13-ply replay, book/font/new-game,
+  saving and process relaunch pass. No real-device heat reduction is claimed.

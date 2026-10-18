@@ -18,6 +18,9 @@ luật cờ, không dùng Electron IPC hay backend web của bản desktop.
 - Xem thử nước gợi ý; không có nút đánh thay và không tự lưu thành nước thật.
 - Chạm gợi ý engine/book chỉ đánh dấu hai ô và tô nổi dòng đã chọn, chưa đi
   quân. Bàn giữ thế thật ở `0/N`; biến được chốt khi chọn, không đổi theo engine.
+- Chọn hàng không vào chế độ mô phỏng và không dừng engine. Chạm bàn lúc này
+  chọn được quân ngay; chỉ nhấn `›` mới bắt đầu mô phỏng. Khi đã mô phỏng,
+  chạm bàn vẫn chỉ thoát về ván thật để tránh đi nhầm trên hai thế khác nhau.
 - Xem biến engine/book bằng `‹ / › / ×`: nhấn `›` mới đi nước đầu, tiến/lùi
   trên bản sao riêng, `×` trở về ván gốc. Dùng chung hàng điều hướng dưới bàn,
   bàn giữ nguyên kích thước; nút lật `⇅` nằm gọn trên đầu trang.
@@ -55,6 +58,12 @@ bỏ giới hạn depth và thời gian của app, không tăng giới hạn 2 l
 Engine tăng độ sâu theo khả năng thiết bị, không bảo đảm đạt một depth cụ thể;
 dừng khi pause, xem thử biến hoặc ra nền. Chế độ này hao pin và có thể nóng máy.
 Ba preset nhẹ hơn và mặc định Cân bằng được giữ nguyên.
+Thêm `Phân tích sâu (1 luồng) / Deep (1 thread)`: giữ D22, 64 MB và 5 biến,
+không cắt thời gian; có thể chờ lâu hơn. Các thay đổi thế cờ chờ ổn định 500 ms
+trước khi chạy engine, nhưng hủy công việc cũ ngay. iOS giữ cache khi cấu hình
+không đổi, tự giảm còn 1 luồng khi nhiệt tăng và tạm dừng khi nóng cao; chỉ
+bỏ hạn chế sau 10 giây trạng thái nhiệt bình thường. Không ghi đè Pause của người dùng.
+Điểm engine theo bên đang đi, nước tốt nhất ở trên cho cả đỏ và xanh.
 Dòng biến engine không còn bị cắt ở 12 nước: app giữ đủ PV do engine trả về,
 với ngưỡng an toàn 256 nước lớn hơn giới hạn nội bộ Pikafish hiện tại (246).
 `0/N` là số nước có trong biến đang chọn, khác với `D` là độ sâu tìm kiếm.

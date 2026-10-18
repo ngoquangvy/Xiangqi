@@ -46,7 +46,7 @@ try {
     await touch('#book-results button');
     await device.wait('!document.querySelector("#cancel-preview").hidden');
     assert.equal(await device.evaluate('document.querySelectorAll(".history-move").length'), 0);
-    assert.equal(await device.evaluate('document.querySelector("#engine-status").dataset.state'), 'preview');
+    assert.equal(await device.evaluate('document.querySelector("#mobile-app").classList.contains("previewing")'), false);
     await touch('.square[data-square=e2]'); await engineReady();
     assert.equal(await device.evaluate('document.querySelector(".board-actions").dataset.mode'), 'game');
     assert.equal(await device.evaluate('document.querySelectorAll(".square.selected,.square.suggestion").length'), 0);
