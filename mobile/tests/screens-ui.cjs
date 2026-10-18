@@ -26,8 +26,10 @@ exports.checkApplicationScreens = async function ({ evaluate, click, resize, cap
     assert.equal(await evaluate('document.querySelector("#position-editor").hidden'), false);
     assert.equal(await evaluate('document.querySelectorAll("#setup-palette button:disabled").length'), 7);
     // Moving an existing piece is free placement, not a legal-game move.
+    await click('#flip');
     await click('.square[data-square=a0]'); await click('.square[data-square=a4]');
     assert.equal(await evaluate('document.querySelector(".square[data-square=a4] .chip").textContent'), '\u8eca');
+    await click('#flip');
     assert.equal(await save(), old, 'Editing must not autosave a draft');
     await click('[data-setup-action=clear]'); assert.equal(await pieces(), 2);
     assert.equal(await evaluate('document.querySelector("#setup-apply").disabled'), true);
@@ -47,9 +49,13 @@ exports.checkApplicationScreens = async function ({ evaluate, click, resize, cap
             const apply=document.querySelector('#setup-apply').getBoundingClientRect();
             const board=document.querySelector('#board').getBoundingClientRect();
             return {overflow:document.body.scrollWidth>innerWidth, board:board.width>=180&&board.bottom<=innerHeight,
-                apply:apply.height>=44&&apply.bottom<=innerHeight&&apply.right<=innerWidth};
+                apply:apply.height>=44&&apply.bottom<=innerHeight&&apply.right<=innerWidth,
+                tools:[...document.querySelectorAll('.setup-tools button')].every(button=>{
+                    const b=button.getBoundingClientRect(), target=document.elementFromPoint(b.x+b.width/2,b.y+b.height/2);
+                    return button===target||button.contains(target);
+                })};
         })()`);
-        assert.deepEqual(layout, { overflow: false, board: true, apply: true }, JSON.stringify({width,height,layout}));
+        assert.deepEqual(layout, { overflow: false, board: true, apply: true, tools: true }, JSON.stringify({width,height,layout}));
         layouts++;
     }
     await resize(390, 844); await capture('mobile-position-setup.png');

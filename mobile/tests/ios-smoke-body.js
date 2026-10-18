@@ -120,13 +120,20 @@ try {
     query('#engine-profile').value = 'balanced'; query('#engine-profile').dispatchEvent(new Event('change'));
     check(query('#engine-status').dataset.state === 'inactive', 'Profile change bypassed screen gate');
     click('#settings-back');
+    // Native storage acknowledges queued writes asynchronously. Capture the
+    // baseline only after the preceding settings mutation reaches disk.
+    await wait(async () => {
+        const value = await read();
+        return value && JSON.parse(value).analysis.profile === 'balanced';
+    }, 'Balanced preference was not saved before setup');
     const beforeSetup = await read();
     click('#setup-position'); click('[data-setup-action=clear]');
     check(document.querySelectorAll('.square.red,.square.black').length === 2, 'Clear must leave two generals');
     check(query('#setup-apply').disabled, 'Facing generals accepted');
     await wait(async () => !(await native('Pikafish', 'status')).searching, 'Setup did not stop native engine');
     click('#setup-palette [data-type=p]'); click('.square[data-square=e4]');
-    check(!query('#setup-apply').disabled && await read() === beforeSetup, 'Draft leaked into saved game');
+    check(!query('#setup-apply').disabled, 'Three-piece setup is not legal');
+    check(await read() === beforeSetup, 'Draft leaked into saved game');
     click('#setup-cancel'); check(await read() === beforeSetup, 'Cancel overwrote the game');
     click('#setup-position'); click('[data-setup-action=clear]');
     click('#setup-palette [data-type=p]'); click('.square[data-square=e4]'); click('#setup-apply'); click('#confirm-accept');
@@ -148,6 +155,6 @@ try {
         homeGate: true, settingsGate: true, positionSetup: true, pendingBoardTouch: true, bookRows: 17, preview: true, coaching: true, newGame: true, unlimited: true, saved: true, font: true,
         viewport: [innerWidth, innerHeight], userAgent: navigator.userAgent };
 } catch (error) {
-    return { pass: false, error: String(error?.stack || error), status: query('#engine-status')?.textContent,
+    return { pass: false, error: `${error?.message || error}\n${error?.stack || ''}`, status: query('#engine-status')?.textContent,
         save: query('#save-status')?.textContent, engineRows: document.querySelectorAll('#engine-results button').length };
 }

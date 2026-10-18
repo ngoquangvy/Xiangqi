@@ -28,6 +28,10 @@
 - `npm run android:build --prefix mobile`: Debug APK built, 62.7 MiB / 75 MiB budget.
 - `npm run test:android:screens --prefix mobile`: passed on Pixel_10/API 37; real taps, native engine idle on Home/Settings/setup, inventories, Clear, native Back, confirmation, custom FEN analysis/save. Original native session restored afterward.
 - `npm run test:android:help --prefix mobile`: passed with the new Home/Settings navigation.
+- `npm run test:android:book --prefix mobile`: passed with the new navigation and full 112-ply replay, without saving a preview.
+- `npm run test:android:feedback --prefix mobile`: passed for both winners, check highlighting, native recovery actions, New game and PV cancellation.
+- `npm run test:android:media --prefix mobile`: passed for real WAV/MP3 playback, font, mute/reload and silent navigation; native session restored.
+- `npm run test:android:compact --prefix mobile`: passed for native Back, flip, disclosure panels, compact legal moves and unchanged saved game.
 - `npm run test:android:variations --prefix mobile`: all five native presets returned five independent lines; replay through ply 13 verified for Eco/Balanced/Deep/Maximum. Maximum also verified beyond 11 seconds, Settings stop/resume and OS background/foreground. One-thread Deep was checked for five available lines, without assuming a hardware-dependent depth.
 - Handwritten source guard: 260 lines / 18 KiB per module. Frontend about 105 KiB / 160 KiB; existing media 248.1 KiB / 256 KiB.
 - iOS simulator regression is extended with Home/Settings gates, setup cancel/apply and actual custom-position analysis. Its result must be confirmed in the GitHub build; a Windows/Android pass is not an iPhone test.

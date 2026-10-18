@@ -11,6 +11,8 @@ const { checkNewGame } = require('./new-game-ui.cjs');
 const { checkEngineLine } = require('./engine-line-ui.cjs');
 const { checkApplicationScreens } = require('./screens-ui.cjs');
 const root = path.resolve(__dirname, '..');
+// Emulator/GPU contention must not invalidate otherwise valid screenshots.
+app.disableHardwareAcceleration();
 app.setPath('userData', fs.mkdtempSync(path.join(os.tmpdir(), 'xiangqi-mobile-ui-')));
 const artifactDir = path.join(root, 'artifacts');
 fs.mkdirSync(artifactDir, { recursive: true });
