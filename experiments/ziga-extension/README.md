@@ -1,5 +1,51 @@
 # Ziga Xiangqi Extension — Pikafish + opening book
 
+## Bản 0.6.21 — book từ 6 đến 10 lượt mỗi bên
+
+Menu Ưu tiên book thêm 6, 7, 8, 9, 10 lượt đầu/bên, giữ mặc định 5 và tùy chọn Tắt book. Chỉ mục book mở từ 10 lên 20 ply để dữ liệu sau lượt thứ 5 thực sự được xét. Kiểm tra nước hợp lệ cho cả hai hướng bàn giữ nguyên; không tìm thấy thế/nước hợp lệ trong book hoặc vượt giới hạn thì gọi engine với thời gian/depth/threads đã chọn.
+
+Bridge 0.8.0 công bố `maxBookMoves: 10`, nhận các mức 6–10, vẫn hỗ trợ `movetime` tối đa 50 giây. Extension báo cần chạy lại bridge nếu bridge cũ chỉ hỗ trợ book 5, kể cả `/health` đang cache. **Đóng bridge cũ, chạy lại start-bridge.cmd, Reload extension và tải lại Ziga** để dùng book mở rộng. Giá trị menu mới được tự lưu; lựa chọn book cũ giữ nguyên.
+
+110 bài test Node đạt, gồm thế thực ở ply 18/19 theo cả hai hướng, giới hạn 5/10, HTTP chấp nhận 6–10 và chuyển sang Pikafish thật khi book không có dữ liệu. Không cần tải thêm book; độ dài tối đa không đảm bảo mọi nhánh đều có dữ liệu tới lượt 10.
+
+## Bản 0.6.20 — chặn đường Sẵn sàng của trang và chọn đúng nút con quảng cáo
+
+Khi **Tự chơi đang bật**, gắn cùng điều kiện kiểm tra tim/quảng cáo vào `layer.onReady`, `logic.$P`, `tN`, `fG`, `uN`. Lời gọi tự động từ client Ziga giữa hai nhịp bot cũng bị chặn nếu chạm ngưỡng, thiếu tim trong bàn, chờ thưởng hoặc có popup/quảng cáo. Đọc lựa chọn menu trực tiếp khi chặn, không dùng bản sao ngưỡng cũ. Tắt Tự chơi/đổi lớp bàn khôi phục các hàm gốc. Khi chạm ngưỡng ở bàn chờ, rời bàn trước rồi mới dừng nếu quảng cáo bị tắt/hết giới hạn, tránh để timer của trang tiếp tục chơi ở bàn đó.
+
+Ưu tiên `dismiss-button-element` bên trong `dismiss-button`: click wrapper không tự chuyển sự kiện xuống nút con. Mẫu kiểm tra trình duyệt đã đổi sang chỉ nút con có handler, thay vì một nút đơn. Giữ đồng hồ và số lần thử của cùng quảng cáo khi heartbeat bị trễ; lease hết hạn vẫn cấm thao tác, heartbeat mới chỉ cấp lại quyền mà không làm thời gian chờ 15 giây chạy lại từ đầu. Theo dõi cả rewarded ad do trang tự mở nếu quan sát được SDK bắt đầu trước khi trả thưởng.
+
+Tiêu đề menu hiển thị **0.6.20**; trạng thái Tự chơi có số tim, ngưỡng và nhận tim bật/tắt. Nếu chỉ bật Tự đánh, menu nhắc bật Tự chơi để áp dụng ngưỡng; không đổi ý nghĩa hai chế độ riêng. Ô ngưỡng rỗng/sai không bị hiểu nhầm thành 0. Sau cập nhật phải Reload extension và tải lại Ziga để tiêu đề hiện 0.6.20. Không cần đổi bridge nếu đã chạy bridge 0.7.0 cho thời gian 20/30/50 giây.
+
+106 bài test Node đạt. Kiểm tra trình duyệt tái hiện lời gọi Ready trực tiếp trước nhịp bot, thiếu tim trong bàn, rời bàn -> quảng cáo -> nhận thưởng -> vào bàn -> Ready, với handler đóng ở nút con. Luồng engine, lưu thiết lập sau reload/mở lại trình duyệt cũng đạt. Các kiểm tra này dùng trang có kiểm soát; cần đối chiếu số tim/ngưỡng/chế độ và kết quả quảng cáo thực tế sau khi nạp bản mới.
+
+## Bản 0.6.19 — thời gian 20/30/50 giây và kiểm tra tim trước Sẵn sàng
+
+Menu Thời gian tính có thêm **20 giây, 30 giây, 50 giây**, lưu lại như các mức cũ. Đây là ngân sách tối đa, engine có thể dừng sớm theo depth/độ ổn định. Tự động mặc định vẫn <=10 giây; cơ chế CPU >70% kéo dài và >=85% vẫn giảm threads/ngân sách như trước, không bị lựa chọn 50 giây vô hiệu hóa.
+
+Bridge 0.7.0 hỗ trợ `movetime` 100–50000 ms và công bố `maxMovetimeMs: 50000` qua `/health`. Extension kiểm tra khả năng bridge cả khi health đang được cache, nên bridge cũ vẫn dùng được mức <=10 giây nhưng sẽ báo rõ cần chạy lại khi chọn 20/30/50. Timeout HTTP/client tăng theo ngân sách dài, cộng phần khởi động/dừng engine; không còn bị cắt ở mốc 20/22 giây. **Để dùng mức mới: đóng bridge cũ, chạy lại `start-bridge.cmd`, Reload extension rồi tải lại Ziga.** Không đổi cổng 17864.
+
+Trước Sẵn sàng/Bắt đầu, đọc lại snapshot và so cả tim chung lẫn tim trong bàn (`player.zn()`/`player.P.pb()`), đồng thời kiểm tra `logic.OA()` của Ziga. Tránh trường hợp tim chung còn nhưng tim trong bàn chưa đủ, làm `onReady()` mới mở quảng cáo. Nếu chưa đủ thì không gửi Sẵn sàng/Bắt đầu: ghi nhớ phải nhận tim, rời bàn, nhận quảng cáo, đợi số dư thực tăng, vào lại bàn, kiểm tra lại tim rồi mới bắt đầu countdown Sẵn sàng mới. Quảng cáo đang chạy sẽ hủy countdown cũ; popup chưa xử lý, thay đổi bàn hoặc người chơi thành khán giả cũng chặn thao tác.
+
+101 bài test Node đạt, gồm HTTP bridge/Pikafish thật với ngân sách 20/30/50 giây (depth 3 để không gây tải kéo dài), timeout theo ngân sách, capability bridge cũ, chặn cả Ready/Start khi tim trong bàn thiếu. `browser-google-reward-check.cjs --pre-ready` xác nhận thứ tự rời bàn -> quảng cáo -> cộng tim -> vào bàn -> Ready, không Ready trước khi có tim. Cập nhật bắt tín hiệu video kết thúc từ trước khi iframe nhận lease, giữ dấu thời gian để không dùng lại tín hiệu của quảng cáo cũ.
+
+## Bản 0.6.17 — ngưỡng tim để xem quảng cáo
+
+Thay ô “Tim tối đa / bàn” bằng **Xem quảng cáo khi tim ≤**. Mặc định **0** giữ hành vi hết tim mới xem. Đặt **2** thì trước ván tiếp theo, khi số dư còn <=2, bot không vào bàn/sẵn sàng mà mở quảng cáo nếu bật Tự xem quảng cáo. Chỉ chơi tiếp khi tim vượt ngưỡng; nếu một lần thưởng chưa đủ thì tiếp tục trong giới hạn quảng cáo/phiên. Không ngắt ván đang chơi. Nếu đang ở bàn chờ thì rời bàn trước, về sảnh mới mở quảng cáo. Quảng cáo tắt, hết giới hạn hoặc lỗi thì dừng thay vì dùng số tim dưới ngưỡng.
+
+Chọn bàn tự động mặc định tối đa 1 tim và không vượt số dư; bỏ ô điều chỉnh mức bàn khỏi menu. Thiết lập ngưỡng mới lưu riêng bằng `menu.adHeartThreshold`; giá trị cược bàn cũ `menu.maxHearts` không chuyển sang ngưỡng vì khác ý nghĩa. Các lựa chọn khác vẫn giữ nguyên. Reload extension và tải lại Ziga; không cần chạy lại bridge. 94 bài test Node đạt, gồm ngưỡng bằng số dư, nhiều lần nhận tim, giữ số dư khi quảng cáo tắt/capped, không ngắt ván và rời bàn chờ trước quảng cáo. Bài kiểm tra trình duyệt hỗ trợ `browser-google-reward-check.cjs --threshold` để thử còn 2 tim và nhận lên 3 tim.
+
+## Bản 0.6.16 — cùng bộ theo dõi cho Test và tự hết tim
+
+Theo dõi quảng cáo/tim trước khi đọc snapshot bàn cờ, dùng chung `watchReward` cho Test và Tự chơi. Lớp bàn mất đồng bộ/không có trong lúc quảng cáo mở không còn chặn heartbeat tới các iframe hoặc làm dừng sau timeout đồng bộ bàn. Khi quảng cáo kết thúc và có tim, tiếp tục đọc bàn rồi tự chơi. Hủy kết quả engine đang chờ và xóa trạng thái bàn cũ khi chờ quảng cáo.
+
+Nếu tab ẩn, bot ghi nhận trạng thái chờ hiển thị và không tính khoảng ẩn vào timeout quảng cáo/SDK. Khi trang trở lại hiển thị, xử lý ngay sự kiện `visibilitychange` ở trang và iframe để tiếp tục theo dõi/đóng. Không giả lập `document.hidden`, không ép SDK phát hoặc giả callback thưởng. Đây là tạm chờ/tiếp tục, không phải cam kết quảng cáo phát khi tab ẩn; nhà quảng cáo/trình duyệt có thể tự dừng video. Có thể giữ Ziga trong cửa sổ riêng đang hiển thị bên cạnh ứng dụng khác; nếu bị che hoàn toàn/thu nhỏ, trình duyệt vẫn có thể coi trang là ẩn.
+
+90 bài test Node đạt, gồm hết tim khi lớp bàn mất đồng bộ và ẩn tab lâu không mất tác vụ vì timeout. `browser-google-reward-check.cjs --auto` tái hiện tự hết tim, lớp bàn biến mất trong lúc quảng cáo, hộp cảnh báo mất thưởng, chọn TIẾP TỤC rồi đóng và nhận tim. `browser-ad-frame-check.cjs` cho chế độ Test/đóng/chẩn đoán vẫn đạt. Build thay file nguyên tử để cập nhật được khi Chromium còn giữ ánh xạ file cũ. Reload extension và tải lại Ziga, không cần chạy lại bridge.
+
+## Bản 0.6.15 — thu gọn công cụ thử quảng cáo
+
+Ẩn nút thử, trạng thái thử và chẩn đoán quảng cáo trong mục **Test** nhỏ dưới trạng thái Tự chơi. Mặc định thu gọn khi tải trang; bấm Test để mở hoặc đóng. Thu gọn không dừng tác vụ quảng cáo đang được theo dõi. Reload extension và tải lại Ziga; không cần chạy lại bridge.
+
 ## Bản 0.6.14 — Google dismiss-button và hộp cảnh báo mất thưởng
 
 Log người dùng xác định khung 537 có `dismiss-button`/`dismiss-button-element` và `close-confirmation-dialog` với cảnh báo “Bạn sẽ bị mất phần thưởng”, trong khi video nằm ở các khung khác và chưa báo hoàn tất. Chỉ dựa vào cờ video/SDK khiến nút Đóng không được thử dù đã hiện.
@@ -221,3 +267,5 @@ Bản 0.3.1 đã kiểm tra hai cặp nút độc lập trên extension: Dừng 
 Để chạy các script kiểm tra trình duyệt trên máy khác, cài Playwright bằng `npm install --no-save playwright` trong thư mục thử nghiệm. Script dùng Chrome/Edge đã cài trên máy; nếu thiếu, cài trình duyệt tương ứng trước khi chạy.
 
 Kiểm tra bản 0.6.10: 82/82 bài test Node đạt; browser-ad-frame-check.cjs đạt với video WebM thật trong iframe khác tên miền và nút thử khi còn 10 tim; browser-native-check.cjs đạt toàn bộ luồng tự chơi, ponder, quảng cáo, lưu menu và mở lại trình duyệt. Các bài trình duyệt dùng trang mô phỏng có kiểm soát, không xác nhận quảng cáo thương mại thật trên phiên người dùng.
+
+Kiểm tra trình duyệt 0.6.19: browser-native-check.cjs đạt toàn bộ luồng, gồm gửi mức 50000 ms tới bridge với depth 3, lưu lựa chọn 50 giây sau reload và sau mở lại trình duyệt; trạng thái bot vẫn tắt sau reload như trước.

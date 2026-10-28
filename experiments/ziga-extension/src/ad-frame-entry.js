@@ -2,14 +2,15 @@ import {settings} from '../settings.mjs';
 import {adSurface} from './ad-diagnostic.js';
 import {videoFinished,closeFrameAd,adRoots,closeSelectors,rewardGuard,hasGoogleRewardGuard} from './ad-frame.js';
 if(window!==window.top){
-  let busy=false,adId=null,clicked=new WeakSet(),endedAdId=null;
+  let busy=false,adId=null,clicked=new WeakSet(),endedAdId=null,endedSeenAt=-Infinity;
+  function markEnded(event){
+    if(event.target?.tagName==='VIDEO'&&event.target.ended){endedSeenAt=Date.now();if(adId)endedAdId=adId;void tick();}
+  }
   const observedRoots=new WeakSet();
   function observeVideos(){
     for(const root of adRoots(document))if(!observedRoots.has(root)){
       observedRoots.add(root);
-      root.addEventListener('ended',event=>{
-        if(event.target?.tagName==='VIDEO'&&event.target.ended&&adId){endedAdId=adId;void tick();}
-      },true);
+      root.addEventListener('ended',markEnded,true);
     }
   }
   async function tick(){
@@ -20,7 +21,7 @@ if(window!==window.top){
       document.documentElement.dataset.zigaAdState=state?.allowed?(state.completed?'completed':'watching'):'inactive';
       if(!state?.allowed)return;
       observeVideos();
-      if(adId!==state.adId){adId=state.adId;endedAdId=null;clicked=new WeakSet();setTimeout(tick,0);}
+      if(adId!==state.adId){adId=state.adId;endedAdId=endedSeenAt>=state.startedAt?adId:null;clicked=new WeakSet();setTimeout(tick,0);}
       const candidates=adRoots(document).reduce((n,root)=>n+root.querySelectorAll(closeSelectors).length,0);
       const guard=rewardGuard(window);
       let didClick=false;
@@ -34,7 +35,8 @@ if(window!==window.top){
       await chrome.runtime.sendMessage({kind:'ad-frame-report',adId,candidates,clicked:didClick,continued:guard.resumed,surface:adSurface(window)});
     }catch(e){document.documentElement.dataset.zigaAdState='error: '+e.message;}finally{busy=false;}
   }
-  document.addEventListener('ended',()=>void tick(),true);
+  document.addEventListener('ended',markEnded,true);
+  document.addEventListener('visibilitychange',()=>void tick());
   new MutationObserver(()=>void tick()).observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['disabled','aria-disabled','hidden','style','class']});
   chrome.runtime.onMessage.addListener(msg=>{if(msg?.kind==='ad-frame-wake')void tick();});
   setInterval(tick,settings.ads.framePollMs);void tick();

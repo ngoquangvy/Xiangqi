@@ -33,7 +33,7 @@ const path=require('node:path');const fs=require('node:fs');const os=require('no
  await page.evaluate(()=>__testRoot.getElementById('minimize').click());
  assert.equal(await page.evaluate(()=>__testRoot.getElementById('menuBody').hidden),false);
  // Opponent plays a legal pawn move, then force engine-only calculation.
- await page.evaluate(()=>{__testRoot.getElementById('book').value='0';__testRoot.getElementById('threads').value='1';__testRoot.getElementById('depth').value='3';const p=layer.V.find(p=>p.ka===1&&p.Ga===6&&p.fa===0);p.rowIndex--;layer.Yc=0;});
+ await page.evaluate(()=>{__testRoot.getElementById('book').value='0';__testRoot.getElementById('threads').value='1';__testRoot.getElementById('depth').value='3';__testRoot.getElementById('time').value='50000';const p=layer.V.find(p=>p.ka===1&&p.Ga===6&&p.fa===0);p.rowIndex--;layer.Yc=0;});
  await page.waitForFunction(()=>sent.length===2,{timeout:12000});
  assert.match(await page.evaluate(()=>__testRoot.getElementById('detail').textContent),/Pikafish/);
  assert.match(await page.evaluate(()=>__testRoot.getElementById('detail').textContent),/sâu 3 · 1 threads/);
@@ -186,6 +186,7 @@ const path=require('node:path');const fs=require('node:fs');const os=require('no
  await page.evaluate(()=>__testRoot.getElementById('stop').click());
   await page.reload();await page.waitForFunction(()=>!!window.__testRoot && !__testRoot.getElementById("start").disabled);
  await page.evaluate(()=>{
+   __testRoot.getElementById('book').value='5';__testRoot.getElementById('time').value='650';__testRoot.getElementById('depth').value='4';
    const canvas=document.createElement('canvas');canvas.width=900;canvas.height=600;canvas.style.cssText='position:fixed;left:0;top:0;width:900px;height:600px';document.body.prepend(canvas);
    window.sj=10;window.V=11;window.Q=12;window.GAME_STATE_PLAYING=2;window.GAME_STATE_FINISH=100;
    const player={Ka:false,status:1};logic.Fb=2;logic.Ba=()=>player;logic.ha=[player,{Ka:false,status:1}];
@@ -195,7 +196,7 @@ const path=require('node:path');const fs=require('node:fs');const os=require('no
  await page.waitForFunction(()=>sent.length===1,null,{timeout:10000});
  assert.equal(await page.evaluate(()=>BkGlobal.Tg),false);
  await page.evaluate(()=>__testRoot.getElementById('stop').click());
-  const savedChoices={time:'2500',book:'3',depth:'18',threads:'4',ponder:false,autoDrawReply:true,autoDrawOffer:true,maxHearts:'7',autoAds:true,maxAds:'2',minimized:true};
+  const savedChoices={time:'50000',book:'10',depth:'18',threads:'4',ponder:false,autoDrawReply:true,autoDrawOffer:true,adHeartThreshold:'7',autoAds:true,maxAds:'2',minimized:true};
  await page.evaluate(values=>{for(const [key,value]of Object.entries(values)){const el=__testRoot.getElementById(key);if(typeof value==='boolean')el.checked=value;else el.value=value;el.dispatchEvent(new Event('change'));}},savedChoices);
  for(let i=0;i<100;i++){const stored=await worker.evaluate(()=>chrome.storage.local.get(null));if(stored['menu.maxAds']==='2'&&stored['menu.minimized']===true)break;await page.waitForTimeout(30);}
  const originalScript=await page.locator('body > script').first().textContent();

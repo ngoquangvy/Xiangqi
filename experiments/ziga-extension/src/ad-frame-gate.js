@@ -30,7 +30,9 @@ export class AdFrameGate{
     }
     if(!['ad-frame-poll','ad-frame-report','ad-close-probe'].includes(msg.kind)||sender.frameId===0||!(adFrame(sender.url)||adFrame(sender.origin)))return {allowed:false};
     const state=this.tabs.get(tab);
-    if(!state||now>state.expires){this.tabs.delete(tab);return {allowed:false};}
+    // Expiry suspends access; retain the same ad's clock/cap until its next
+    // top-frame heartbeat, rather than restarting the close delay each time.
+    if(!state||now>state.expires)return {allowed:false};
     if(msg.kind==='ad-close-probe'){
       if(msg.adId!==state.adId||msg.hasGuard!==true||now-state.startedAt<this.probeAfterMs||now-state.lastProbe<this.probeRetryMs||state.probeAttempts>=this.probeMax)return {allowed:false};
       state.lastProbe=now;state.probeAttempts++;
@@ -45,7 +47,7 @@ export class AdFrameGate{
       const report={stage:'Khung quảng cáo',frame:sender.frameId,completed:state.completed===true,candidates:Number.isInteger(msg.candidates)?Math.max(0,Math.min(100,msg.candidates)):0,clicked:msg.clicked===true||previous?.clicked===true,continued:msg.continued===true||previous?.continued===true};
       if(JSON.stringify(previous)!==JSON.stringify(report)){state.frames.set(sender.frameId,report);this.record(tab,report);}
     }else if(msg.adId!==state.adId)this.record(tab,{stage:'Đã nhận tín hiệu từ iframe',frame:sender.frameId,completed:state.completed===true});
-    return {allowed:true,adId:state.adId,completed:state.completed};
+    return {allowed:true,adId:state.adId,startedAt:state.startedAt,completed:state.completed};
   }
 }
 import {cleanSurface} from './ad-diagnostic.js';

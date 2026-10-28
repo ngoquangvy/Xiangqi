@@ -42,7 +42,7 @@ export function closeFrameAd(w,completed,clicked=new WeakSet(),{googleOnly=false
   if(!completed||doc.visibilityState==='hidden')return false;
   if(rewardGuard(w).visible)return false;
   const selectors=googleOnly?'#dismiss-button, #dismiss-button-element':closeSelectors;
-  for(const root of adRoots(doc))for(const el of root.querySelectorAll(selectors)){
+  for(const root of adRoots(doc))for(const el of Array.from(root.querySelectorAll(selectors)).sort((a,b)=>Number(b.id==='dismiss-button-element')-Number(a.id==='dismiss-button-element'))){
     if(el.closest?.('#close-confirmation-dialog'))continue;
     const r=el.getBoundingClientRect(),style=w.getComputedStyle(el);
     if(clicked.has(el)||el.disabled||el.getAttribute('aria-disabled')==='true'||r.width<=0||r.height<=0||style.display==='none'||style.visibility==='hidden'||style.opacity==='0'||style.pointerEvents==='none')continue;

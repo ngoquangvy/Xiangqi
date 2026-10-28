@@ -37,12 +37,7 @@
       timeoutMs: 12e4,
       loadTimeoutMs: 1e4,
       clearMs: 3e3,
-      exposedRecoveryMs: 1e4,
-      framePollMs: 500,
-      frameLeaseMs: 2e3,
-      googleCloseProbeAfterMs: 15e3,
-      googleCloseRetryMs: 1e4,
-      googleCloseMaxProbes: 8
+      exposedRecoveryMs: 1e4
     },
     engine: {
       ponderRequestIntervalMs: 5e3,
@@ -107,7 +102,7 @@
     check(s.draw.maxOffers <= 2, "draw.maxOffers cannot exceed 2");
     check(s.draw.minOwnTurnsBetweenOffers >= 1, "draw.minOwnTurnsBetweenOffers must be >= 1");
     for (const key of ["smallSearchMs", "mediumSearchMs", "complexSearchMs"])
-      check(s.move[key] >= 100 && s.move[key] <= 1e4, `move.${key} must be 100\u201310000`);
+      check(s.move[key] >= 100 && s.move[key] <= 5e4, `move.${key} must be 100\u201350000`);
     check(s.draw.replySearchMs >= 100 && s.draw.replySearchMs <= 1e4, "draw.replySearchMs must be 100\u201310000");
     check(s.move.pollMs >= 50 && s.cpu.sampleMs >= 250, "poll/sample interval too small");
     check(s.engine.httpTimeoutMs > s.move.complexSearchMs + s.engine.stopTimeoutMs, "HTTP timeout must exceed search + stop timeout");
@@ -117,6 +112,31 @@
     return Object.freeze(s);
   }
   var settings = validateSettings(settings_default);
+
+  // extension/manifest.json
+  var manifest_default = {
+    manifest_version: 3,
+    name: "Ziga Xiangqi Experiment",
+    version: "0.6.21",
+    description: "B\u1EA3n th\u1EED nghi\u1EC7m t\u1EF1 \u0111\xE1nh c\u1EDD t\u01B0\u1EDBng, b\u1EADt th\u1EE7 c\xF4ng trong t\u1EEBng trang Ziga.",
+    minimum_chrome_version: "119",
+    permissions: ["storage"],
+    host_permissions: ["http://127.0.0.1:17864/*"],
+    background: { service_worker: "background.js" },
+    content_scripts: [
+      { matches: ["https://zigavn.com/*", "https://www.zigavn.com/*"], js: ["relay.js"], run_at: "document_idle" },
+      { matches: ["https://zigavn.com/*", "https://www.zigavn.com/*"], js: ["main.js"], run_at: "document_idle", world: "MAIN" },
+      { matches: ["https://*.googlesyndication.com/*", "https://*.doubleclick.net/*", "https://*.googleadservices.com/*"], js: ["ad-frame-entry.js"], run_at: "document_idle", all_frames: true, match_about_blank: true, match_origin_as_fallback: true }
+    ]
+  };
+
+  // engine-budget.mjs
+  var MAX_MOVETIME_MS = 5e4;
+  function budgetTimeouts(movetime) {
+    const budget = Number.isInteger(movetime) && movetime > 0 ? Math.min(movetime, MAX_MOVETIME_MS) : 0;
+    const bridgeMs = budget > 1e4 ? Math.max(settings.engine.httpTimeoutMs, budget + settings.engine.handshakeMs + settings.engine.searchGraceMs + settings.engine.stopTimeoutMs) : settings.engine.httpTimeoutMs;
+    return { bridgeMs, clientMs: Math.max(settings.engine.clientTimeoutMs, bridgeMs + Math.max(2e3, settings.engine.clientTimeoutMs - settings.engine.httpTimeoutMs)) };
+  }
 
   // src/native-client.js
   var clientId = crypto.randomUUID();
@@ -148,7 +168,7 @@
         cancel();
         cleanup();
         reject(Error("Kh\xF4ng k\u1EBFt n\u1ED1i \u0111\u01B0\u1EE3c Pikafish. H\xE3y ch\u1EA1y bridge v\xE0 Reload extension/tab Ziga."));
-      }, settings.engine.clientTimeoutMs);
+      }, budgetTimeouts(movetime).clientMs);
       window.addEventListener("message", receive);
       signal.addEventListener("abort", abort, { once: true });
       if (signal.aborted)
@@ -1274,6 +1294,7 @@
         watch.failed = false;
         watch.completed = false;
         watch.clicked = /* @__PURE__ */ new WeakSet();
+        watch.reward = options.type === "reward";
         watch.adId = `${watch.now()}:${++watch.sequence}`;
         const forwarded = { ...options };
         for (const name of ["beforeAd", "afterAd", "adBreakDone", "adViewed"]) {
@@ -1342,6 +1363,16 @@
     }
     inspect(w, now = Date.now(), { credited = false } = {}) {
       this.install(w);
+      if (w.document?.visibilityState === "hidden")
+        this.hiddenAt ??= now;
+      else if (this.hiddenAt !== void 0) {
+        const pause = now - this.hiddenAt;
+        for (const key of ["requestAt", "startAt", "flagAt"])
+          if (Number.isFinite(this[key]))
+            this[key] += pause;
+        this.clearAt = null;
+        delete this.hiddenAt;
+      }
       if (credited)
         this.completed = true;
       const closed = closeCompletedAd(w, this.completed, this.clicked);
@@ -1393,7 +1424,9 @@
   function getAdStatus(w = window, now = Date.now(), options) {
     if (!watches.has(w))
       watches.set(w, new AdWatch());
-    return watches.get(w).inspect(w, now, options);
+    const watch = watches.get(w);
+    const status = watch.inspect(w, now, options);
+    return { ...status, reward: watch.reward === true, rewardPending: watch.reward === true && !watch.completed && ["requested", "active"].includes(watch.phase) };
   }
 
   // src/session.js
@@ -1545,6 +1578,153 @@
       this.random = random;
       this.reset();
     }
+    releaseNativeGuard() {
+      for (const hook of this.nativeGuards || [])
+        if (hook.target[hook.key] === hook.wrapped)
+          hook.target[hook.key] = hook.original;
+      this.nativeGuards = [];
+      this.nativeGuardState = null;
+    }
+    guardNativeReady(s, options) {
+      if (s.stage !== "table" || s.syncing) {
+        this.releaseNativeGuard();
+        return;
+      }
+      const previous = this.nativeGuardState;
+      if (previous?.layer !== s.layer || previous?.logic !== s.logic)
+        this.releaseNativeGuard();
+      this.nativeGuardState = s;
+      this.nativeGuardOptions = options;
+      if (this.nativeGuards.length)
+        return;
+      for (const [target, keys] of [[s.layer, ["onReady"]], [s.logic, ["$P", "tN", "fG", "uN"]]])
+        for (const key of keys) {
+          const original = target[key];
+          if (typeof original !== "function")
+            continue;
+          const owner = this;
+          const wrapped = function(...args) {
+            try {
+              const current = sessionSnapshot(s.w);
+              const opt = typeof owner.nativeGuardOptions === "function" ? owner.nativeGuardOptions() : owner.nativeGuardOptions;
+              let balance = current.hearts;
+              if (typeof current.player?.zn === "function")
+                balance = Math.min(balance, current.player.zn());
+              else if (typeof current.player?.P?.pb === "function")
+                balance = Math.min(balance, current.player.P.pb());
+              const threshold = opt.adHeartThreshold ?? 0;
+              const low = !Number.isFinite(balance) || balance <= threshold || balance < current.logic?.Ke;
+              const pending = owner.ad || owner.mustRewardBeforeReady || getAdStatus(s.w).blocking;
+              if (low)
+                owner.mustRewardBeforeReady = true;
+              if (current.syncing || current.layer !== s.layer || current.logic !== s.logic || current.playing || current.finished || current.player?.Ka || current.popup || low || pending) {
+                owner.readyWait = null;
+                owner.nativeReadyBlocked = true;
+                return false;
+              }
+            } catch {
+              owner.readyWait = null;
+              owner.nativeReadyBlocked = true;
+              return false;
+            }
+            return original.apply(this, args);
+          };
+          target[key] = wrapped;
+          this.nativeGuards.push({ target, key, original, wrapped });
+        }
+    }
+    requireReward(s, { autoAds = false, adHeartThreshold = 0, maxAds = 3 } = {}, now = Date.now()) {
+      this.readyWait = null;
+      this.idleWatch = null;
+      this.mustRewardBeforeReady = true;
+      if (s.stage === "table") {
+        if (s.popup)
+          throw Error("C\xF3 popup c\u1EA7n x\u1EED l\xFD tr\u01B0\u1EDBc khi r\u1EDDi b\xE0n nh\u1EADn tim.");
+        if (typeof s.logic.uo !== "function")
+          throw Error("Kh\xF4ng nh\u1EADn di\u1EC7n \u0111\u01B0\u1EE3c n\xFAt r\u1EDDi b\xE0n \u0111\u1EC3 nh\u1EADn tim.");
+        return this.perform("r\u1EDDi b\xE0n \u0111\u1EC3 nh\u1EADn tim", s.identity, now, () => s.logic.uo(0), "\u0110ang r\u1EDDi b\xE0n \u0111\u1EC3 x\xE1c nh\u1EADn tim/qu\u1EA3ng c\xE1o tr\u01B0\u1EDBc S\u1EB5n s\xE0ng\u2026");
+      }
+      if (!autoAds)
+        throw Error(`Tim ch\u01B0a \u0111\u1EE7 ho\u1EB7c \u0111\xE3 ch\u1EA1m ng\u01B0\u1EE1ng ${adHeartThreshold}. Ch\u01B0a b\u1EA5m S\u1EB5n s\xE0ng; h\xE3y nh\u1EADn th\xEAm tim tr\u01B0\u1EDBc.`);
+      return this.beginReward(s, { maxAds }, now);
+    }
+    beforeReady(expected, options, now) {
+      const reward = this.watchReward(expected.w, now);
+      if (reward) {
+        this.readyWait = null;
+        return reward;
+      }
+      const s = sessionSnapshot(expected.w);
+      if (s.syncing || s.stage !== "table" || s.identity !== expected.identity || s.layer !== expected.layer || s.logic !== expected.logic || s.player?.Ka || s.playing || s.finished) {
+        this.readyWait = null;
+        return { play: false, status: "B\xE0n v\u1EEBa thay \u0111\u1ED5i. Ki\u1EC3m tra l\u1EA1i tr\u01B0\u1EDBc khi S\u1EB5n s\xE0ng\u2026" };
+      }
+      if (s.popup) {
+        this.readyWait = null;
+        return { play: false, status: "Ch\u1EDD x\u1EED l\xFD th\xF4ng b\xE1o tr\u01B0\u1EDBc khi S\u1EB5n s\xE0ng\u2026" };
+      }
+      let tableHearts = s.hearts;
+      if (typeof s.player.zn === "function")
+        tableHearts = s.player.zn();
+      else if (typeof s.player.P?.pb === "function")
+        tableHearts = s.player.P.pb();
+      if (!Number.isFinite(tableHearts) || tableHearts < 0)
+        throw Error("Ch\u01B0a x\xE1c nh\u1EADn \u0111\u01B0\u1EE3c tim trong b\xE0n. Kh\xF4ng b\u1EA5m S\u1EB5n s\xE0ng.");
+      const threshold = options.adHeartThreshold ?? 0;
+      const available = Math.min(s.hearts, tableHearts);
+      const enough = typeof s.logic.OA === "function" ? s.logic.OA() : true;
+      if (this.mustRewardBeforeReady || available <= threshold || available < s.logic.Ke || enough === false)
+        return this.requireReward(s, options, now);
+      return null;
+    }
+    watchReward(w, now = Date.now()) {
+      if (w.BkGlobal && w.K !== void 0 && ![w.K, -1].includes(w.BkGlobal.ia))
+        return null;
+      const hearts = w.BkGlobal?.P?.pb?.();
+      const hidden = w.document?.visibilityState === "hidden";
+      if (this.ad) {
+        this.readyWait = null;
+        this.idleWatch = null;
+        if (hidden)
+          this.ad.hiddenAt ??= now;
+        else if (this.ad.hiddenAt !== void 0) {
+          this.ad.at += now - this.ad.hiddenAt;
+          delete this.ad.hiddenAt;
+        }
+      }
+      const ads = getAdStatus(w, now, { credited: !!this.ad && Number.isFinite(hearts) && hearts > this.ad.hearts });
+      if (!this.ad && ads.rewardPending && ads.blocking && Number.isFinite(hearts)) {
+        this.ad = { hearts, at: now };
+        this.adsUsed++;
+        this.readyWait = null;
+      }
+      if (hidden && (this.ad || ads.blocking))
+        return { play: false, status: "Qu\u1EA3ng c\xE1o \u0111ang ch\u1EDD tab hi\u1EC3n th\u1ECB. Khi quay l\u1EA1i Ziga, bot s\u1EBD ti\u1EBFp t\u1EE5c theo d\xF5i v\xE0 \u0111\xF3ng qu\u1EA3ng c\xE1o." };
+      if (this.ad && now - this.ad.at > settings.ads.timeoutMs)
+        throw Error("Qu\u1EA3ng c\xE1o qu\xE1 th\u1EDDi gian. H\xE3y ki\u1EC3m tra ho\u1EB7c xem th\u1EE7 c\xF4ng r\u1ED3i b\u1EADt l\u1EA1i.");
+      if (ads.failed && this.ad)
+        throw Error("Qu\u1EA3ng c\xE1o kh\xF4ng t\u1EA3i \u0111\u01B0\u1EE3c. Ch\u01B0a \u0111\u01B0\u1EE3c c\u1ED9ng tim; h\xE3y th\u1EED th\u1EE7 c\xF4ng.");
+      if (ads.blocking) {
+        this.readyWait = null;
+        this.idleWatch = null;
+        return { play: false, status: ads.status };
+      }
+      if (!this.ad)
+        return null;
+      if (Number.isFinite(hearts) && hearts > this.ad.hearts) {
+        this.ad = null;
+        this.action = null;
+        this.mustRewardBeforeReady = false;
+        this.nextAt = now + settings.session.rewardResumeMs;
+        this.adRewardAt = now;
+        const popup = w.BkStackWindow?.Vj?.() || w.Fl || null;
+        if (isHeartRewardPopup(w, popup, { recentReward: true }))
+          dismissHeartPopup(w, popup);
+        closeHeartRewardDom(w);
+        return { play: false, status: "Ziga \u0111\xE3 c\u1ED9ng tim. Chu\u1EA9n b\u1ECB ch\u01A1i ti\u1EBFp\u2026" };
+      }
+      return { play: false, status: "Ch\u1EDD Ziga x\xE1c nh\u1EADn tim t\u1EEB qu\u1EA3ng c\xE1o\u2026" };
+    }
     beginReward(s, { maxAds = 3 } = {}, now = Date.now()) {
       const { w, hearts } = s;
       if (s.playing || s.syncing || ["unknown", "verification"].includes(s.stage))
@@ -1580,10 +1760,13 @@
       return { play: false, status: "\u0110\xE3 m\u1EDF qu\u1EA3ng c\xE1o nh\u1EADn tim. \u0110ang theo d\xF5i \u0111\xF3ng qu\u1EA3ng c\xE1o v\xE0 c\u1ED9ng tim\u2026" };
     }
     reset() {
+      this.releaseNativeGuard();
+      this.nativeReadyBlocked = false;
       this.nextAt = 0;
       this.action = null;
       this.ad = null;
       this.adRewardAt = null;
+      this.mustRewardBeforeReady = false;
       this.finishAt = null;
       this.adsUsed = 0;
       this.lastTable = null;
@@ -1627,7 +1810,10 @@
         return this.leaveWaiting(s, now);
       return null;
     }
-    delayedReady(type, s, now, call, status) {
+    delayedReady(type, s, now, call, status, options = {}) {
+      const gate = this.beforeReady(s, options, now);
+      if (gate)
+        return gate;
       if (this.action?.type === type && this.action.key === s.identity)
         return this.perform(type, s.identity, now, call, status);
       if (!this.readyWait || this.readyWait.type !== type) {
@@ -1650,14 +1836,17 @@
       call();
       return { play: false, status };
     }
-    step(s, { autoAds = false, maxHearts = 1, maxAds = 3, rewardOnly = false } = {}, now = Date.now()) {
+    step(s, { autoAds = false, adHeartThreshold = 0, maxAds = 3, rewardOnly = false } = {}, now = Date.now()) {
       const { w, g, stage, common, hearts, logic, layer, player } = s;
       if (this.readyWait && (stage !== "table" || this.readyWait.key !== s.identity || this.readyWait.layer !== layer || this.readyWait.status !== player?.status || player?.Ka || s.playing || s.finished || (logic?.ha?.filter((p) => p && !p.Ka).length ?? 0) < 2))
         this.readyWait = null;
       if (g.ia !== w.K && !(g.ia === -1 && ["menu", "verification"].includes(stage)))
         throw Error("\u0110\xE3 r\u1EDDi C\u1EDD t\u01B0\u1EDBng. D\u1EEBng t\u1EF1 ch\u01A1i.");
-      if (!Number.isInteger(maxHearts) || maxHearts < 1 || maxHearts > 1e4 || !Number.isInteger(maxAds) || maxAds < 1 || maxAds > 10)
-        throw Error("Gi\u1EDBi h\u1EA1n tim: 1\u201310000; s\u1ED1 qu\u1EA3ng c\xE1o: 1\u201310.");
+      if (!Number.isInteger(adHeartThreshold) || adHeartThreshold < 0 || adHeartThreshold > 1e4 || !Number.isInteger(maxAds) || maxAds < 1 || maxAds > 10)
+        throw Error("Ng\u01B0\u1EE1ng tim: 0\u201310000; s\u1ED1 qu\u1EA3ng c\xE1o: 1\u201310.");
+      const reward = this.watchReward(w, now);
+      if (reward)
+        return reward;
       if (stage === "unknown")
         throw Error("Tr\u1EA1ng th\xE1i trang kh\xF4ng \u0111\u01B0\u1EE3c h\u1ED7 tr\u1EE3. H\xE3y ki\u1EC3m tra CAPTCHA ho\u1EB7c k\u1EBFt n\u1ED1i.");
       if (s.syncing) {
@@ -1671,30 +1860,6 @@
       this.syncAt = null;
       if (stage === "verification")
         return { play: false, status: "H\xE3y t\u1EF1 x\xE1c minh CAPTCHA/\u0111\u0103ng nh\u1EADp. Bot ch\u1EDD m\xE0n h\xECnh ch\u1ECDn game r\u1ED3i s\u1EBD ch\u1ECDn C\u1EDD t\u01B0\u1EDBng." };
-      if (this.ad && now - this.ad.at > settings.ads.timeoutMs)
-        throw Error("Qu\u1EA3ng c\xE1o qu\xE1 th\u1EDDi gian. H\xE3y ki\u1EC3m tra ho\u1EB7c xem th\u1EE7 c\xF4ng r\u1ED3i b\u1EADt l\u1EA1i.");
-      const ads = getAdStatus(w, now, { credited: !!this.ad && hearts > this.ad.hearts });
-      if (ads.failed && this.ad)
-        throw Error("Qu\u1EA3ng c\xE1o kh\xF4ng t\u1EA3i \u0111\u01B0\u1EE3c. Ch\u01B0a \u0111\u01B0\u1EE3c c\u1ED9ng tim; h\xE3y th\u1EED th\u1EE7 c\xF4ng.");
-      if (ads.blocking) {
-        this.idleWatch = null;
-        return { play: false, status: ads.status };
-      }
-      if (this.ad) {
-        if (hearts > this.ad.hearts) {
-          this.ad = null;
-          this.action = null;
-          this.nextAt = now + settings.session.rewardResumeMs;
-          this.adRewardAt = now;
-          if (s.popup && isHeartRewardPopup(w, s.popup, { recentReward: true })) {
-            dismissHeartPopup(w, s.popup);
-            s.popup = w.BkStackWindow?.Vj?.() || w.Fl || null;
-          }
-          closeHeartRewardDom(w);
-          return { play: false, status: "Ziga \u0111\xE3 c\u1ED9ng tim. Chu\u1EA9n b\u1ECB ch\u01A1i ti\u1EBFp\u2026" };
-        }
-        return { play: false, status: "Ch\u1EDD Ziga x\xE1c nh\u1EADn tim t\u1EEB qu\u1EA3ng c\xE1o\u2026" };
-      }
       if (rewardOnly) {
         const recent = this.adRewardAt !== null && now - this.adRewardAt < settings.session.rewardPopupWindowMs;
         if (recent) {
@@ -1737,10 +1902,10 @@
         return this.perform("r\u1EDDi b\xE0n", s.identity, now, () => logic.uo(0), "\u0110\xE3 y\xEAu c\u1EA7u r\u1EDDi b\xE0n sau v\xE1n.");
       }
       this.finishAt = null;
-      if (hearts < 1) {
-        if (!autoAds)
+      if (hearts <= adHeartThreshold || this.mustRewardBeforeReady) {
+        if (hearts < 1 && !autoAds)
           throw Error("H\u1EBFt tim. H\xE3y xem qu\u1EA3ng c\xE1o th\u1EE7 c\xF4ng ho\u1EB7c b\u1EADt t\u1EF1 xem nh\u1EADn tim.");
-        return this.beginReward(s, { maxAds }, now);
+        return this.requireReward(s, { autoAds, adHeartThreshold, maxAds }, now);
       }
       if (s.popup)
         throw Error("C\xF3 popup c\u1EA7n x\u1EED l\xFD. T\u1EF1 ch\u01A1i \u0111\xE3 d\u1EEBng.");
@@ -1758,7 +1923,7 @@
         const tables = common.ic?.aN;
         if (!Array.isArray(tables) || typeof common.FJ !== "function")
           throw Error("Kh\xF4ng \u0111\u1ECDc \u0111\u01B0\u1EE3c danh s\xE1ch b\xE0n C\u1EDD t\u01B0\u1EDBng.");
-        const candidates = tables.filter((t) => Number.isInteger(t.wg) && t.wg >= 0 && t.wg <= 255 && t.aj === 2 && t.tk >= 0 && t.tk < 2 && !t.Rb && !t.Wj && Number.isFinite(t.Yb) && t.Yb >= 0 && t.Yb <= Math.min(hearts, maxHearts) && !this.skippedTables.has(`${g.af}:${t.wg}`));
+        const candidates = tables.filter((t) => Number.isInteger(t.wg) && t.wg >= 0 && t.wg <= 255 && t.aj === 2 && t.tk >= 0 && t.tk < 2 && !t.Rb && !t.Wj && Number.isFinite(t.Yb) && t.Yb >= 0 && t.Yb <= Math.min(hearts, 1) && !this.skippedTables.has(`${g.af}:${t.wg}`));
         candidates.sort((a, b) => b.tk - a.tk || a.Yb - b.Yb || a.wg - b.wg);
         if (!candidates.length)
           return { play: false, status: "Ch\u01B0a c\xF3 b\xE0n C\u1EDD t\u01B0\u1EDBng kh\xE1c ph\xF9 h\u1EE3p. \u0110ang ch\u1EDD, kh\xF4ng gi\u1EEF b\xE0n c\u0169\u2026" };
@@ -1768,7 +1933,7 @@
       if (stage === "table") {
         if (![w.GAME_STATE_READY, w.GAME_STATE_NOT_READY].filter((v) => v !== void 0).includes(logic.Fb))
           throw Error("B\xE0n \u0111ang \u1EDF tr\u1EA1ng th\xE1i ch\u01B0a h\u1ED7 tr\u1EE3.");
-        if (!Number.isFinite(logic.Ke) || logic.Ke > maxHearts || logic.Ke > hearts)
+        if (!Number.isFinite(logic.Ke) || logic.Ke > 1 || logic.Ke > hearts)
           throw Error("M\u1EE9c tim c\u1EE7a b\xE0n v\u01B0\u1EE3t gi\u1EDBi h\u1EA1n; h\xE3y ch\u1ECDn l\u1EA1i b\xE0n.");
         if (player.Ka) {
           if (typeof logic.wz !== "function" || logic.wz() < 0 || typeof logic.TC !== "function")
@@ -1785,12 +1950,12 @@
         if (player.status === w.PLAYER_STATE_NOT_READY || w.PLAYER_STATE_FINISH_GAME !== void 0 && player.status === w.PLAYER_STATE_FINISH_GAME || visibleReady) {
           if (typeof layer.onReady !== "function")
             throw Error("Kh\xF4ng nh\u1EADn di\u1EC7n \u0111\u01B0\u1EE3c n\xFAt s\u1EB5n s\xE0ng.");
-          return this.delayedReady("s\u1EB5n s\xE0ng", s, now, () => layer.onReady(), "\u0110\xE3 y\xEAu c\u1EA7u s\u1EB5n s\xE0ng\u2026");
+          return this.delayedReady("s\u1EB5n s\xE0ng", s, now, () => layer.onReady(), "\u0110\xE3 y\xEAu c\u1EA7u s\u1EB5n s\xE0ng\u2026", { autoAds, adHeartThreshold, maxAds });
         }
         if (player.status === w.PLAYER_STATE_TABLE_OWNER && players.every((p) => p === player || p.status === w.PLAYER_STATE_READY)) {
           if (typeof logic.fG !== "function")
             throw Error("Kh\xF4ng nh\u1EADn di\u1EC7n \u0111\u01B0\u1EE3c n\xFAt b\u1EAFt \u0111\u1EA7u v\xE1n.");
-          return this.delayedReady("b\u1EAFt \u0111\u1EA7u", s, now, () => logic.fG(), "\u0110ang b\u1EAFt \u0111\u1EA7u v\xE1n C\u1EDD t\u01B0\u1EDBng\u2026");
+          return this.delayedReady("b\u1EAFt \u0111\u1EA7u", s, now, () => logic.fG(), "\u0110ang b\u1EAFt \u0111\u1EA7u v\xE1n C\u1EDD t\u01B0\u1EDBng\u2026", { autoAds, adHeartThreshold, maxAds });
         }
         return { play: false, status: "\u0110ang ch\u1EDD \u0111\u1ED1i th\u1EE7 s\u1EB5n s\xE0ng\u2026" };
       }
@@ -1904,7 +2069,7 @@
   };
 
   // src/preferences.js
-  var defaults = Object.freeze({ time: "auto", book: "5", depth: "0", threads: "2", ponder: true, autoDrawReply: false, autoDrawOffer: false, maxHearts: "1", autoAds: false, maxAds: "3", minimized: false });
+  var defaults = Object.freeze({ time: "auto", book: "5", depth: "0", threads: "2", ponder: true, autoDrawReply: false, autoDrawOffer: false, adHeartThreshold: "0", autoAds: false, maxAds: "3", minimized: false });
   var preferenceKeys = Object.keys(defaults);
   function validPreferences(raw) {
     const out = {};
@@ -1921,16 +2086,16 @@
       if (s === null)
         continue;
       if (key === "time") {
-        if (["auto", "650", "1200", "2500", "5000", "10000"].includes(s))
+        if (["auto", "650", "1200", "2500", "5000", "10000", "20000", "30000", "50000"].includes(s))
           out[key] = s;
         continue;
       }
       if (key === "book") {
-        if (["0", "3", "4", "5"].includes(s))
+        if (["0", "3", "4", "5", "6", "7", "8", "9", "10"].includes(s))
           out[key] = s;
         continue;
       }
-      const [min, max] = { depth: [0, 64], threads: [1, 16], maxHearts: [1, 1e4], maxAds: [1, 10] }[key];
+      const [min, max] = { depth: [0, 64], threads: [1, 16], adHeartThreshold: [0, 1e4], maxAds: [1, 10] }[key];
       if (/^(0|[1-9]\d*)$/.test(s) && Number(s) >= min && Number(s) <= max)
         out[key] = s;
     }
@@ -1994,11 +2159,16 @@
       compact.hidden = !collapsed;
       compact.style.display = collapsed ? "block" : "none";
       panel.style.width = collapsed ? "190px" : "255px";
-      title.textContent = collapsed ? "Ziga Bot" : "Ziga \xB7 Th\u1EED nghi\u1EC7m";
+      title.textContent = collapsed ? `Ziga Bot ${manifest_default.version}` : `Ziga \xB7 ${manifest_default.version}`;
       minimize.textContent = collapsed ? "+" : "\u2212";
       minimize.title = collapsed ? "M\u1EDF menu" : "Thu nh\u1ECF menu (bot v\u1EABn ch\u1EA1y)";
       minimize.setAttribute("aria-label", collapsed ? "M\u1EDF menu" : "Thu nh\u1ECF menu");
       minimize.setAttribute("aria-expanded", String(!collapsed));
+    }, sessionOptions = function() {
+      const raw = $("adHeartThreshold").value;
+      if (!/^(0|[1-9]\d*)$/.test(raw))
+        throw Error("Ng\u01B0\u1EE1ng tim ch\u01B0a h\u1EE3p l\u1EC7. Kh\xF4ng v\xE0o b\xE0n ho\u1EB7c S\u1EB5n s\xE0ng.");
+      return { autoAds: $("autoAds").checked, adHeartThreshold: Number(raw), maxAds: Number($("maxAds").value) };
     }, updateButtons = function() {
       $("start").disabled = !settingsReady || enabled;
       $("stop").disabled = !enabled;
@@ -2032,9 +2202,9 @@
     document.documentElement.append(host);
     const $ = (id) => shadow.getElementById(id);
     shadow.querySelector("small").textContent = "Pikafish native \xB7 localhost";
-    $("time").innerHTML = '<option value="auto" selected>T\u1EF1 \u0111\u1ED9ng \u226410 gi\xE2y</option><option value="650">0,65 gi\xE2y</option><option value="1200">1,2 gi\xE2y</option><option value="2500">2,5 gi\xE2y</option><option value="5000">5 gi\xE2y</option><option value="10000">10 gi\xE2y</option>';
+    $("time").innerHTML = '<option value="auto" selected>T\u1EF1 \u0111\u1ED9ng \u226410 gi\xE2y</option><option value="650">0,65 gi\xE2y</option><option value="1200">1,2 gi\xE2y</option><option value="2500">2,5 gi\xE2y</option><option value="5000">5 gi\xE2y</option><option value="10000">10 gi\xE2y</option><option value="20000">20 gi\xE2y</option><option value="30000">30 gi\xE2y</option><option value="50000">50 gi\xE2y</option>';
     const bookLabel = document.createElement("label");
-    bookLabel.innerHTML = '\u01AFu ti\xEAn book <select id="book"><option value="3">3 l\u01B0\u1EE3t \u0111\u1EA7u / b\xEAn</option><option value="4">4 l\u01B0\u1EE3t \u0111\u1EA7u / b\xEAn</option><option value="5" selected>5 l\u01B0\u1EE3t \u0111\u1EA7u / b\xEAn</option><option value="0">T\u1EAFt book</option></select>';
+    bookLabel.innerHTML = '\u01AFu ti\xEAn book <select id="book"><option value="3">3 l\u01B0\u1EE3t \u0111\u1EA7u / b\xEAn</option><option value="4">4 l\u01B0\u1EE3t \u0111\u1EA7u / b\xEAn</option><option value="5" selected>5 l\u01B0\u1EE3t \u0111\u1EA7u / b\xEAn</option><option value="6">6 l\u01B0\u1EE3t \u0111\u1EA7u / b\xEAn</option><option value="7">7 l\u01B0\u1EE3t \u0111\u1EA7u / b\xEAn</option><option value="8">8 l\u01B0\u1EE3t \u0111\u1EA7u / b\xEAn</option><option value="9">9 l\u01B0\u1EE3t \u0111\u1EA7u / b\xEAn</option><option value="10">10 l\u01B0\u1EE3t \u0111\u1EA7u / b\xEAn</option><option value="0">T\u1EAFt book</option></select>';
     $("start").before(bookLabel);
     const engineSettings = document.createElement("div");
     engineSettings.innerHTML = '<label>\u0110\u1ED9 s\xE2u t\u1ED1i \u0111a <input id="depth" type="number" min="0" max="64" step="1" value="0" style="width:65px"> <small>0 = theo th\u1EDDi gian</small></label><label>Threads <input id="threads" type="number" min="1" max="16" step="1" value="2" style="width:65px"></label>';
@@ -2054,11 +2224,15 @@
     const draws = new DrawPolicy();
     let manualDraw = null, drawHoldUntil = 0;
     const autoSettings = document.createElement("div");
-    autoSettings.innerHTML = '<hr><strong>T\u1EF1 ch\u01A1i li\xEAn ti\u1EBFp \xB7 ch\u1EC9 C\u1EDD t\u01B0\u1EDBng</strong><label>Tim t\u1ED1i \u0111a / b\xE0n <input id="maxHearts" type="number" min="1" max="10000" value="1" style="width:65px"></label><label><input id="autoAds" type="checkbox"> H\u1EBFt tim: t\u1EF1 m\u1EDF qu\u1EA3ng c\xE1o nh\u1EADn tim</label><label>T\u1ED1i \u0111a qu\u1EA3ng c\xE1o / phi\xEAn <input id="maxAds" type="number" min="1" max="10" value="3" style="width:45px"></label><button id="autoStart">B\u1EADt t\u1EF1 ch\u01A1i</button><button id="autoStop">T\u1EAFt t\u1EF1 ch\u01A1i</button><p id="autoStatus">T\u1EF1 ch\u01A1i: \u0111\xE3 t\u1EAFt.</p><hr><strong>Bot \u0111i qu\xE2n trong b\xE0n</strong><br>';
+    autoSettings.innerHTML = '<hr><strong>T\u1EF1 ch\u01A1i li\xEAn ti\u1EBFp \xB7 ch\u1EC9 C\u1EDD t\u01B0\u1EDBng</strong><label>Xem qu\u1EA3ng c\xE1o khi tim \u2264 <input id="adHeartThreshold" type="number" min="0" max="10000" value="0" style="width:65px"></label><label><input id="autoAds" type="checkbox"> T\u1EF1 xem qu\u1EA3ng c\xE1o nh\u1EADn tim khi ch\u1EA1m ng\u01B0\u1EE1ng</label><label>T\u1ED1i \u0111a qu\u1EA3ng c\xE1o / phi\xEAn <input id="maxAds" type="number" min="1" max="10" value="3" style="width:45px"></label><button id="autoStart">B\u1EADt t\u1EF1 ch\u01A1i</button><button id="autoStop">T\u1EAFt t\u1EF1 ch\u01A1i</button><p id="autoStatus">T\u1EF1 ch\u01A1i: \u0111\xE3 t\u1EAFt.</p><hr><strong>Bot \u0111i qu\xE2n trong b\xE0n</strong><br>';
     $("start").before(autoSettings);
     const adTestControls = document.createElement("div");
     adTestControls.innerHTML = '<button id="testAd">Th\u1EED qu\u1EA3ng c\xE1o nh\u1EADn tim</button><p id="adTestStatus">Th\u1EED ri\xEAng khi c\xF2n tim, kh\xF4ng c\u1EA7n b\u1EADt t\u1EF1 ch\u01A1i.</p>';
-    $("autoStatus").after(adTestControls);
+    const adTestTools = document.createElement("details");
+    adTestTools.id = "adTestTools";
+    adTestTools.innerHTML = '<summary id="adTestToggle" title="M\u1EDF c\xF4ng c\u1EE5 th\u1EED qu\u1EA3ng c\xE1o" style="font-size:11px;color:#b0becb;cursor:pointer;width:max-content;padding:2px 0">Test</summary>';
+    adTestTools.append(adTestControls);
+    $("autoStatus").after(adTestTools);
     const diagnosticControls = document.createElement("div");
     diagnosticControls.innerHTML = '<button id="adDiagnostic">Xem ch\u1EA9n \u0111o\xE1n qu\u1EA3ng c\xE1o</button><textarea id="adDiagnosticText" readonly hidden aria-label="Ch\u1EA9n \u0111o\xE1n l\u1EA7n qu\u1EA3ng c\xE1o" style="box-sizing:border-box;width:100%;height:150px"></textarea>';
     adTestControls.append(diagnosticControls);
@@ -2160,6 +2334,8 @@
         stableKey = "";
         updateButtons();
         setStatus("\u0110\xE3 b\u1EADt bot \u0111i qu\xE2n. \u0110ang theo d\xF5i C\u1EDD t\u01B0\u1EDBng\u2026");
+        if (!continuous && $("autoAds").checked)
+          $("autoStatus").textContent = "T\u1EF1 ch\u01A1i \u0111ang t\u1EAFt. B\u1EADt T\u1EF1 ch\u01A1i \u0111\u1EC3 \xE1p d\u1EE5ng ng\u01B0\u1EE1ng tim v\xE0 t\u1EF1 nh\u1EADn tim.";
       } catch (e) {
         setStatus(e.message);
       }
@@ -2168,12 +2344,16 @@
       try {
         if (continuous)
           return;
-        sessionSnapshot();
+        const snapshot = sessionSnapshot();
+        sessionOptions();
         session.reset();
+        session.watchReward(window);
+        session.guardNativeReady(snapshot, sessionOptions);
         continuous = true;
         updateButtons();
         $("autoStatus").textContent = "T\u1EF1 ch\u01A1i: \u0111\xE3 b\u1EADt. T\u1EF1 v\xE0o/r\u1EDDi b\xE0n C\u1EDD t\u01B0\u1EDBng.";
       } catch (e) {
+        session.releaseNativeGuard();
         $("autoStatus").textContent = e.message;
       }
     };
@@ -2192,6 +2372,37 @@
       if (!enabled && !continuous && !testingReward)
         return;
       try {
+        if (testingReward || continuous) {
+          let reward;
+          try {
+            reward = (testingReward ? rewardTest : session).watchReward(window);
+          } catch (e) {
+            if (!testingReward)
+              throw e;
+            testingReward = false;
+            rewardTest.ad = null;
+            $("adTestStatus").textContent = "Th\u1EED qu\u1EA3ng c\xE1o: " + e.message;
+            updateButtons();
+            return;
+          }
+          if (reward) {
+            $(testingReward ? "adTestStatus" : "autoStatus").textContent = reward.status;
+            clearBackground();
+            if (search || waiting) {
+              generation++;
+              search?.controller.abort();
+              search = null;
+              waiting = null;
+            }
+            pending = null;
+            lastRoom = null;
+            stableKey = "";
+            observedRoom = null;
+            if (enabled)
+              setStatus("\u0110ang ch\u1EDD qu\u1EA3ng c\xE1o v\xE0 x\xE1c nh\u1EADn tim\u2026");
+            return;
+          }
+        }
         if (testingReward) {
           try {
             const result2 = rewardTest.step(sessionSnapshot(), { rewardOnly: true, maxAds: Number($("maxAds").value) });
@@ -2210,7 +2421,9 @@
         }
         if (continuous) {
           const snapshot = sessionSnapshot();
-          const sessionResult = session.step(snapshot, { autoAds: $("autoAds").checked, maxHearts: Number($("maxHearts").value), maxAds: Number($("maxAds").value) });
+          const options = sessionOptions();
+          session.guardNativeReady(snapshot, sessionOptions);
+          const sessionResult = session.step(snapshot, options);
           let diagnostic = "";
           if (snapshot.stage === "table" && !sessionResult.play) {
             const seats = snapshot.logic?.ha?.filter((p) => p && !p.Ka).length ?? 0;
@@ -2218,7 +2431,7 @@
             const button = b ? b.isVisible?.() !== false && b.x >= 0 && b.y >= 0 ? "hi\u1EC7n" : "\u1EA9n" : "ch\u01B0a c\xF3";
             diagnostic = ` \xB7 Gh\u1EBF ${seats}/2 \xB7 b\xE0n ${snapshot.logic?.Fb ?? "?"} \xB7 vai tr\xF2 ${snapshot.player?.status ?? "?"} \xB7 n\xFAt ${button}`;
           }
-          $("autoStatus").textContent = sessionResult.play ? "T\u1EF1 ch\u01A1i: \u0111ang trong v\xE1n C\u1EDD t\u01B0\u1EDBng." : sessionResult.status + diagnostic;
+          $("autoStatus").textContent = (sessionResult.play ? "T\u1EF1 ch\u01A1i: \u0111ang trong v\xE1n C\u1EDD t\u01B0\u1EDBng." : sessionResult.status + diagnostic) + ` \xB7 Tim ${snapshot.hearts} / ng\u01B0\u1EE1ng ${options.adHeartThreshold} \xB7 nh\u1EADn tim ${options.autoAds ? "b\u1EADt" : "t\u1EAFt"}`;
           if (!sessionResult.play) {
             clearBackground();
             if (search || waiting) {
@@ -2468,6 +2681,7 @@
       }
     }
     setInterval(tick, settings.move.pollMs);
+    document.addEventListener("visibilitychange", () => void tick());
     window.addEventListener("pagehide", () => stop("\u0110\xE3 d\u1EEBng."));
   }
 })();

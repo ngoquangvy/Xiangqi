@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {defaults,preferenceKeys,validPreferences,bindPreferences} from '../src/preferences.js';
 function root(){
   const elements={settingsStatus:{textContent:''}};
-  for(const key of preferenceKeys){const listeners={};elements[key]={value:String(defaults[key]),checked:defaults[key],type:['depth','threads','maxHearts','maxAds'].includes(key)?'number':'checkbox',addEventListener:(event,fn)=>{(listeners[event]??=[]).push(fn);},emit:event=>listeners[event]?.forEach(fn=>fn())};}
+  for(const key of preferenceKeys){const listeners={};elements[key]={value:String(defaults[key]),checked:defaults[key],type:['depth','threads','adHeartThreshold','maxAds'].includes(key)?'number':'checkbox',addEventListener:(event,fn)=>{(listeners[event]??=[]).push(fn);},emit:event=>listeners[event]?.forEach(fn=>fn())};}
   return {getElementById:key=>elements[key],elements};
 }
 test('preferences validate range/type and never persist bot run flags',()=>{
@@ -29,4 +29,16 @@ test('storage error is visible and a later edit can save successfully',async()=>
   await binding.ready;assert.match(r.elements.settingsStatus.textContent,/Không đọc/);
   r.elements.threads.value='3';r.elements.threads.emit('change');await binding.flush();assert.match(r.elements.settingsStatus.textContent,/Không lưu/);
   fail=false;r.elements.threads.value='4';r.elements.threads.emit('change');await binding.flush();assert.match(r.elements.settingsStatus.textContent,/Đã lưu/);
+});
+
+test('old table budget is not migrated into the reward threshold, which defaults to zero',()=>{
+ assert.equal(defaults.adHeartThreshold,'0');assert.equal(preferenceKeys.includes('maxHearts'),false);
+ assert.deepEqual(validPreferences({maxHearts:'7',adHeartThreshold:'2'}),{adHeartThreshold:'2'});
+ assert.deepEqual(validPreferences({adHeartThreshold:'0'}),{adHeartThreshold:'0'});
+ assert.deepEqual(validPreferences({adHeartThreshold:'-1'}),{});
+});
+
+test('book limits six through ten persist; unsupported values are rejected',()=>{
+ for(const n of [6,7,8,9,10])assert.equal(validPreferences({book:String(n)}).book,String(n));
+ assert.deepEqual(validPreferences({book:'11'}),{});
 });

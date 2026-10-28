@@ -85,3 +85,23 @@ test('guarded Google close probes share one cooldown, require native guard, and 
  assert.equal(probe(1000).allowed,true);watch(1500);assert.equal(probe(1999).allowed,false);
  assert.equal(probe(2000).allowed,true);watch(3000);assert.equal(probe(3000).allowed,false);
 });
+
+test('Google close chooses the inner event target rather than repeatedly clicking its wrapper',()=>{
+ let innerClicks=0,outerClicks=0;
+ const base={disabled:false,innerText:'Đóng',getAttribute:()=>null,getBoundingClientRect:()=>({left:0,top:0,width:20,height:20}),contains:()=>true};
+ const inner={...base,id:'dismiss-button-element',click:()=>innerClicks++};
+ const outer={...base,id:'dismiss-button',click:()=>outerClicks++};
+ const doc={visibilityState:'visible',querySelectorAll:s=>s==='*'?[]:s==='#close-confirmation-dialog'?[]:[outer,inner],elementFromPoint:()=>inner};
+ assert.equal(closeFrameAd({document:doc,getComputedStyle:()=>({})},true,new WeakSet(),{googleOnly:true}),true);
+ assert.equal(innerClicks,1);assert.equal(outerClicks,0);
+});
+
+test('a delayed heartbeat suspends frame access without resetting the same ad close timer',()=>{
+ const g=new AdFrameGate(200,{probeAfterMs:1000,probeRetryMs:1000,probeMax:2});
+ g.message({kind:'ad-watch',active:true,adId:'a'},top,0);
+ assert.equal(g.message({kind:'ad-frame-poll',adId:'a'},frame,500).allowed,false);
+ g.message({kind:'ad-watch',active:true,adId:'a'},top,1500);
+ assert.equal(g.message({kind:'ad-close-probe',adId:'a',hasGuard:true},frame,1501).allowed,true);
+ g.message({kind:'ad-watch',active:false},top,1502);
+ assert.equal(g.message({kind:'ad-close-probe',adId:'a',hasGuard:true},frame,1503).allowed,false);
+});

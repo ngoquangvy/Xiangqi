@@ -37,12 +37,7 @@
       timeoutMs: 12e4,
       loadTimeoutMs: 1e4,
       clearMs: 3e3,
-      exposedRecoveryMs: 1e4,
-      framePollMs: 500,
-      frameLeaseMs: 2e3,
-      googleCloseProbeAfterMs: 15e3,
-      googleCloseRetryMs: 1e4,
-      googleCloseMaxProbes: 8
+      exposedRecoveryMs: 1e4
     },
     engine: {
       ponderRequestIntervalMs: 5e3,
@@ -107,7 +102,7 @@
     check(s.draw.maxOffers <= 2, "draw.maxOffers cannot exceed 2");
     check(s.draw.minOwnTurnsBetweenOffers >= 1, "draw.minOwnTurnsBetweenOffers must be >= 1");
     for (const key of ["smallSearchMs", "mediumSearchMs", "complexSearchMs"])
-      check(s.move[key] >= 100 && s.move[key] <= 1e4, `move.${key} must be 100\u201310000`);
+      check(s.move[key] >= 100 && s.move[key] <= 5e4, `move.${key} must be 100\u201350000`);
     check(s.draw.replySearchMs >= 100 && s.draw.replySearchMs <= 1e4, "draw.replySearchMs must be 100\u201310000");
     check(s.move.pollMs >= 50 && s.cpu.sampleMs >= 250, "poll/sample interval too small");
     check(s.engine.httpTimeoutMs > s.move.complexSearchMs + s.engine.stopTimeoutMs, "HTTP timeout must exceed search + stop timeout");
@@ -117,6 +112,14 @@
     return Object.freeze(s);
   }
   var settings = validateSettings(settings_default);
+
+  // engine-budget.mjs
+  var MAX_MOVETIME_MS = 5e4;
+  function budgetTimeouts(movetime) {
+    const budget = Number.isInteger(movetime) && movetime > 0 ? Math.min(movetime, MAX_MOVETIME_MS) : 0;
+    const bridgeMs = budget > 1e4 ? Math.max(settings.engine.httpTimeoutMs, budget + settings.engine.handshakeMs + settings.engine.searchGraceMs + settings.engine.stopTimeoutMs) : settings.engine.httpTimeoutMs;
+    return { bridgeMs, clientMs: Math.max(settings.engine.clientTimeoutMs, bridgeMs + Math.max(2e3, settings.engine.clientTimeoutMs - settings.engine.httpTimeoutMs)) };
+  }
 
   // src/ad-diagnostic.js
   function cleanSurface(raw) {
@@ -198,10 +201,8 @@
       if (!["ad-frame-poll", "ad-frame-report", "ad-close-probe"].includes(msg.kind) || sender.frameId === 0 || !(adFrame(sender.url) || adFrame(sender.origin)))
         return { allowed: false };
       const state = this.tabs.get(tab);
-      if (!state || now > state.expires) {
-        this.tabs.delete(tab);
+      if (!state || now > state.expires)
         return { allowed: false };
-      }
       if (msg.kind === "ad-close-probe") {
         if (msg.adId !== state.adId || msg.hasGuard !== true || now - state.startedAt < this.probeAfterMs || now - state.lastProbe < this.probeRetryMs || state.probeAttempts >= this.probeMax)
           return { allowed: false };
@@ -224,12 +225,12 @@
         }
       } else if (msg.adId !== state.adId)
         this.record(tab, { stage: "\u0110\xE3 nh\u1EADn t\xEDn hi\u1EC7u t\u1EEB iframe", frame: sender.frameId, completed: state.completed === true });
-      return { allowed: true, adId: state.adId, completed: state.completed };
+      return { allowed: true, adId: state.adId, startedAt: state.startedAt, completed: state.completed };
     }
   };
 
   // src/preferences.js
-  var defaults = Object.freeze({ time: "auto", book: "5", depth: "0", threads: "2", ponder: true, autoDrawReply: false, autoDrawOffer: false, maxHearts: "1", autoAds: false, maxAds: "3", minimized: false });
+  var defaults = Object.freeze({ time: "auto", book: "5", depth: "0", threads: "2", ponder: true, autoDrawReply: false, autoDrawOffer: false, adHeartThreshold: "0", autoAds: false, maxAds: "3", minimized: false });
   var preferenceKeys = Object.keys(defaults);
   function validPreferences(raw) {
     const out = {};
@@ -246,16 +247,16 @@
       if (s === null)
         continue;
       if (key === "time") {
-        if (["auto", "650", "1200", "2500", "5000", "10000"].includes(s))
+        if (["auto", "650", "1200", "2500", "5000", "10000", "20000", "30000", "50000"].includes(s))
           out[key] = s;
         continue;
       }
       if (key === "book") {
-        if (["0", "3", "4", "5"].includes(s))
+        if (["0", "3", "4", "5", "6", "7", "8", "9", "10"].includes(s))
           out[key] = s;
         continue;
       }
-      const [min, max] = { depth: [0, 64], threads: [1, 16], maxHearts: [1, 1e4], maxAds: [1, 10] }[key];
+      const [min, max] = { depth: [0, 64], threads: [1, 16], adHeartThreshold: [0, 1e4], maxAds: [1, 10] }[key];
       if (/^(0|[1-9]\d*)$/.test(s) && Number(s) >= min && Number(s) <= max)
         out[key] = s;
     }
@@ -263,18 +264,24 @@
   }
 
   // src/bridge-status.js
-  function checkBridgeVersion(health) {
+  function checkBridgeVersion(health, movetime = 1e4, bookMoves = 5) {
     const version = typeof health?.version === "string" ? health.version.split(".").map(Number) : [];
     if (!health?.ok || version.length < 2 || !version.every(Number.isFinite) || version[0] === 0 && version[1] < 6)
       throw Error("Bridge \u0111ang ch\u1EA1y b\u1EA3n c\u0169, ch\u01B0a h\u1ED7 tr\u1EE3 10 gi\xE2y/ponder. H\xE3y \u0111\xF3ng bridge c\u0169 r\u1ED3i ch\u1EA1y start-bridge.cmd trong th\u01B0 m\u1EE5c extension m\u1EDBi.");
+    const maximum = Number.isInteger(health.maxMovetimeMs) ? health.maxMovetimeMs : 1e4;
+    if (movetime > maximum)
+      throw Error(`Bridge \u0111ang ch\u1EA1y b\u1EA3n c\u0169, ch\u1EC9 h\u1ED7 tr\u1EE3 t\u1ED1i \u0111a ${maximum / 1e3} gi\xE2y. H\xE3y \u0111\xF3ng bridge c\u0169 r\u1ED3i ch\u1EA1y l\u1EA1i start-bridge.cmd b\u1EA3n m\u1EDBi \u0111\u1EC3 d\xF9ng 20/30/50 gi\xE2y.`);
+    if (bookMoves > (Number.isInteger(health.maxBookMoves) ? health.maxBookMoves : 5))
+      throw Error("Bridge \u0111ang ch\u1EA1y b\u1EA3n c\u0169, ch\u1EC9 h\u1ED7 tr\u1EE3 book t\u1ED1i \u0111a 5 l\u01B0\u1EE3t/b\xEAn. H\xE3y \u0111\xF3ng bridge c\u0169 r\u1ED3i ch\u1EA1y l\u1EA1i start-bridge.cmd b\u1EA3n m\u1EDBi \u0111\u1EC3 d\xF9ng book 6\u201310.");
     return true;
   }
   function bridgeErrorMessage(error) {
     if (error?.name === "AbortError")
       return "\u0110\xE3 h\u1EE7y ho\u1EB7c engine qu\xE1 th\u1EDDi gian.";
     const message = String(error?.message || error);
-    if (/Invalid movetime.*5000/.test(message))
-      return "Bridge \u0111ang ch\u1EA1y b\u1EA3n c\u0169 (ch\u1EC9 h\u1ED7 tr\u1EE3 5 gi\xE2y). H\xE3y ch\u1EA1y start-bridge.cmd b\u1EA3n m\u1EDBi, sau \u0111\xF3 Reload extension v\xE0 t\u1EA3i l\u1EA1i Ziga.";
+    const limit = /Invalid movetime.*?[–-](\d+)\s*ms/.exec(message);
+    if (limit && Number(limit[1]) < 5e4)
+      return `Bridge \u0111ang ch\u1EA1y b\u1EA3n c\u0169 (ch\u1EC9 h\u1ED7 tr\u1EE3 ${Number(limit[1]) / 1e3} gi\xE2y). H\xE3y ch\u1EA1y start-bridge.cmd b\u1EA3n m\u1EDBi, sau \u0111\xF3 Reload extension v\xE0 t\u1EA3i l\u1EA1i Ziga.`;
     if (/Failed to fetch|fetch failed|ECONNREFUSED/i.test(message))
       return "Ch\u01B0a k\u1EBFt n\u1ED1i \u0111\u01B0\u1EE3c bridge \u1EDF c\u1ED5ng 17864. H\xE3y ch\u1EA1y start-bridge.cmd.";
     return message;
@@ -308,6 +315,7 @@
   var jobs = /* @__PURE__ */ new Map();
   var bridgeUrl = "http://127.0.0.1:17864";
   var lastHealthAt = 0;
+  var lastHealth = null;
   chrome.runtime.onMessage.addListener((msg, sender, reply) => {
     if (!/^https:\/\/(www\.)?zigavn\.com\//.test(sender.url || "") || typeof msg?.id !== "string")
       return;
@@ -340,19 +348,21 @@
     }
     if (!["analyze", "ponder", "stop"].includes(msg.kind))
       return;
-    if (msg.kind !== "stop" && (typeof msg.fen !== "string" || msg.fen.length > 200 || !Number.isInteger(msg.movetime) || msg.movetime < 100 || msg.movetime > 1e4)) {
+    if (msg.kind !== "stop" && (typeof msg.fen !== "string" || msg.fen.length > 200 || !Number.isInteger(msg.movetime) || msg.movetime < 100 || msg.movetime > MAX_MOVETIME_MS)) {
       reply({ error: "Invalid request" });
       return;
     }
     const controller = new AbortController();
     jobs.set(key, controller);
-    const timer = setTimeout(() => controller.abort(), settings.engine.httpTimeoutMs);
+    const timer = setTimeout(() => controller.abort(), budgetTimeouts(msg.movetime).bridgeMs);
     Promise.resolve().then(async () => {
       if (msg.kind !== "stop" && Date.now() - lastHealthAt > settings.engine.healthCacheMs) {
         const response = await fetch(bridgeUrl + "/health", { signal: controller.signal });
-        checkBridgeVersion(await response.json());
+        lastHealth = await response.json();
         lastHealthAt = Date.now();
       }
+      if (msg.kind !== "stop")
+        checkBridgeVersion(lastHealth, msg.movetime, msg.bookMoves);
       return fetch(bridgeUrl + "/" + msg.kind, { method: "POST", headers: { "Content-Type": "application/json", "X-Ziga-Client": msg.clientId || "legacy" }, body: JSON.stringify({ fen: msg.fen, movetime: msg.movetime, reverse: msg.reverse, bookMoves: msg.bookMoves, ply: msg.ply, threads: msg.threads, depth: msg.depth, clientId: msg.clientId, gameId: msg.gameId, usePonder: msg.usePonder }), signal: controller.signal });
     }).then(async (r) => {
       const data = await r.json();

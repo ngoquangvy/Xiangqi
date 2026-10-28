@@ -1,4 +1,5 @@
 import {settings} from '../settings.mjs';
+import {budgetTimeouts} from '../engine-budget.mjs';
 const clientId=crypto.randomUUID();
 export function nativeRequest(kind,fen,movetime,signal,bookOptions={}){
   return new Promise((resolve,reject)=>{
@@ -11,7 +12,7 @@ export function nativeRequest(kind,fen,movetime,signal,bookOptions={}){
       cleanup();const result=e.data.result;
       if(!result||result.error)reject(Error(result?.error||'Bridge không trả kết quả'));else resolve(result);
     };
-    const timer=setTimeout(()=>{cancel();cleanup();reject(Error('Không kết nối được Pikafish. Hãy chạy bridge và Reload extension/tab Ziga.'));},settings.engine.clientTimeoutMs);
+    const timer=setTimeout(()=>{cancel();cleanup();reject(Error('Không kết nối được Pikafish. Hãy chạy bridge và Reload extension/tab Ziga.'));},budgetTimeouts(movetime).clientMs);
     window.addEventListener('message',receive);signal.addEventListener('abort',abort,{once:true});
     if(signal.aborted)abort();else window.postMessage({channel:'ziga-native-request',kind,id,fen,movetime,clientId,...bookOptions},location.origin);
   });

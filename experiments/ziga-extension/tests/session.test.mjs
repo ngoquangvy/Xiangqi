@@ -59,7 +59,7 @@ test('unconfirmed ad or stuck ad times out; active game never opens reward',()=>
 test('unknown popup, hidden ad tab, over-budget table fail safely',()=>{
   const f=fixture();f.w.BkStackWindow={Vj:()=>({})};assert.throws(()=>new AutoSession().step(f.snapshot()),/popup/);
   delete f.w.BkStackWindow;f.hearts(0);f.w.document.visibilityState='hidden';new AutoSession().step(f.snapshot(),{autoAds:true},0);assert.equal(f.calls.length,0);
-  f.hearts(5);f.w.BkGlobal.Ja=3;f.logic.Ke=2;assert.throws(()=>new AutoSession().step(f.snapshot(),{maxHearts:1}),/giới hạn/);
+  f.hearts(5);f.w.BkGlobal.Ja=3;f.logic.Ke=2;assert.throws(()=>new AutoSession().step(f.snapshot()),/giới hạn/);
 });
 test('menu always requests K and unknown states never navigate',()=>{
   const f=fixture();f.w.BkGlobal.Ja=1;new AutoSession().step(f.snapshot(),{},0);assert.deepEqual(f.calls,[['lobby',7]]);
@@ -273,4 +273,106 @@ test('manual reward test starts while hearts remain, opens once, closes bonus an
 test('manual reward test refuses to interrupt an active game',()=>{
  const f=fixture();f.w.BkGlobal.Ja=f.w.V;f.logic.Fb=f.w.GAME_STATE_PLAYING;
  assert.throws(()=>new AutoSession().beginReward(f.snapshot(),{},0),/về sảnh/);assert.equal(f.calls.length,0);
+});
+
+test('automatic reward tracking continues while the table layer is temporarily missing',()=>{
+ const f=fixture(),s=new AutoSession();f.hearts(0);s.step(f.snapshot(),{autoAds:true},0);
+ f.w.BkGlobal.Ja=f.w.V;f.w.BkGlobal.Yj.ja=()=>null;
+ assert.equal(f.snapshot().syncing,true);
+ assert.match(s.step(f.snapshot(),{autoAds:true},25000).status,/xác nhận tim/);
+ assert.equal(s.syncAt,null);f.hearts(1);
+ assert.match(s.watchReward(f.w,26000).status,/đã cộng tim/);assert.equal(s.ad,null);
+});
+
+test('hidden time does not exhaust the reward timeout; returning resumes without opening another ad',()=>{
+ const f=fixture(),s=new AutoSession();s.beginReward(f.snapshot(),{},0);
+ f.w.document.visibilityState='hidden';assert.match(s.watchReward(f.w,100).status,/tab hiển thị/);
+ assert.doesNotThrow(()=>s.watchReward(f.w,200000));
+ f.w.document.visibilityState='visible';assert.doesNotThrow(()=>s.watchReward(f.w,200001));
+ assert.deepEqual(f.calls,[['ad']]);f.hearts(6);
+ assert.match(s.watchReward(f.w,200002).status,/đã cộng tim/);
+});
+
+test('heart threshold triggers ads at equality, repeats until above threshold, and then permits a one-heart table',()=>{
+ const f=fixture(),s=new AutoSession();f.hearts(2);
+ s.step(f.snapshot(),{autoAds:true,adHeartThreshold:2},0);assert.deepEqual(f.calls,[['ad']]);
+ f.hearts(3);s.step(f.snapshot(),{autoAds:true,adHeartThreshold:2},1000);
+ s.step(f.snapshot(),{autoAds:true,adHeartThreshold:2},4000);assert.deepEqual(f.calls.at(-1),['join',1]);
+ const h=fixture(),t=new AutoSession();h.hearts(1);t.step(h.snapshot(),{autoAds:true,adHeartThreshold:2},0);
+ h.hearts(2);t.step(h.snapshot(),{autoAds:true,adHeartThreshold:2},1000);t.step(h.snapshot(),{autoAds:true,adHeartThreshold:2},4000);
+ assert.deepEqual(h.calls,[['ad'],['ad']]);
+});
+
+test('at threshold never spends reserved hearts when ads disabled or capped, never interrupts an active game',()=>{
+ const f=fixture(),s=new AutoSession();f.hearts(2);
+ assert.throws(()=>s.step(f.snapshot(),{adHeartThreshold:2},0),/chạm ngưỡng/);assert.equal(f.calls.length,0);
+ s.adsUsed=1;assert.throws(()=>s.step(f.snapshot(),{autoAds:true,adHeartThreshold:2,maxAds:1},0),/giới hạn/);assert.equal(f.calls.length,0);
+ f.w.BkGlobal.Ja=f.w.V;f.logic.Fb=f.w.GAME_STATE_PLAYING;
+ assert.equal(s.step(f.snapshot(),{autoAds:true,adHeartThreshold:2,maxAds:1},0).play,true);
+});
+
+test('at threshold leaves a waiting table before opening an ad and never readies',()=>{
+ const f=fixture(),s=new AutoSession();f.hearts(2);f.w.BkGlobal.Ja=f.w.V;
+ s.step(f.snapshot(),{autoAds:true,adHeartThreshold:2},0);assert.deepEqual(f.calls,[['leave',0]]);
+ s.step(f.snapshot(),{autoAds:true,adHeartThreshold:2},1000);assert.equal(f.calls.length,1);
+ f.w.BkGlobal.Ja=f.w.sj;s.step(f.snapshot(),{autoAds:true,adHeartThreshold:2},3000);
+ assert.deepEqual(f.calls,[['leave',0],['ad']]);
+});
+
+test('table-specific insufficient hearts are handled before Ready despite a higher global balance',()=>{
+ const f=fixture(),s=new AutoSession(()=>0);f.w.BkGlobal.Ja=f.w.V;f.player.zn=()=>0;f.logic.OA=()=>false;
+ s.step(f.snapshot(),{autoAds:true},0);assert.deepEqual(f.calls,[['leave',0]]);assert.equal(s.mustRewardBeforeReady,true);
+ f.w.BkGlobal.Ja=f.w.sj;s.step(f.snapshot(),{autoAds:true},3000);assert.deepEqual(f.calls,[['leave',0],['ad']]);
+ s.step(f.snapshot(),{autoAds:true},3500);assert.equal(f.calls.some(c=>c[0]==='ready'),false);
+ f.hearts(6);s.step(f.snapshot(),{autoAds:true},4000);assert.equal(s.mustRewardBeforeReady,false);
+ f.player.zn=()=>6;f.logic.OA=()=>true;f.w.BkGlobal.Ja=f.w.V;
+ s.step(f.snapshot(),{autoAds:true},7000);assert.equal(f.calls.some(c=>c[0]==='ready'),false);
+ s.step(f.snapshot(),{autoAds:true},8000);assert.deepEqual(f.calls,[['leave',0],['ad'],['ready']]);
+});
+
+test('insufficient table balance blocks owner Start and rechecks balance when countdown expires',()=>{
+ const f=fixture(),s=new AutoSession(()=>0);f.w.BkGlobal.Ja=f.w.V;
+ f.player.status=f.w.PLAYER_STATE_TABLE_OWNER;let balance=5;f.player.zn=()=>balance;
+ s.step(f.snapshot(),{autoAds:true},0);balance=0;
+ s.step(f.snapshot(),{autoAds:true},1000);assert.deepEqual(f.calls,[['leave',0]]);assert.equal(s.readyWait,null);
+});
+
+test('an ad cancels the existing ready countdown; no Ready until credited and a fresh delay passes',()=>{
+ const f=fixture(),s=new AutoSession(()=>0);f.w.BkGlobal.Ja=f.w.V;
+ s.step(f.snapshot(),{autoAds:true},0);assert.ok(s.readyWait);
+ s.beginReward(f.snapshot(),{},100);s.step(f.snapshot(),{autoAds:true},1100);
+ assert.equal(s.readyWait,null);assert.deepEqual(f.calls,[['ad']]);
+ f.hearts(6);s.step(f.snapshot(),{autoAds:true},2000);s.step(f.snapshot(),{autoAds:true},4000);
+ assert.equal(f.calls.some(c=>c[0]==='ready'),false);
+ s.step(f.snapshot(),{autoAds:true},5000);assert.deepEqual(f.calls,[['ad'],['ready']]);
+});
+
+test('advertising disabled with insufficient table balance never clicks Ready',()=>{
+ const f=fixture(),s=new AutoSession();f.w.BkGlobal.Ja=f.w.V;f.player.P={pb:()=>0};
+ s.step(f.snapshot(),{},0);assert.deepEqual(f.calls,[['leave',0]]);f.w.BkGlobal.Ja=f.w.sj;assert.throws(()=>s.step(f.snapshot(),{},3000),/Chưa bấm Sẵn sàng/);assert.equal(f.calls.some(c=>c[0]==='ready'),false);
+});
+
+test('native site Ready and Start callbacks cannot bypass the reserve between bot ticks',()=>{
+ const f=fixture(),s=new AutoSession();f.w.BkGlobal.Ja=f.w.V;
+ f.logic.tN=()=>f.calls.push(['ready-packet']);f.logic.uN=()=>f.calls.push(['start-packet']);f.logic.$P=()=>f.logic.tN();f.logic.fG=()=>f.logic.uN();f.snapshot().layer.onReady=()=>f.logic.$P();
+ let threshold=2;f.hearts(2);s.guardNativeReady(f.snapshot(),()=>({adHeartThreshold:threshold}));
+ f.snapshot().layer.onReady();f.logic.$P();f.logic.tN();f.logic.fG();f.logic.uN();assert.equal(f.calls.length,0);assert.equal(s.mustRewardBeforeReady,true);
+ s.mustRewardBeforeReady=false;f.hearts(3);f.snapshot().layer.onReady();assert.deepEqual(f.calls,[['ready-packet']]);
+ threshold=3;f.logic.fG();assert.equal(f.calls.length,1);
+ s.reset();f.logic.fG();assert.deepEqual(f.calls,[['ready-packet'],['start-packet']]);
+});
+
+test('native Ready remains blocked while reward is pending even when balance is above threshold',()=>{
+ const f=fixture(),s=new AutoSession();f.w.BkGlobal.Ja=f.w.V;
+ s.guardNativeReady(f.snapshot(),{adHeartThreshold:0});s.beginReward(f.snapshot(),{},0);
+ f.snapshot().layer.onReady();assert.deepEqual(f.calls,[['ad']]);
+ f.hearts(6);s.watchReward(f.w,1000);f.snapshot().layer.onReady();assert.deepEqual(f.calls,[['ad'],['ready']]);s.reset();
+});
+
+test('a reward opened by the site is adopted before credit and receives the same close/credit tracking',()=>{
+ const f=fixture(),s=new AutoSession();let sdk;
+ f.w.adBreak=o=>sdk=o;s.watchReward(f.w,0);
+ f.w.adBreak({type:'reward'});sdk.beforeAd();s.watchReward(f.w,1000);
+ assert.ok(s.ad);assert.equal(s.adsUsed,1);assert.equal(s.ad.hearts,5);
+ f.hearts(6);sdk.adViewed();sdk.afterAd();assert.match(s.watchReward(f.w,2000).status,/đã cộng tim/);assert.equal(s.ad,null);
 });

@@ -33,6 +33,7 @@ export class AdWatch{
     const wrapper=function(options,...rest){
       if(!options||typeof options!=='object')return original.call(this,options,...rest);
       watch.phase='requested';watch.requestAt=watch.now();watch.startAt=null;watch.clearAt=null;watch.failed=false;watch.completed=false;watch.clicked=new WeakSet();
+      watch.reward=options.type==='reward';
       watch.adId=`${watch.now()}:${++watch.sequence}`;
       const forwarded={...options};
       for(const name of ['beforeAd','afterAd','adBreakDone','adViewed']){
@@ -75,6 +76,12 @@ export class AdWatch{
   }
   inspect(w,now=Date.now(),{credited=false}={}){
     this.install(w);
+    if(w.document?.visibilityState==='hidden')this.hiddenAt??=now;
+    else if(this.hiddenAt!==undefined){
+      const pause=now-this.hiddenAt;
+      for(const key of ['requestAt','startAt','flagAt'])if(Number.isFinite(this[key]))this[key]+=pause;
+      this.clearAt=null;delete this.hiddenAt;
+    }
     if(credited)this.completed=true;
     const closed=closeCompletedAd(w,this.completed,this.clicked);
     const proof=this.evidence(w),flag=!!w.BkGlobal?.Tg;
@@ -108,5 +115,5 @@ export class AdWatch{
   }
 }
 export function getAdStatus(w=window,now=Date.now(),options){
-  if(!watches.has(w))watches.set(w,new AdWatch());return watches.get(w).inspect(w,now,options);
+  if(!watches.has(w))watches.set(w,new AdWatch());const watch=watches.get(w);const status=watch.inspect(w,now,options);return {...status,reward:watch.reward===true,rewardPending:watch.reward===true&&!watch.completed&&['requested','active'].includes(watch.phase)};
 }

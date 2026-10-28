@@ -19,7 +19,7 @@ export function validateSettings(s){
   check(s.session.readyMaxMs>=s.session.readyMinMs,'invalid ready delay range');
   check(s.draw.maxOffers<=2,'draw.maxOffers cannot exceed 2');
   check(s.draw.minOwnTurnsBetweenOffers>=1,'draw.minOwnTurnsBetweenOffers must be >= 1');
-  for(const key of ['smallSearchMs','mediumSearchMs','complexSearchMs'])check(s.move[key]>=100&&s.move[key]<=10000,`move.${key} must be 100–10000`);
+  for(const key of ['smallSearchMs','mediumSearchMs','complexSearchMs'])check(s.move[key]>=100&&s.move[key]<=50000,`move.${key} must be 100–50000`);
   check(s.draw.replySearchMs>=100&&s.draw.replySearchMs<=10000,'draw.replySearchMs must be 100–10000');
   check(s.move.pollMs>=50&&s.cpu.sampleMs>=250,'poll/sample interval too small');
   check(s.engine.httpTimeoutMs>s.move.complexSearchMs+s.engine.stopTimeoutMs,'HTTP timeout must exceed search + stop timeout');

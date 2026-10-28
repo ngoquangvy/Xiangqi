@@ -1,4 +1,4 @@
-export const defaults=Object.freeze({time:'auto',book:'5',depth:'0',threads:'2',ponder:true,autoDrawReply:false,autoDrawOffer:false,maxHearts:'1',autoAds:false,maxAds:'3',minimized:false});
+export const defaults=Object.freeze({time:'auto',book:'5',depth:'0',threads:'2',ponder:true,autoDrawReply:false,autoDrawOffer:false,adHeartThreshold:'0',autoAds:false,maxAds:'3',minimized:false});
 export const preferenceKeys=Object.keys(defaults);
 export function validPreferences(raw){
   const out={};if(!raw||typeof raw!=='object'||Array.isArray(raw))return out;
@@ -7,9 +7,9 @@ export function validPreferences(raw){
     if(typeof defaults[key]==='boolean'){if(typeof v==='boolean')out[key]=v;continue;}
     const s=typeof v==='string'?v:typeof v==='number'&&Number.isInteger(v)?String(v):null;
     if(s===null)continue;
-    if(key==='time'){if(['auto','650','1200','2500','5000','10000'].includes(s))out[key]=s;continue;}
-    if(key==='book'){if(['0','3','4','5'].includes(s))out[key]=s;continue;}
-    const [min,max]={depth:[0,64],threads:[1,16],maxHearts:[1,10000],maxAds:[1,10]}[key];
+    if(key==='time'){if(['auto','650','1200','2500','5000','10000','20000','30000','50000'].includes(s))out[key]=s;continue;}
+    if(key==='book'){if(['0','3','4','5','6','7','8','9','10'].includes(s))out[key]=s;continue;}
+    const [min,max]={depth:[0,64],threads:[1,16],adHeartThreshold:[0,10000],maxAds:[1,10]}[key];
     if(/^(0|[1-9]\d*)$/.test(s)&&Number(s)>=min&&Number(s)<=max)out[key]=s;
   }
   return out;

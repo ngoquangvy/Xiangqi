@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Ziga Xiangqi Experiment",
-  "version": "0.6.14",
+  "version": "0.6.21",
   "description": "Bản thử nghiệm tự đánh cờ tướng, bật thủ công trong từng trang Ziga.",
   "minimum_chrome_version": "119",
   "permissions": ["storage"],

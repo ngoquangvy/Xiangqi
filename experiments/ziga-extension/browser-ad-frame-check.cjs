@@ -28,6 +28,14 @@ const {chromium}=playwright,assert=require('node:assert/strict'),path=require('n
   await other.waitForTimeout(1500);assert.equal(await other.evaluate(()=>closes),0);
   await page.bringToFront();
   await page.waitForFunction(()=>!!window.__testRoot&&!__testRoot.getElementById('testAd').disabled);
+  const choices=await page.evaluate(()=>Array.from(__testRoot.getElementById('book').options).map(o=>o.value));
+  for(const n of ['6','7','8','9','10'])assert.ok(choices.includes(n));
+  await page.evaluate(()=>{const b=__testRoot.getElementById('book');b.value='10';b.dispatchEvent(new Event('change'));});
+  const worker=context.serviceWorkers()[0]||await context.waitForEvent('serviceworker');
+  for(let i=0;i<40;i++){if((await worker.evaluate(()=>chrome.storage.local.get('menu.book')))['menu.book']==='10')break;await page.waitForTimeout(50);}
+  assert.equal(await page.evaluate(()=>__testRoot.getElementById('adTestTools').open),false);
+  await page.evaluate(()=>__testRoot.getElementById('adTestToggle').click());
+  assert.equal(await page.evaluate(()=>__testRoot.getElementById('adTestTools').open),true);
   await page.evaluate(()=>{
     window.K=7;window.sj=2;window.V=3;window.Q=1;window.testHearts=10;window.adRequests=0;window.joined=0;window.rewardClosed=0;
     window.BkGlobal={ia:7,Ja:2,P:{pb:()=>testHearts}};
@@ -37,6 +45,10 @@ const {chromium}=playwright,assert=require('node:assert/strict'),path=require('n
     __testRoot.getElementById('testAd').click();__testRoot.getElementById('testAd').click();
   });
   assert.equal(await page.evaluate(()=>adRequests),1);
+  await page.evaluate(()=>__testRoot.getElementById('adTestToggle').click());
+  assert.equal(await page.evaluate(()=>__testRoot.getElementById('adTestTools').open),false);
+  assert.equal(await page.evaluate(()=>__testRoot.getElementById('testAd').disabled),true);
+  await page.evaluate(()=>__testRoot.getElementById('adTestToggle').click());
   await page.waitForFunction(()=>__testRoot.getElementById('adTestStatus').textContent.includes('Chờ Ziga'));
   await page.evaluate(()=>{testHearts=11;window.Fl=new BkBonusHeartWindow();});
   await page.waitForFunction(()=>rewardClosed===1);
@@ -46,8 +58,21 @@ const {chromium}=playwright,assert=require('node:assert/strict'),path=require('n
   await page.evaluate(()=>__testRoot.getElementById('adDiagnostic').click());
   await page.waitForFunction(()=>__testRoot.getElementById('adDiagnosticText').value.includes('đã bấm: có'));
   await page.reload();await page.waitForFunction(()=>!!window.__testRoot&&!__testRoot.getElementById('adDiagnostic').disabled);
+  assert.equal(await page.evaluate(()=>__testRoot.getElementById('book').value),'10');
+  assert.equal(await page.evaluate(()=>__testRoot.getElementById('adTestTools').open),false);
+  await page.evaluate(()=>__testRoot.getElementById('adTestToggle').click());
   await page.evaluate(()=>__testRoot.getElementById('adDiagnostic').click());
   await page.waitForFunction(()=>__testRoot.getElementById('adDiagnosticText').value.includes('đã bấm: có'));
+  await context.close();
+  const reopenedContext=await chromium.launchPersistentContext(profile,{channel:'msedge',headless:true,args:[`--disable-extensions-except=${extension}`,`--load-extension=${extension}`]});
+  try{
+    await reopenedContext.addInitScript(()=>{const original=Element.prototype.attachShadow;Element.prototype.attachShadow=function(o){const r=original.call(this,o);if(this.id==='ziga-xq-experiment')window.__testRoot=r;return r;};});
+    await reopenedContext.route('https://zigavn.com/**',r=>r.fulfill({contentType:'text/html',body:'<html><body>Menu restore fixture</body></html>'}));
+    const restoredPage=await reopenedContext.newPage();await restoredPage.goto('https://zigavn.com/');
+    await restoredPage.waitForFunction(()=>!!window.__testRoot&&!__testRoot.getElementById('adDiagnostic').disabled);
+    assert.equal(await restoredPage.evaluate(()=>__testRoot.getElementById('book').value),'10');
+  }finally{await reopenedContext.close();}
+  console.log('BOOK PASS: options 6–10 exist; book 10 persists after page reload and full browser restart.');
   console.log('PASS: real cross-origin extension frame closes after video ends and is removed, ignores hidden countdown/SVG and waits until Close is enabled; unrelated tab stays untouched. Manual test button works with 10 hearts, closes reward popup and never joins a table. Close diagnostics remain readable after manual close and page reload.');
  } finally {await context.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

@@ -97,6 +97,91 @@ export function sessionSnapshot(w = window) {
 }
 export class AutoSession {
   constructor(random = Math.random) { this.random = random; this.reset(); }
+  releaseNativeGuard(){
+    for(const hook of this.nativeGuards||[])if(hook.target[hook.key]===hook.wrapped)hook.target[hook.key]=hook.original;
+    this.nativeGuards=[];this.nativeGuardState=null;
+  }
+  guardNativeReady(s,options){
+    if(s.stage!=='table'||s.syncing){this.releaseNativeGuard();return;}
+    const previous=this.nativeGuardState;
+    if(previous?.layer!==s.layer||previous?.logic!==s.logic)this.releaseNativeGuard();
+    this.nativeGuardState=s;this.nativeGuardOptions=options;
+    if(this.nativeGuards.length)return;
+    for(const [target,keys]of [[s.layer,['onReady']],[s.logic,['$P','tN','fG','uN']]])for(const key of keys){
+      const original=target[key];if(typeof original!=='function')continue;
+      const owner=this;
+      const wrapped=function(...args){
+        try{
+          const current=sessionSnapshot(s.w);
+          const opt=typeof owner.nativeGuardOptions==='function'?owner.nativeGuardOptions():owner.nativeGuardOptions;
+          let balance=current.hearts;
+          if(typeof current.player?.zn==='function')balance=Math.min(balance,current.player.zn());
+          else if(typeof current.player?.P?.pb==='function')balance=Math.min(balance,current.player.P.pb());
+          const threshold=opt.adHeartThreshold??0;
+          const low=!Number.isFinite(balance)||balance<=threshold||balance<current.logic?.Ke;
+          const pending=owner.ad||owner.mustRewardBeforeReady||getAdStatus(s.w).blocking;
+          if(low)owner.mustRewardBeforeReady=true;
+          if(current.syncing||current.layer!==s.layer||current.logic!==s.logic||current.playing||current.finished||current.player?.Ka||current.popup||low||pending){
+            owner.readyWait=null;owner.nativeReadyBlocked=true;return false;
+          }
+        }catch{owner.readyWait=null;owner.nativeReadyBlocked=true;return false;}
+        return original.apply(this,args);
+      };
+      target[key]=wrapped;this.nativeGuards.push({target,key,original,wrapped});
+    }
+  }
+  requireReward(s,{autoAds=false,adHeartThreshold=0,maxAds=3}={},now=Date.now()){
+    this.readyWait=null;this.idleWatch=null;this.mustRewardBeforeReady=true;
+    if(s.stage==='table'){
+      if(s.popup)throw Error('Có popup cần xử lý trước khi rời bàn nhận tim.');
+      if(typeof s.logic.uo!=='function')throw Error('Không nhận diện được nút rời bàn để nhận tim.');
+      return this.perform('rời bàn để nhận tim',s.identity,now,()=>s.logic.uo(0),'Đang rời bàn để xác nhận tim/quảng cáo trước Sẵn sàng…');
+    }
+    if(!autoAds)throw Error(`Tim chưa đủ hoặc đã chạm ngưỡng ${adHeartThreshold}. Chưa bấm Sẵn sàng; hãy nhận thêm tim trước.`);
+    return this.beginReward(s,{maxAds},now);
+  }
+  beforeReady(expected,options,now){
+    const reward=this.watchReward(expected.w,now);if(reward){this.readyWait=null;return reward;}
+    const s=sessionSnapshot(expected.w);
+    if(s.syncing||s.stage!=='table'||s.identity!==expected.identity||s.layer!==expected.layer||s.logic!==expected.logic||s.player?.Ka||s.playing||s.finished){this.readyWait=null;return {play:false,status:'Bàn vừa thay đổi. Kiểm tra lại trước khi Sẵn sàng…'};}
+    if(s.popup){this.readyWait=null;return {play:false,status:'Chờ xử lý thông báo trước khi Sẵn sàng…'};}
+    let tableHearts=s.hearts;
+    if(typeof s.player.zn==='function')tableHearts=s.player.zn();
+    else if(typeof s.player.P?.pb==='function')tableHearts=s.player.P.pb();
+    if(!Number.isFinite(tableHearts)||tableHearts<0)throw Error('Chưa xác nhận được tim trong bàn. Không bấm Sẵn sàng.');
+    const threshold=options.adHeartThreshold??0;
+    const available=Math.min(s.hearts,tableHearts);
+    const enough=typeof s.logic.OA==='function'?s.logic.OA():true;
+    if(this.mustRewardBeforeReady||available<=threshold||available<s.logic.Ke||enough===false)return this.requireReward(s,options,now);
+    return null;
+  }
+  watchReward(w,now=Date.now()){
+    if(w.BkGlobal&&w.K!==undefined&&![w.K,-1].includes(w.BkGlobal.ia))return null;
+    const hearts=w.BkGlobal?.P?.pb?.();
+    const hidden=w.document?.visibilityState==='hidden';
+    if(this.ad){
+      this.readyWait=null;this.idleWatch=null;
+      if(hidden)this.ad.hiddenAt??=now;
+      else if(this.ad.hiddenAt!==undefined){this.ad.at+=now-this.ad.hiddenAt;delete this.ad.hiddenAt;}
+    }
+    const ads=getAdStatus(w,now,{credited:!!this.ad&&Number.isFinite(hearts)&&hearts>this.ad.hearts});
+    if(!this.ad&&ads.rewardPending&&ads.blocking&&Number.isFinite(hearts)){
+      this.ad={hearts,at:now};this.adsUsed++;this.readyWait=null;
+    }
+    if(hidden&&(this.ad||ads.blocking))return {play:false,status:'Quảng cáo đang chờ tab hiển thị. Khi quay lại Ziga, bot sẽ tiếp tục theo dõi và đóng quảng cáo.'};
+    if(this.ad&&now-this.ad.at>settings.ads.timeoutMs)throw Error('Quảng cáo quá thời gian. Hãy kiểm tra hoặc xem thủ công rồi bật lại.');
+    if(ads.failed&&this.ad)throw Error('Quảng cáo không tải được. Chưa được cộng tim; hãy thử thủ công.');
+    if(ads.blocking){this.readyWait=null;this.idleWatch=null;return {play:false,status:ads.status};}
+    if(!this.ad)return null;
+    if(Number.isFinite(hearts)&&hearts>this.ad.hearts){
+      this.ad=null;this.action=null;this.mustRewardBeforeReady=false;this.nextAt=now+settings.session.rewardResumeMs;this.adRewardAt=now;
+      const popup=w.BkStackWindow?.Vj?.()||w.Fl||null;
+      if(isHeartRewardPopup(w,popup,{recentReward:true}))dismissHeartPopup(w,popup);
+      closeHeartRewardDom(w);
+      return {play:false,status:'Ziga đã cộng tim. Chuẩn bị chơi tiếp…'};
+    }
+    return {play:false,status:'Chờ Ziga xác nhận tim từ quảng cáo…'};
+  }
   beginReward(s,{maxAds=3}={},now=Date.now()){
     const {w,hearts}=s;
     if(s.playing||s.syncing||['unknown','verification'].includes(s.stage))throw Error('Hãy về sảnh hoặc màn hình Cờ tướng để thử quảng cáo.');
@@ -114,7 +199,7 @@ export class AutoSession {
     else w.WebAdsManager.showRewardAdsOnWeb();
     return {play:false,status:'Đã mở quảng cáo nhận tim. Đang theo dõi đóng quảng cáo và cộng tim…'};
   }
-  reset() { this.nextAt = 0; this.action = null; this.ad = null; this.adRewardAt = null; this.finishAt = null; this.adsUsed = 0; this.lastTable = null; this.readyWait = null; this.syncAt = null; this.idleWatch = null; this.leaving = null; this.skippedTables = new Set(); }
+  reset() { this.releaseNativeGuard();this.nativeReadyBlocked=false;this.nextAt = 0; this.action = null; this.ad = null; this.adRewardAt = null; this.mustRewardBeforeReady=false;this.finishAt = null; this.adsUsed = 0; this.lastTable = null; this.readyWait = null; this.syncAt = null; this.idleWatch = null; this.leaving = null; this.skippedTables = new Set(); }
   leaveWaiting(s, now) {
     if (typeof s.logic.uo !== 'function') throw Error('Không nhận diện được nút rời bàn.');
     this.skippedTables.add(s.identity); this.leaving = { key: s.identity, layer: s.layer }; this.readyWait = null; this.idleWatch = null;
@@ -137,7 +222,8 @@ export class AutoSession {
     if (now - this.idleWatch.at >= settings.session.idleTableMs) return this.leaveWaiting(s, now);
     return null;
   }
-  delayedReady(type, s, now, call, status) {
+  delayedReady(type, s, now, call, status, options={}) {
+    const gate=this.beforeReady(s,options,now);if(gate)return gate;
     if (this.action?.type === type && this.action.key === s.identity) return this.perform(type, s.identity, now, call, status);
     if (!this.readyWait || this.readyWait.type !== type) {
       const sample = Number(this.random());
@@ -154,11 +240,12 @@ export class AutoSession {
     }
     this.action = { type, key, at: now }; this.nextAt = now + (['vào bàn', 'ngồi chơi'].includes(type) ? 0 : settings.session.transitionMs); call(); return { play: false, status };
   }
-  step(s, { autoAds = false, maxHearts = 1, maxAds = 3, rewardOnly = false } = {}, now = Date.now()) {
+  step(s, { autoAds = false, adHeartThreshold = 0, maxAds = 3, rewardOnly = false } = {}, now = Date.now()) {
     const { w, g, stage, common, hearts, logic, layer, player } = s;
     if (this.readyWait && (stage !== 'table' || this.readyWait.key !== s.identity || this.readyWait.layer !== layer || this.readyWait.status !== player?.status || player?.Ka || s.playing || s.finished || (logic?.ha?.filter(p => p && !p.Ka).length ?? 0) < 2)) this.readyWait = null;
     if (g.ia !== w.K && !(g.ia === -1 && ['menu', 'verification'].includes(stage))) throw Error('Đã rời Cờ tướng. Dừng tự chơi.');
-    if (!Number.isInteger(maxHearts) || maxHearts < 1 || maxHearts > 10000 || !Number.isInteger(maxAds) || maxAds < 1 || maxAds > 10) throw Error('Giới hạn tim: 1–10000; số quảng cáo: 1–10.');
+    if (!Number.isInteger(adHeartThreshold) || adHeartThreshold < 0 || adHeartThreshold > 10000 || !Number.isInteger(maxAds) || maxAds < 1 || maxAds > 10) throw Error('Ngưỡng tim: 0–10000; số quảng cáo: 1–10.');
+    const reward=this.watchReward(w,now);if(reward)return reward;
     if (stage === 'unknown') throw Error('Trạng thái trang không được hỗ trợ. Hãy kiểm tra CAPTCHA hoặc kết nối.');
     if (s.syncing) {
       this.idleWatch = null;
@@ -168,22 +255,6 @@ export class AutoSession {
     }
     this.syncAt = null;
     if (stage === 'verification') return { play: false, status: 'Hãy tự xác minh CAPTCHA/đăng nhập. Bot chờ màn hình chọn game rồi sẽ chọn Cờ tướng.' };
-    if (this.ad && now - this.ad.at > settings.ads.timeoutMs) throw Error('Quảng cáo quá thời gian. Hãy kiểm tra hoặc xem thủ công rồi bật lại.');
-    const ads = getAdStatus(w, now, {credited:!!this.ad&&hearts>this.ad.hearts});
-    if (ads.failed && this.ad) throw Error('Quảng cáo không tải được. Chưa được cộng tim; hãy thử thủ công.');
-    if (ads.blocking) { this.idleWatch = null; return { play: false, status: ads.status }; }
-    if (this.ad) {
-      if (hearts > this.ad.hearts) {
-        this.ad = null; this.action = null; this.nextAt = now + settings.session.rewardResumeMs; this.adRewardAt = now;
-        if (s.popup && isHeartRewardPopup(w, s.popup, { recentReward: true })) {
-          dismissHeartPopup(w, s.popup);
-          s.popup = w.BkStackWindow?.Vj?.() || w.Fl || null;
-        }
-        closeHeartRewardDom(w);
-        return { play: false, status: 'Ziga đã cộng tim. Chuẩn bị chơi tiếp…' };
-      }
-      return { play: false, status: 'Chờ Ziga xác nhận tim từ quảng cáo…' };
-    }
     if(rewardOnly){
       const recent=this.adRewardAt!==null&&now-this.adRewardAt<settings.session.rewardPopupWindowMs;
       if(recent){
@@ -213,9 +284,9 @@ export class AutoSession {
       return this.perform('rời bàn', s.identity, now, () => logic.uo(0), 'Đã yêu cầu rời bàn sau ván.');
     }
     this.finishAt = null;
-    if (hearts < 1) {
-      if (!autoAds) throw Error('Hết tim. Hãy xem quảng cáo thủ công hoặc bật tự xem nhận tim.');
-      return this.beginReward(s,{maxAds},now);
+    if (hearts <= adHeartThreshold || this.mustRewardBeforeReady) {
+      if(hearts<1&&!autoAds)throw Error('Hết tim. Hãy xem quảng cáo thủ công hoặc bật tự xem nhận tim.');
+      return this.requireReward(s,{autoAds,adHeartThreshold,maxAds},now);
     }
     if (s.popup) throw Error('Có popup cần xử lý. Tự chơi đã dừng.');
     if (stage === 'menu') {
@@ -228,7 +299,7 @@ export class AutoSession {
     if (stage === 'lobby') {
       const tables = common.ic?.aN;
       if (!Array.isArray(tables) || typeof common.FJ !== 'function') throw Error('Không đọc được danh sách bàn Cờ tướng.');
-      const candidates = tables.filter(t => Number.isInteger(t.wg) && t.wg >= 0 && t.wg <= 255 && t.aj === 2 && t.tk >= 0 && t.tk < 2 && !t.Rb && !t.Wj && Number.isFinite(t.Yb) && t.Yb >= 0 && t.Yb <= Math.min(hearts, maxHearts) && !this.skippedTables.has(`${g.af}:${t.wg}`));
+      const candidates = tables.filter(t => Number.isInteger(t.wg) && t.wg >= 0 && t.wg <= 255 && t.aj === 2 && t.tk >= 0 && t.tk < 2 && !t.Rb && !t.Wj && Number.isFinite(t.Yb) && t.Yb >= 0 && t.Yb <= Math.min(hearts, 1) && !this.skippedTables.has(`${g.af}:${t.wg}`));
       candidates.sort((a, b) => b.tk - a.tk || a.Yb - b.Yb || a.wg - b.wg);
       if (!candidates.length) return { play: false, status: 'Chưa có bàn Cờ tướng khác phù hợp. Đang chờ, không giữ bàn cũ…' };
       const table = candidates[0];
@@ -236,7 +307,7 @@ export class AutoSession {
     }
     if (stage === 'table') {
       if (![w.GAME_STATE_READY, w.GAME_STATE_NOT_READY].filter(v => v !== undefined).includes(logic.Fb)) throw Error('Bàn đang ở trạng thái chưa hỗ trợ.');
-      if (!Number.isFinite(logic.Ke) || logic.Ke > maxHearts || logic.Ke > hearts) throw Error('Mức tim của bàn vượt giới hạn; hãy chọn lại bàn.');
+      if (!Number.isFinite(logic.Ke) || logic.Ke > 1 || logic.Ke > hearts) throw Error('Mức tim của bàn vượt giới hạn; hãy chọn lại bàn.');
       if (player.Ka) {
         if (typeof logic.wz !== 'function' || logic.wz() < 0 || typeof logic.TC !== 'function') throw Error('Bàn không còn chỗ ngồi.');
         return this.perform('ngồi chơi', s.identity, now, () => logic.TC(false), 'Đang ngồi vào bàn…');
@@ -247,11 +318,11 @@ export class AutoSession {
       const visibleReady = readyButton && readyButton.isVisible?.() !== false && readyButton.isEnabled?.() !== false && readyButton.isTouchEnabled?.() !== false && readyButton.x >= 0 && readyButton.y >= 0 && player.status !== w.PLAYER_STATE_TABLE_OWNER;
       if (player.status === w.PLAYER_STATE_NOT_READY || (w.PLAYER_STATE_FINISH_GAME !== undefined && player.status === w.PLAYER_STATE_FINISH_GAME) || visibleReady) {
         if (typeof layer.onReady !== 'function') throw Error('Không nhận diện được nút sẵn sàng.');
-        return this.delayedReady('sẵn sàng', s, now, () => layer.onReady(), 'Đã yêu cầu sẵn sàng…');
+        return this.delayedReady('sẵn sàng', s, now, () => layer.onReady(), 'Đã yêu cầu sẵn sàng…',{autoAds,adHeartThreshold,maxAds});
       }
       if (player.status === w.PLAYER_STATE_TABLE_OWNER && players.every(p => p === player || p.status === w.PLAYER_STATE_READY)) {
         if (typeof logic.fG !== 'function') throw Error('Không nhận diện được nút bắt đầu ván.');
-        return this.delayedReady('bắt đầu', s, now, () => logic.fG(), 'Đang bắt đầu ván Cờ tướng…');
+        return this.delayedReady('bắt đầu', s, now, () => logic.fG(), 'Đang bắt đầu ván Cờ tướng…',{autoAds,adHeartThreshold,maxAds});
       }
       return { play: false, status: 'Đang chờ đối thủ sẵn sàng…' };
     }

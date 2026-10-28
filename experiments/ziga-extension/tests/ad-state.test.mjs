@@ -73,3 +73,10 @@ test('completed ad cannot click hidden, covered, unrelated or cross-origin contr
   button.closest=()=>({});f.w.document.elementFromPoint=()=>({});f.watch.inspect(f.w,2000);assert.equal(clicks,0);
   f.w.document.elementFromPoint=()=>button;f.w.document.visibilityState='hidden';f.watch.inspect(f.w,3000);assert.equal(clicks,0);
 });
+
+test('SDK active timeout excludes time spent in a hidden tab',()=>{
+ const f=fixture();f.watch.inspect(f.w,0);f.w.adBreak({});f.options().beforeAd();
+ f.w.document.visibilityState='hidden';f.watch.inspect(f.w,100);
+ f.watch.inspect(f.w,200000);f.w.document.visibilityState='visible';
+ const state=f.watch.inspect(f.w,200001);assert.equal(state.blocking,true);assert.match(state.status,/SDK đang hiển thị/);
+});

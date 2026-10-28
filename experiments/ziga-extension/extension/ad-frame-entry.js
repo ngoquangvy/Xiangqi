@@ -37,12 +37,7 @@
       timeoutMs: 12e4,
       loadTimeoutMs: 1e4,
       clearMs: 3e3,
-      exposedRecoveryMs: 1e4,
-      framePollMs: 500,
-      frameLeaseMs: 2e3,
-      googleCloseProbeAfterMs: 15e3,
-      googleCloseRetryMs: 1e4,
-      googleCloseMaxProbes: 8
+      exposedRecoveryMs: 1e4
     },
     engine: {
       ponderRequestIntervalMs: 5e3,
@@ -107,7 +102,7 @@
     check(s.draw.maxOffers <= 2, "draw.maxOffers cannot exceed 2");
     check(s.draw.minOwnTurnsBetweenOffers >= 1, "draw.minOwnTurnsBetweenOffers must be >= 1");
     for (const key of ["smallSearchMs", "mediumSearchMs", "complexSearchMs"])
-      check(s.move[key] >= 100 && s.move[key] <= 1e4, `move.${key} must be 100\u201310000`);
+      check(s.move[key] >= 100 && s.move[key] <= 5e4, `move.${key} must be 100\u201350000`);
     check(s.draw.replySearchMs >= 100 && s.draw.replySearchMs <= 1e4, "draw.replySearchMs must be 100\u201310000");
     check(s.move.pollMs >= 50 && s.cpu.sampleMs >= 250, "poll/sample interval too small");
     check(s.engine.httpTimeoutMs > s.move.complexSearchMs + s.engine.stopTimeoutMs, "HTTP timeout must exceed search + stop timeout");
@@ -174,7 +169,7 @@
       return false;
     const selectors = googleOnly ? "#dismiss-button, #dismiss-button-element" : closeSelectors;
     for (const root of adRoots(doc))
-      for (const el of root.querySelectorAll(selectors)) {
+      for (const el of Array.from(root.querySelectorAll(selectors)).sort((a, b) => Number(b.id === "dismiss-button-element") - Number(a.id === "dismiss-button-element"))) {
         if (el.closest?.("#close-confirmation-dialog"))
           continue;
         const r = el.getBoundingClientRect(), style = w.getComputedStyle(el);
@@ -231,19 +226,21 @@
 
   // src/ad-frame-entry.js
   if (window !== window.top) {
-    let observeVideos = function() {
+    let markEnded = function(event) {
+      if (event.target?.tagName === "VIDEO" && event.target.ended) {
+        endedSeenAt = Date.now();
+        if (adId)
+          endedAdId = adId;
+        void tick();
+      }
+    }, observeVideos = function() {
       for (const root of adRoots(document))
         if (!observedRoots.has(root)) {
           observedRoots.add(root);
-          root.addEventListener("ended", (event) => {
-            if (event.target?.tagName === "VIDEO" && event.target.ended && adId) {
-              endedAdId = adId;
-              void tick();
-            }
-          }, true);
+          root.addEventListener("ended", markEnded, true);
         }
     };
-    let busy = false, adId = null, clicked = /* @__PURE__ */ new WeakSet(), endedAdId = null;
+    let busy = false, adId = null, clicked = /* @__PURE__ */ new WeakSet(), endedAdId = null, endedSeenAt = -Infinity;
     const observedRoots = /* @__PURE__ */ new WeakSet();
     async function tick() {
       if (busy || document.visibilityState === "hidden")
@@ -257,7 +254,7 @@
         observeVideos();
         if (adId !== state.adId) {
           adId = state.adId;
-          endedAdId = null;
+          endedAdId = endedSeenAt >= state.startedAt ? adId : null;
           clicked = /* @__PURE__ */ new WeakSet();
           setTimeout(tick, 0);
         }
@@ -280,7 +277,8 @@
         busy = false;
       }
     }
-    document.addEventListener("ended", () => void tick(), true);
+    document.addEventListener("ended", markEnded, true);
+    document.addEventListener("visibilitychange", () => void tick());
     new MutationObserver(() => void tick()).observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ["disabled", "aria-disabled", "hidden", "style", "class"] });
     chrome.runtime.onMessage.addListener((msg) => {
       if (msg?.kind === "ad-frame-wake")

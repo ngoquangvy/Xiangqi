@@ -1,4 +1,5 @@
 import {settings} from '../settings.mjs';
+import manifest from '../extension/manifest.json' with {type:'json'};
 import {nativeBestMove,nativePonder,nativeStop,nativeRequest} from './native-client.js';
 import XiangqiGame from '../vendor/XiangqiGame.js';
 import {legalMoves} from './engine.js';
@@ -16,8 +17,8 @@ if(!document.getElementById('ziga-xq-experiment')) {
   document.documentElement.append(host);
   const $=id=>shadow.getElementById(id);
   shadow.querySelector('small').textContent='Pikafish native · localhost';
-  $('time').innerHTML='<option value="auto" selected>Tự động ≤10 giây</option><option value="650">0,65 giây</option><option value="1200">1,2 giây</option><option value="2500">2,5 giây</option><option value="5000">5 giây</option><option value="10000">10 giây</option>';
-  const bookLabel=document.createElement('label');bookLabel.innerHTML='Ưu tiên book <select id="book"><option value="3">3 lượt đầu / bên</option><option value="4">4 lượt đầu / bên</option><option value="5" selected>5 lượt đầu / bên</option><option value="0">Tắt book</option></select>';
+  $('time').innerHTML='<option value="auto" selected>Tự động ≤10 giây</option><option value="650">0,65 giây</option><option value="1200">1,2 giây</option><option value="2500">2,5 giây</option><option value="5000">5 giây</option><option value="10000">10 giây</option><option value="20000">20 giây</option><option value="30000">30 giây</option><option value="50000">50 giây</option>';
+  const bookLabel=document.createElement('label');bookLabel.innerHTML='Ưu tiên book <select id="book"><option value="3">3 lượt đầu / bên</option><option value="4">4 lượt đầu / bên</option><option value="5" selected>5 lượt đầu / bên</option><option value="6">6 lượt đầu / bên</option><option value="7">7 lượt đầu / bên</option><option value="8">8 lượt đầu / bên</option><option value="9">9 lượt đầu / bên</option><option value="10">10 lượt đầu / bên</option><option value="0">Tắt book</option></select>';
   $('start').before(bookLabel);
   const engineSettings=document.createElement('div');engineSettings.innerHTML='<label>Độ sâu tối đa <input id="depth" type="number" min="0" max="64" step="1" value="0" style="width:65px"> <small>0 = theo thời gian</small></label><label>Threads <input id="threads" type="number" min="1" max="16" step="1" value="2" style="width:65px"></label>';
   $('start').before(engineSettings);
@@ -31,10 +32,12 @@ if(!document.getElementById('ziga-xq-experiment')) {
   $('start').before(drawSettings);
   shadow.querySelector('section').style.cssText='max-height:80vh;overflow-y:auto';
   const draws=new DrawPolicy();let manualDraw=null,drawHoldUntil=0;
-  const autoSettings=document.createElement('div');autoSettings.innerHTML='<hr><strong>Tự chơi liên tiếp · chỉ Cờ tướng</strong><label>Tim tối đa / bàn <input id="maxHearts" type="number" min="1" max="10000" value="1" style="width:65px"></label><label><input id="autoAds" type="checkbox"> Hết tim: tự mở quảng cáo nhận tim</label><label>Tối đa quảng cáo / phiên <input id="maxAds" type="number" min="1" max="10" value="3" style="width:45px"></label><button id="autoStart">Bật tự chơi</button><button id="autoStop">Tắt tự chơi</button><p id="autoStatus">Tự chơi: đã tắt.</p><hr><strong>Bot đi quân trong bàn</strong><br>';
+  const autoSettings=document.createElement('div');autoSettings.innerHTML='<hr><strong>Tự chơi liên tiếp · chỉ Cờ tướng</strong><label>Xem quảng cáo khi tim ≤ <input id="adHeartThreshold" type="number" min="0" max="10000" value="0" style="width:65px"></label><label><input id="autoAds" type="checkbox"> Tự xem quảng cáo nhận tim khi chạm ngưỡng</label><label>Tối đa quảng cáo / phiên <input id="maxAds" type="number" min="1" max="10" value="3" style="width:45px"></label><button id="autoStart">Bật tự chơi</button><button id="autoStop">Tắt tự chơi</button><p id="autoStatus">Tự chơi: đã tắt.</p><hr><strong>Bot đi quân trong bàn</strong><br>';
   $('start').before(autoSettings);
   const adTestControls=document.createElement('div');adTestControls.innerHTML='<button id="testAd">Thử quảng cáo nhận tim</button><p id="adTestStatus">Thử riêng khi còn tim, không cần bật tự chơi.</p>';
-  $('autoStatus').after(adTestControls);
+  const adTestTools=document.createElement('details');adTestTools.id='adTestTools';
+  adTestTools.innerHTML='<summary id="adTestToggle" title="Mở công cụ thử quảng cáo" style="font-size:11px;color:#b0becb;cursor:pointer;width:max-content;padding:2px 0">Test</summary>';
+  adTestTools.append(adTestControls);$('autoStatus').after(adTestTools);
   const diagnosticControls=document.createElement('div');diagnosticControls.innerHTML='<button id="adDiagnostic">Xem chẩn đoán quảng cáo</button><textarea id="adDiagnosticText" readonly hidden aria-label="Chẩn đoán lần quảng cáo" style="box-sizing:border-box;width:100%;height:150px"></textarea>';
   adTestControls.append(diagnosticControls);
   $('adDiagnostic').onclick=async()=>{
@@ -59,7 +62,7 @@ if(!document.getElementById('ziga-xq-experiment')) {
   panel.append(header,minimized,compact,menuBody);
   function renderMenu(){
     const collapsed=minimized.checked;menuBody.hidden=collapsed;compact.hidden=!collapsed;compact.style.display=collapsed?'block':'none';
-    panel.style.width=collapsed?'190px':'255px';title.textContent=collapsed?'Ziga Bot':'Ziga · Thử nghiệm';
+    panel.style.width=collapsed?'190px':'255px';title.textContent=collapsed?`Ziga Bot ${manifest.version}`:`Ziga · ${manifest.version}`;
     minimize.textContent=collapsed?'+':'−';minimize.title=collapsed?'Mở menu':'Thu nhỏ menu (bot vẫn chạy)';
     minimize.setAttribute('aria-label',collapsed?'Mở menu':'Thu nhỏ menu');minimize.setAttribute('aria-expanded',String(!collapsed));
   }
@@ -73,6 +76,11 @@ if(!document.getElementById('ziga-xq-experiment')) {
   });
   void preferences.ready.then(()=>{settingsReady=true;renderMenu();updateButtons();});
   const session=new AutoSession();let continuous=false;
+  function sessionOptions(){
+    const raw=$('adHeartThreshold').value;
+    if(!/^(0|[1-9]\d*)$/.test(raw))throw Error('Ngưỡng tim chưa hợp lệ. Không vào bàn hoặc Sẵn sàng.');
+    return {autoAds:$('autoAds').checked,adHeartThreshold:Number(raw),maxAds:Number($('maxAds').value)};
+  }
   const rewardTest=new AutoSession();let testingReward=false;
   let observedPly=null,observedKey=null,observedRoom=null,waiting=null;
   let enabled=false,pending=null,lastRoom=null,stableKey='',stableAt=0,search=null,generation=0;
@@ -95,14 +103,28 @@ if(!document.getElementById('ziga-xq-experiment')) {
     }catch(e){$('adTestStatus').textContent='Không mở được quảng cáo thử: '+e.message;}
   };
   $('stop').onclick=()=>stop('Bot đi quân đã dừng.',false);
-  $('start').onclick=()=>{try{if(enabled)return;const s=continuous?sessionSnapshot():readState();enabled=true;generation++;lastRoom=continuous?null:s.room;stableKey='';updateButtons();setStatus('Đã bật bot đi quân. Đang theo dõi Cờ tướng…');}catch(e){setStatus(e.message);}};
-  $('autoStart').onclick=()=>{try{if(continuous)return;sessionSnapshot();session.reset();continuous=true;updateButtons();$('autoStatus').textContent='Tự chơi: đã bật. Tự vào/rời bàn Cờ tướng.';}catch(e){$('autoStatus').textContent=e.message;}};
+  $('start').onclick=()=>{try{if(enabled)return;const s=continuous?sessionSnapshot():readState();enabled=true;generation++;lastRoom=continuous?null:s.room;stableKey='';updateButtons();setStatus('Đã bật bot đi quân. Đang theo dõi Cờ tướng…');if(!continuous&&$('autoAds').checked)$('autoStatus').textContent='Tự chơi đang tắt. Bật Tự chơi để áp dụng ngưỡng tim và tự nhận tim.';}catch(e){setStatus(e.message);}};
+  $('autoStart').onclick=()=>{try{if(continuous)return;const snapshot=sessionSnapshot();sessionOptions();session.reset();session.watchReward(window);session.guardNativeReady(snapshot,sessionOptions);continuous=true;updateButtons();$('autoStatus').textContent='Tự chơi: đã bật. Tự vào/rời bàn Cờ tướng.';}catch(e){session.releaseNativeGuard();$('autoStatus').textContent=e.message;}};
   $('autoStop').onclick=()=>{continuous=false;session.reset();updateButtons();$('autoStatus').textContent='Tự chơi: đã tắt. Không tự vào/rời bàn nữa.';};
   updateButtons();
   document.addEventListener('keydown',e=>{if(e.key==='Escape')stop('Đã dừng bằng Esc.');});
   async function tick(){
     if(!enabled&&!continuous&&!testingReward)return;
     try{
+      // Keep ad control alive even if Ziga temporarily loses the table layer.
+      if(testingReward||continuous){
+        let reward;
+        try{reward=(testingReward?rewardTest:session).watchReward(window);}
+        catch(e){if(!testingReward)throw e;testingReward=false;rewardTest.ad=null;$('adTestStatus').textContent='Thử quảng cáo: '+e.message;updateButtons();return;}
+        if(reward){
+          $(testingReward?'adTestStatus':'autoStatus').textContent=reward.status;
+          clearBackground();
+          if(search||waiting){generation++;search?.controller.abort();search=null;waiting=null;}
+          pending=null;lastRoom=null;stableKey='';observedRoom=null;
+          if(enabled)setStatus('Đang chờ quảng cáo và xác nhận tim…');
+          return;
+        }
+      }
       if(testingReward){
         try{
           const result=rewardTest.step(sessionSnapshot(),{rewardOnly:true,maxAds:Number($('maxAds').value)});
@@ -113,7 +135,9 @@ if(!document.getElementById('ziga-xq-experiment')) {
       }
       if(continuous){
         const snapshot=sessionSnapshot();
-        const sessionResult=session.step(snapshot,{autoAds:$('autoAds').checked,maxHearts:Number($('maxHearts').value),maxAds:Number($('maxAds').value)});
+        const options=sessionOptions();
+        session.guardNativeReady(snapshot,sessionOptions);
+        const sessionResult=session.step(snapshot,options);
         let diagnostic='';
         if(snapshot.stage==='table'&&!sessionResult.play){
           const seats=snapshot.logic?.ha?.filter(p=>p&&!p.Ka).length??0;
@@ -121,7 +145,7 @@ if(!document.getElementById('ziga-xq-experiment')) {
           const button=b?(b.isVisible?.()!==false&&b.x>=0&&b.y>=0?'hiện':'ẩn'):'chưa có';
           diagnostic=` · Ghế ${seats}/2 · bàn ${snapshot.logic?.Fb??'?'} · vai trò ${snapshot.player?.status??'?'} · nút ${button}`;
         }
-        $('autoStatus').textContent=sessionResult.play?'Tự chơi: đang trong ván Cờ tướng.':sessionResult.status+diagnostic;
+        $('autoStatus').textContent=(sessionResult.play?'Tự chơi: đang trong ván Cờ tướng.':sessionResult.status+diagnostic)+` · Tim ${snapshot.hearts} / ngưỡng ${options.adHeartThreshold} · nhận tim ${options.autoAds?'bật':'tắt'}`;
         if(!sessionResult.play){
           clearBackground();
           if(search||waiting){generation++;search?.controller.abort();search=null;waiting=null;}
@@ -237,5 +261,6 @@ if(!document.getElementById('ziga-xq-experiment')) {
     }catch(e){stop(e.message);}
   }
   setInterval(tick,settings.move.pollMs);
+  document.addEventListener('visibilitychange',()=>void tick());
   window.addEventListener('pagehide',()=>stop('Đã dừng.'));
 }

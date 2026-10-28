@@ -21,8 +21,8 @@ export class OpeningBook{
         const parts=fen.split(/\s+/),full=Number(parts[5]);
         if(!Number.isInteger(full)||full<1||!['w','b'].includes(parts[1]))continue;
         const ply=(full-1)*2+(parts[1]==='b'?1:0);
-        // Index only the first five full moves, ignoring FEN clocks for lookup.
-        if(ply>=10)continue;
+        // Index only the first ten full moves, ignoring FEN clocks for lookup.
+        if(ply>=20)continue;
         const candidates=Array.isArray(entry)?entry:Object.entries(entry).map(([move,d])=>({move,...d}));
         const k=key(fen),prior=this.index.get(k);
         if(!prior||ply<prior.ply)this.index.set(k,{ply,candidates});

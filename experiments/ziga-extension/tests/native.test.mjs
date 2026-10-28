@@ -34,7 +34,7 @@ test('book normalizes clocks and rejects malformed or illegal candidate',()=>{
 });
 test('native validation rejects injection and invalid budgets',()=>{
   for(const fen of [initial+'\nquit','bad',initial.replace('rnb','xnb')])assert.throws(()=>validate(fen,300));
-  for(const ms of [0,NaN,10001,'300'])assert.throws(()=>validate(initial,ms));
+  for(const ms of [0,NaN,50001,'300'])assert.throws(()=>validate(initial,ms));
 });
 test('real Pikafish searches both sides and returns validated ICCS coordinates',async()=>{
   for(const side of ['w','b']){
@@ -74,4 +74,48 @@ test('HTTP bridge: book hit, native fallback, CORS denial and busy lock',async()
     for(let i=0;i<50;i++){if(!(await(await fetch(url+'/health')).json()).busy)break;await new Promise(r=>setTimeout(r,20));}
     assert.equal((await(await fetch(url+'/health')).json()).busy,false);
   }finally{await new Promise(r=>server.close(r));}
+});
+
+test('real Pikafish accepts each extended movetime budget without waiting the entire budget at depth 3',async()=>{
+ for(const ms of [20000,30000,50000]){
+  assert.doesNotThrow(()=>validate(initial,ms));
+  const r=await analyze(initial,ms,{depth:3,threads:1});assert.ok(r.move);assert.ok(r.depth>=3);
+ }
+});
+
+test('HTTP bridge advertises and accepts 20/30/50 seconds through the persistent engine',async()=>{
+ const server=createServer();server.listen(0,'127.0.0.1');await once(server,'listening');
+ const url=`http://127.0.0.1:${server.address().port}`;
+ try{
+  const health=await(await fetch(url+'/health')).json();assert.equal(health.maxMovetimeMs,50000);assert.equal(health.version,'0.8.0');
+  for(const movetime of [20000,30000,50000]){
+   const response=await fetch(url+'/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fen:initial,movetime,bookMoves:0,depth:3,threads:1})});
+   assert.equal(response.status,200);const result=await response.json();assert.equal(result.source,'engine');assert.ok(result.move);
+  }
+ }finally{await new Promise(r=>server.close(r));}
+});
+
+test('book indexes beyond five full moves and enforces six-to-ten limits in both orientations',()=>{
+ const later=[...book.index.entries()].find(([,entry])=>entry.ply>=18&&entry.ply<20);assert.ok(later);
+ const [k,entry]=later;const fen=k+' - - 0 1';
+ for(const reverse of [false,true]){
+  const display=reverse?rotateFen(fen):fen;
+  const result=book.lookup(display,{reverse,bookMoves:10,ply:entry.ply});assert.ok(result.move);
+  const g=new XiangqiGame();assert.ok(g.importFen(display));assert.ok(legalMoves(g,g.currentTurn).some(m=>['x','y','tx','ty'].every(k=>m[k]===result.move[k])));
+  assert.equal(book.lookup(display,{reverse,bookMoves:5,ply:entry.ply}).move,null);
+  assert.equal(book.lookup(display,{reverse,bookMoves:10,ply:20}).move,null);
+ }
+});
+
+test('HTTP accepts book 6–10 and falls back to real engine when no entry exists',async()=>{
+ const missing=new OpeningBook(resolve('../../assets/books/opening-book.json'));missing.index.clear();
+ const server=createServer({book:missing});server.listen(0,'127.0.0.1');await once(server,'listening');
+ const base=`http://127.0.0.1:${server.address().port}`;
+ try{
+  const health=await(await fetch(base+'/health')).json();assert.equal(health.maxBookMoves,10);
+  for(const bookMoves of [6,7,8,9,10]){
+   const response=await fetch(base+'/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fen:initial,movetime:300,depth:3,threads:1,bookMoves})});
+   assert.equal(response.status,200);const result=await response.json();assert.equal(result.source,'engine');assert.ok(result.move);
+  }
+ }finally{await new Promise(r=>server.close(r));}
 });

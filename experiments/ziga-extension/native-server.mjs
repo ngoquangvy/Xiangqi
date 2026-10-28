@@ -1,4 +1,5 @@
 import {settings} from './settings.mjs';
+import {MAX_MOVETIME_MS,budgetTimeouts} from './engine-budget.mjs';
 import http from 'node:http';
 import {spawn} from 'node:child_process';
 import {dirname,resolve} from 'node:path';
@@ -14,14 +15,14 @@ export function validate(fen,movetime){
   if(typeof fen!=='string'||fen.length>200||/[\r\n]/.test(fen))throw Error('Invalid FEN');
   const game=new XiangqiGame();
   if(!game.importFen(fen)||!game.findKing('red')||!game.findKing('black'))throw Error('Invalid FEN');
-  if(!Number.isInteger(movetime)||movetime<100||movetime>10000)throw Error('Invalid movetime (100–10000 ms)');
+  if(!Number.isInteger(movetime)||movetime<100||movetime>MAX_MOVETIME_MS)throw Error('Invalid movetime (100–50000 ms)');
   return game;
 }
 export function validateSettings(threads=2,depth=0){
   if(!Number.isInteger(threads)||threads<1||threads>16)throw Error('Threads phải từ 1 đến 16');
   if(!Number.isInteger(depth)||depth<0||depth>64)throw Error('Depth phải từ 0 đến 64');
 }
-export function analyze(fen,movetime,{enginePath=defaultEngine,signal,timeoutMs=settings.engine.legacyTimeoutMs,threads=2,depth:depthLimit=0}={}){
+export function analyze(fen,movetime,{enginePath=defaultEngine,signal,timeoutMs=Math.max(settings.engine.legacyTimeoutMs,budgetTimeouts(movetime).bridgeMs),threads=2,depth:depthLimit=0}={}){
   const game=validate(fen,movetime);
   validateSettings(threads,depthLimit);
   return new Promise((resolveResult,reject)=>{
@@ -83,7 +84,7 @@ export function createServer(options={}){
     res.setHeader('Content-Type','application/json');res.setHeader('Cache-Control','no-store');
     const respond=(status,data)=>{if(!res.destroyed){res.writeHead(status);res.end(JSON.stringify(data));}};
     if(req.method==='OPTIONS'){res.writeHead(204);res.end();return;}
-    if(req.method==='GET'&&req.url==='/health'){respond(200,{ok:true,version:'0.6.0',engine:'Pikafish',busy,bookPositions:book.index.size,bookError:book.error,...engine.status()});return;}
+    if(req.method==='GET'&&req.url==='/health'){respond(200,{ok:true,version:'0.8.0',maxMovetimeMs:MAX_MOVETIME_MS,maxBookMoves:10,engine:'Pikafish',busy,bookPositions:book.index.size,bookError:book.error,...engine.status()});return;}
     if(req.method!=='POST'||!['/analyze','/ponder','/stop'].includes(req.url)){respond(404,{error:'Not found'});return;}
     if(!req.headers['content-type']?.startsWith('application/json')){respond(415,{error:'JSON required'});return;}
     const requestClient=req.headers['x-ziga-client'];
@@ -97,7 +98,7 @@ export function createServer(options={}){
       if(req.url==='/stop'){respond(200,engine.stop(clientId,gameId));return;}
       validate(fen,movetime);validateSettings(threads,depth);
       if(req.url==='/ponder'){respond(200,await engine.ponder(fen,{clientId,gameId,threads,movetime,depth,signal:controller.signal}));return;}
-      if(typeof reverse!=='boolean'||![0,3,4,5].includes(bookMoves)||(ply!==null&&(!Number.isInteger(ply)||ply<0||ply>10000)))throw Error('Invalid book options');
+      if(typeof reverse!=='boolean'||![0,3,4,5,6,7,8,9,10].includes(bookMoves)||(ply!==null&&(!Number.isInteger(ply)||ply<0||ply>10000)))throw Error('Invalid book options');
       const opening=book.lookup(fen,{reverse,bookMoves,ply});
       if(opening.move){respond(200,{...opening,engine:'Opening book',source:'book',depth:0,nodes:0,ms:0});}
       else{
@@ -111,5 +112,5 @@ if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url)){
   const server=createServer({enginePath:process.env.ZIGA_ENGINE_PATH||defaultEngine});
   server.requestTimeout=settings.engine.httpTimeoutMs;
   server.on('error',e=>{console.error('Không mở được bridge:',e.message);process.exitCode=1;});
-  server.listen(17864,'127.0.0.1',()=>console.log('Pikafish bridge 0.6.0: http://127.0.0.1:17864 — Ctrl+C để dừng'));
+  server.listen(17864,'127.0.0.1',()=>console.log('Pikafish bridge 0.8.0: http://127.0.0.1:17864 — Ctrl+C để dừng'));
 }
