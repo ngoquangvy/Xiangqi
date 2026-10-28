@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "Ziga Xiangqi Experiment",
+  "version": "0.6.5",
+  "description": "Bản thử nghiệm tự đánh cờ tướng, bật thủ công trong từng trang Ziga.",
+  "minimum_chrome_version": "111",
+  "permissions": ["storage"],
+  "host_permissions": ["http://127.0.0.1:17864/*"],
+  "background": {"service_worker":"background.js"},
+  "content_scripts": [
+    {"matches":["https://zigavn.com/*","https://www.zigavn.com/*"],"js":["relay.js"],"run_at":"document_idle"},
+    {"matches":["https://zigavn.com/*","https://www.zigavn.com/*"],"js":["main.js"],"run_at":"document_idle","world":"MAIN"}
+  ]
+}
