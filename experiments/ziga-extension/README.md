@@ -1,5 +1,11 @@
 # Ziga Xiangqi Extension — Pikafish + opening book
 
+## Bản 0.6.22 — đóng thông báo nhận tim miễn phí định kỳ
+
+Nhận diện riêng `BkBonusHeartWindow` có tim thưởng dương và lý do `qc` (đến thời gian nhận miễn phí); kiểm tra số dư đã có tim. Cửa sổ này được đóng bằng `removeSelf()` của nút Đóng thật mà không cần có lần xem quảng cáo gần đây. Tự chơi tiếp tục ở sảnh hoặc trong ván, không mở quảng cáo, không tăng bộ đếm quảng cáo và không rời ván đang chơi vì popup này. Nếu lý do không phải tim định kỳ, chưa có số dư hoặc popup không đúng lớp, vẫn giữ xử lý thận trọng như trước.
+
+113 bài test Node đạt; `browser-timed-heart-check.cjs` xác nhận popup định kỳ tự đóng trước khi vào bàn và khi đang trong ván, Tự chơi vẫn bật, không mở quảng cáo/không rời ván. Reload extension và tải lại Ziga để menu hiện 0.6.22; không cần chạy lại bridge.
+
 ## Bản 0.6.21 — book từ 6 đến 10 lượt mỗi bên
 
 Menu Ưu tiên book thêm 6, 7, 8, 9, 10 lượt đầu/bên, giữ mặc định 5 và tùy chọn Tắt book. Chỉ mục book mở từ 10 lên 20 ply để dữ liệu sau lượt thứ 5 thực sự được xét. Kiểm tra nước hợp lệ cho cả hai hướng bàn giữ nguyên; không tìm thấy thế/nước hợp lệ trong book hoặc vượt giới hạn thì gọi engine với thời gian/depth/threads đã chọn.

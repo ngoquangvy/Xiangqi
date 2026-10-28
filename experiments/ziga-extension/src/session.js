@@ -31,8 +31,16 @@ export function isHeartRewardText(text) {
   const isQuestion = /\?|muốn xem|bạn có muốn|đồng ý xem/i.test(t);
   return hasHeart && hasRewardAction && !isQuestion && !/mua|thanh toán|không|chưa|thất bại/i.test(t);
 }
+export function isTimedHeartPopup(w,popup){
+  if(typeof w.BkBonusHeartWindow!=='function'||!(popup instanceof w.BkBonusHeartWindow)||!Number.isFinite(popup.lA)||popup.lA<=0||typeof popup.removeSelf!=='function')return false;
+  const timed=w.qc!==undefined?popup.Zv===w.qc:/đến thời gian nhận miễn phí/i.test(popup.NK?.()||'');
+  const balance=w.BkGlobal?.P?.pb?.();
+  return timed&&Number.isFinite(balance)&&balance>=popup.lA;
+}
 export function isHeartRewardPopup(w, popup, { recentReward = false } = {}) {
-  if (!popup || !recentReward || heartAdPrompt(w,popup)) return false;
+  if (!popup || heartAdPrompt(w,popup)) return false;
+  if(isTimedHeartPopup(w,popup))return true;
+  if(!recentReward)return false;
   if (typeof w.BkBonusHeartWindow==='function' && popup instanceof w.BkBonusHeartWindow) return Number.isFinite(popup.lA)&&popup.lA>0;
   const text=getPopupText(popup);
   if(text)return isHeartRewardText(text)&&!/mua|thanh toán|không|chưa|thất bại|cầu hòa|đối phương muốn hòa/i.test(text);
@@ -172,7 +180,15 @@ export class AutoSession {
     if(this.ad&&now-this.ad.at>settings.ads.timeoutMs)throw Error('Quảng cáo quá thời gian. Hãy kiểm tra hoặc xem thủ công rồi bật lại.');
     if(ads.failed&&this.ad)throw Error('Quảng cáo không tải được. Chưa được cộng tim; hãy thử thủ công.');
     if(ads.blocking){this.readyWait=null;this.idleWatch=null;return {play:false,status:ads.status};}
-    if(!this.ad)return null;
+    if(!this.ad){
+      const popup=w.BkStackWindow?.Vj?.()||w.Fl||null;
+      if(!hidden&&isTimedHeartPopup(w,popup)){
+        dismissHeartPopup(w,popup);this.readyWait=null;
+        this.nextAt=Math.max(this.nextAt,now+settings.session.rewardResumeMs);
+        return {play:false,status:'Đã đóng thông báo nhận tim miễn phí định kỳ. Tự chơi tiếp tục…'};
+      }
+      return null;
+    }
     if(Number.isFinite(hearts)&&hearts>this.ad.hearts){
       this.ad=null;this.action=null;this.mustRewardBeforeReady=false;this.nextAt=now+settings.session.rewardResumeMs;this.adRewardAt=now;
       const popup=w.BkStackWindow?.Vj?.()||w.Fl||null;

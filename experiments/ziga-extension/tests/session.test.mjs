@@ -376,3 +376,28 @@ test('a reward opened by the site is adopted before credit and receives the same
  assert.ok(s.ad);assert.equal(s.adsUsed,1);assert.equal(s.ad.hearts,5);
  f.hearts(6);sdk.adViewed();sdk.afterAd();assert.match(s.watchReward(f.w,2000).status,/đã cộng tim/);assert.equal(s.ad,null);
 });
+
+test('periodic free-heart popup closes without a recent ad and keeps autoplay active',()=>{
+ const f=fixture(),s=new AutoSession();let closed=0;
+ f.w.qc=44;f.w.BkBonusHeartWindow=class{constructor(){this.lA=1;this.Zv=44;}removeSelf(){closed++;f.w.Fl=null;}};
+ f.w.Fl=new f.w.BkBonusHeartWindow();
+ assert.match(s.step(f.snapshot(),{},0).status,/định kỳ/);assert.equal(closed,1);assert.equal(s.adsUsed,0);assert.equal(s.ad,null);
+ s.step(f.snapshot(),{},3000);assert.deepEqual(f.calls,[['join',1]]);
+});
+
+test('periodic credit popup during a game closes once and does not leave or open ads',()=>{
+ const f=fixture(),s=new AutoSession();f.w.BkGlobal.Ja=f.w.V;f.logic.Fb=f.w.GAME_STATE_PLAYING;
+ let closed=0;f.w.qc=44;f.w.BkBonusHeartWindow=class{constructor(){this.lA=1;this.Zv=44;}removeSelf(){closed++;f.w.Fl=null;}};
+ f.w.Fl=new f.w.BkBonusHeartWindow();assert.match(s.watchReward(f.w,0).status,/định kỳ/);
+ assert.equal(s.step(f.snapshot(),{},250).play,true);assert.equal(closed,1);assert.equal(f.calls.length,0);
+});
+
+test('non-periodic rewards, failed credit and unknown info popups remain untouched without ad context',()=>{
+ for(const mode of ['other-reason','no-credit','unknown']){
+  const f=fixture(),s=new AutoSession();let closed=0;f.w.qc=44;
+  f.w.BkBonusHeartWindow=class{constructor(){this.lA=1;this.Zv=mode==='other-reason'?55:44;}removeSelf(){closed++;f.w.Fl=null;}};
+  f.w.Fl=mode==='unknown'?{type:'info',la:{getString:()=> 'Đến thời gian nhận tim miễn phí'},removeSelf:()=>closed++}:new f.w.BkBonusHeartWindow();
+  if(mode==='no-credit')f.hearts(0);
+  assert.equal(s.watchReward(f.w,0),null);assert.equal(closed,0);
+ }
+});

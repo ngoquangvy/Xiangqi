@@ -117,7 +117,7 @@
   var manifest_default = {
     manifest_version: 3,
     name: "Ziga Xiangqi Experiment",
-    version: "0.6.21",
+    version: "0.6.22",
     description: "B\u1EA3n th\u1EED nghi\u1EC7m t\u1EF1 \u0111\xE1nh c\u1EDD t\u01B0\u1EDBng, b\u1EADt th\u1EE7 c\xF4ng trong t\u1EEBng trang Ziga.",
     minimum_chrome_version: "119",
     permissions: ["storage"],
@@ -1477,8 +1477,19 @@
     const isQuestion = /\?|muốn xem|bạn có muốn|đồng ý xem/i.test(t);
     return hasHeart && hasRewardAction && !isQuestion && !/mua|thanh toán|không|chưa|thất bại/i.test(t);
   }
+  function isTimedHeartPopup(w, popup) {
+    if (typeof w.BkBonusHeartWindow !== "function" || !(popup instanceof w.BkBonusHeartWindow) || !Number.isFinite(popup.lA) || popup.lA <= 0 || typeof popup.removeSelf !== "function")
+      return false;
+    const timed = w.qc !== void 0 ? popup.Zv === w.qc : /đến thời gian nhận miễn phí/i.test(popup.NK?.() || "");
+    const balance = w.BkGlobal?.P?.pb?.();
+    return timed && Number.isFinite(balance) && balance >= popup.lA;
+  }
   function isHeartRewardPopup(w, popup, { recentReward = false } = {}) {
-    if (!popup || !recentReward || heartAdPrompt(w, popup))
+    if (!popup || heartAdPrompt(w, popup))
+      return false;
+    if (isTimedHeartPopup(w, popup))
+      return true;
+    if (!recentReward)
       return false;
     if (typeof w.BkBonusHeartWindow === "function" && popup instanceof w.BkBonusHeartWindow)
       return Number.isFinite(popup.lA) && popup.lA > 0;
@@ -1709,8 +1720,16 @@
         this.idleWatch = null;
         return { play: false, status: ads.status };
       }
-      if (!this.ad)
+      if (!this.ad) {
+        const popup = w.BkStackWindow?.Vj?.() || w.Fl || null;
+        if (!hidden && isTimedHeartPopup(w, popup)) {
+          dismissHeartPopup(w, popup);
+          this.readyWait = null;
+          this.nextAt = Math.max(this.nextAt, now + settings.session.rewardResumeMs);
+          return { play: false, status: "\u0110\xE3 \u0111\xF3ng th\xF4ng b\xE1o nh\u1EADn tim mi\u1EC5n ph\xED \u0111\u1ECBnh k\u1EF3. T\u1EF1 ch\u01A1i ti\u1EBFp t\u1EE5c\u2026" };
+        }
         return null;
+      }
       if (Number.isFinite(hearts) && hearts > this.ad.hearts) {
         this.ad = null;
         this.action = null;

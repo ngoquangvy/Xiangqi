@@ -63,6 +63,17 @@ const {chromium}=playwright,assert=require('node:assert/strict'),path=require('n
   await page.evaluate(()=>__testRoot.getElementById('adTestToggle').click());
   await page.evaluate(()=>__testRoot.getElementById('adDiagnostic').click());
   await page.waitForFunction(()=>__testRoot.getElementById('adDiagnosticText').value.includes('đã bấm: có'));
+  await page.keyboard.press('Escape');
+  await page.evaluate(()=>{
+    window.timedClosed=0;window.timedJoined=0;window.qc=44;
+    window.BkBonusHeartWindow=class{constructor(){this.lA=1;this.Zv=44;}removeSelf(){timedClosed++;window.Fl=null;}};
+    window.Fl=new BkBonusHeartWindow();BkGlobal.Ja=sj;
+    BkLogicManager.T=()=>({ic:{aN:[{wg:1,aj:2,tk:1,Rb:0,Wj:0,Yb:1}]},FJ:()=>timedJoined++});
+    __testRoot.getElementById('autoStart').click();
+  });
+  await page.waitForFunction(()=>timedClosed===1&&timedJoined===1,null,{timeout:6000});
+  assert.equal(await page.evaluate(()=>__testRoot.getElementById('autoStop').disabled),false);
+  await page.evaluate(()=>__testRoot.getElementById('autoStop').click());
   await context.close();
   const reopenedContext=await chromium.launchPersistentContext(profile,{channel:'msedge',headless:true,args:[`--disable-extensions-except=${extension}`,`--load-extension=${extension}`]});
   try{
@@ -72,6 +83,7 @@ const {chromium}=playwright,assert=require('node:assert/strict'),path=require('n
     await restoredPage.waitForFunction(()=>!!window.__testRoot&&!__testRoot.getElementById('adDiagnostic').disabled);
     assert.equal(await restoredPage.evaluate(()=>__testRoot.getElementById('book').value),'10');
   }finally{await reopenedContext.close();}
+  console.log('TIMED HEART PASS: periodic popup closes without an ad and autoplay continues into the lobby table.');
   console.log('BOOK PASS: options 6–10 exist; book 10 persists after page reload and full browser restart.');
   console.log('PASS: real cross-origin extension frame closes after video ends and is removed, ignores hidden countdown/SVG and waits until Close is enabled; unrelated tab stays untouched. Manual test button works with 10 hearts, closes reward popup and never joins a table. Close diagnostics remain readable after manual close and page reload.');
  } finally {await context.close();}
