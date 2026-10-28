@@ -1,5 +1,85 @@
 # Ziga Xiangqi Extension — Pikafish + opening book
 
+## Bản 0.6.14 — Google dismiss-button và hộp cảnh báo mất thưởng
+
+Log người dùng xác định khung 537 có `dismiss-button`/`dismiss-button-element` và `close-confirmation-dialog` với cảnh báo “Bạn sẽ bị mất phần thưởng”, trong khi video nằm ở các khung khác và chưa báo hoàn tất. Chỉ dựa vào cờ video/SDK khiến nút Đóng không được thử dù đã hiện.
+
+Giữ cách đóng cũ khi đã có tín hiệu kết thúc. Thêm đường xử lý riêng cho đúng cấu trúc Google có sẵn hộp bảo vệ phần thưởng: sau ít nhất 15 giây thử nút dismiss; nếu SDK hiện cảnh báo mất thưởng, bấm **TIẾP TỤC**/Continue/Resume để xem tiếp. Không bấm `close-ad-button` hoặc bất kỳ nút nằm trong hộp xác nhận để bỏ thưởng, kể cả đã có cờ hoàn tất. Chờ ít nhất 10 giây trước lần thử tiếp theo, tối đa 8 lần cho mỗi quảng cáo và dùng chung giới hạn giữa các iframe. Chỉ thử hai ID dismiss đã thấy trong log, không thử nút Close chung khi chưa có tín hiệu kết thúc. Nếu thiếu hộp bảo vệ đúng cấu trúc/nội dung, vẫn chờ tín hiệu thật hoặc thao tác thủ công.
+
+Thông số nằm ở `ads.googleCloseProbeAfterMs` (15000), `googleCloseRetryMs` (10000), `googleCloseMaxProbes` (8) trong `settings.json`; đặt số lần 0 để tắt đường thử này. Chẩn đoán lưu việc thử và việc chọn TIẾP TỤC. Không giả callback SDK hay ghi nhận tim khi số dư chưa tăng.
+
+87 bài test Node đạt. `browser-google-reward-check.cjs` tái hiện iframe Google có nút dismiss nhưng không có tín hiệu video: lần đầu mở cảnh báo mất thưởng, bot chọn TIẾP TỤC, đợi cooldown, rồi đóng và nhận tim khi SDK cho phép; không bấm nút mất thưởng. Bài `browser-ad-frame-check.cjs` cho đường kết thúc video/đóng popup/chẩn đoán vẫn đạt. Reload extension và tải lại Ziga; không cần chạy lại bridge. Cần xác nhận kết quả trên quảng cáo thật sau thay đổi này.
+
+## Bản 0.6.13 — xác định khung thực tế chứa nút đóng
+
+Log thực tế ở 0.6.12 báo các iframe không nhận diện nút và chưa có tín hiệu kết thúc. Thông tin đó chưa đủ xác định iframe khác chưa được hỗ trợ hay nút có cấu trúc khác. Phần **CẤU TRÚC KHUNG VÀ NÚT** trong chẩn đoán bổ sung tên miền iframe con, có kích thước hay ẩn/rỗng, số video và nhãn điều khiển Close/Đóng/X nếu tìm thấy. Thu ở cả trang Ziga và các iframe được hỗ trợ, giữ lại sau khi quảng cáo đóng. Không thu URL đầy đủ, nội dung trang, cookie hoặc tài khoản; thông tin giới hạn tối đa 40 khung, 20 iframe/20 nhãn mỗi khung. Không tự mở rộng quyền sang tên miền khác chỉ dựa trên nội dung trang.
+
+Reload extension, tải lại Ziga, thử quảng cáo rồi đóng thủ công nếu cần. Bấm Xem chẩn đoán quảng cáo và lấy cả phần cấu trúc mới để xác định đúng nút; chưa khẳng định lỗi trên quảng cáo thực tế đã được sửa. Cấu hình cũ thiếu `ads.framePollMs`/`frameLeaseMs` dùng mặc định 500/2000 ms để build vẫn hoạt động. 86 bài test Node và bài kiểm tra iframe trên trình duyệt đã đạt.
+
+## Bản 0.6.12 — đọc chẩn đoán sau khi đóng quảng cáo
+
+Nút **Xem chẩn đoán quảng cáo** hiển thị ghi nhận của iframe: đã nhận tín hiệu khung, đã có bằng chứng kết thúc, số nút đóng nhận diện và đã gửi click hay chưa. Không cần đọc menu trong khi quảng cáo đang che trang: xem xong có thể tự đóng quảng cáo thủ công, rồi bấm nút này và sao chép nội dung để kiểm tra. Dữ liệu vẫn còn sau khi tải lại trang Ziga/khởi động lại service worker, lưu trong `chrome.storage.session` tới khi đóng tab hoặc phiên trình duyệt kết thúc. Chỉ lưu tối đa 20 thay đổi trạng thái cho mỗi tab, không lưu URL quảng cáo, cookie hay thông tin tài khoản. Bằng chứng đã bấm được giữ lại dù lần kiểm tra tiếp theo không bấm nữa.
+
+Reload extension và tải lại Ziga, thử quảng cáo một lần, đóng thủ công nếu còn kẹt, rồi đọc chẩn đoán. Bản này bổ sung khả năng xác định lỗi trên quảng cáo thực tế, chưa khẳng định đã sửa mọi loại nút đóng. 85 bài test Node và kiểm tra trình duyệt khác tên miền đạt; chẩn đoán vẫn đọc được sau khi quảng cáo đóng và sau tải lại trang.
+
+## Bản 0.6.11 — nút đóng ở màn hình cuối quảng cáo
+
+Không dùng `textContent` để đọc bộ đếm: nội dung này chứa cả chữ đếm ngược đã ẩn và mã SVG/CSS, khiến nút Close đang sẵn sàng vẫn bị chặn vì có số. Chỉ xét chữ thực sự đang hiển thị (`innerText`). Tìm thêm nút đóng/video trong Shadow DOM mở, hit-test tại chính shadow root. Ghi nhớ sự kiện video kết thúc theo ID lần quảng cáo, không mất tín hiệu khi thẻ video bị xóa trước khi nút đóng được bật; ID mới xóa bằng chứng cũ.
+
+84 bài test Node đạt. Kiểm tra extension trên trình duyệt với video WebM trong iframe khác tên miền: xóa video sau kết thúc, nút Close có đếm ngược/SVG ẩn, bật nút trễ; quảng cáo đóng được và popup tim tiếp tục đóng. Chưa đối chiếu DOM quảng cáo thực tế của người dùng. Reload extension, tải lại Ziga và dùng nút Thử quảng cáo nhận tim. Không cần khởi động lại bridge.
+
+## Bản 0.6.10 — thử quảng cáo riêng và đóng trong iframe
+
+Menu có nút **Thử quảng cáo nhận tim** ngay dưới trạng thái Tự chơi. Dùng khi còn tim và không cần bật Tự chơi/Bot đi quân. Hãy về sảnh hoặc màn hình Cờ tướng trước khi bấm; không thử giữa ván đang đánh. Nút gọi luồng quảng cáo thật của Ziga một lần, theo dõi kết thúc video, nút đóng, số dư tim và popup nhận tim. Sau khi cộng tim tiếp tục theo dõi popup xuất hiện trễ trong `session.rewardPopupWindowMs` (mặc định 30 giây). Không tự vào bàn ở chế độ thử; trạng thái chạy trước đó tiếp tục khi thử xong. Esc dừng theo dõi. Chế độ thử có giới hạn số quảng cáo riêng theo `maxAds` trong menu; không giả lập thưởng, không vượt giới hạn/no-inventory từ nhà quảng cáo.
+
+Phần đóng quảng cáo được bổ sung content script bên trong iframe Google Ads trên `googlesyndication.com`, `doubleclick.net`, `googleadservices.com`, gồm khung `about:blank`/blob có nguồn gốc thuộc các miền này. Chỉ hoạt động khi trang Ziga cùng tab đang theo dõi quảng cáo (cấp phép ngắn hạn và hết hạn khi bot dừng). Chỉ bấm nút Đóng/X đang hiện, không bị che/vô hiệu hóa, sau video kết thúc hoặc SDK/số dư tim xác nhận đã thưởng. Không bấm Skip hoặc countdown. Theo dõi DOM/video để phản ứng khi nút được mở, thay vì chỉ dựa vào timer có thể bị trình duyệt giảm tần suất trong iframe.
+
+Thêm `ads.framePollMs` (500 ms), `ads.frameLeaseMs` (2000 ms) trong `settings.json`. Yêu cầu Chrome/Edge >=119. **Reload extension rồi tải lại trang Ziga** để đăng ký script mới trong iframe. Không cần khởi động lại bridge. `browser-ad-frame-check.cjs` kiểm tra video WebM thật trong iframe khác tên miền, nút chưa được phép đóng, tab ngoài Ziga không bị chạm, và nút thử riêng khi còn 10 tim. Chưa xác nhận trên quảng cáo thật của phiên người dùng; nếu nhà quảng cáo dùng khung/kiểu nút khác vẫn cần đối chiếu ảnh thực tế.
+
+## Bản 0.6.9 — cấu hình thời gian và giới hạn cầu hòa
+
+Bot đề nghị hòa tối đa **2 lần mỗi ván**, ở **2 lượt khác nhau của phe mình**. Không gửi lại trong cùng lượt; sau lần thứ hai không đề nghị nữa, kể cả thế cờ vẫn cân bằng. Vẫn giữ điều kiện đánh giá hòa và thời gian nghỉ giữa hai đề nghị (mặc định 60 giây). Một thao tác đã thử gửi được tính vào giới hạn cả khi client báo lỗi sau đó. Tắt/bật tùy chọn đề nghị hòa không xóa bộ đếm trong ván.
+
+Popup Cocos `BkBonusHeartWindow` (có nút Đóng, chữ nằm trong ảnh) được nhận diện theo lớp cửa sổ và số tim thưởng; đóng bằng `removeSelf()` giống nút Đóng thật, chỉ gọi một lần để tránh chạy cả callback Đồng ý/Từ chối. Xử lý cả popup xuất hiện trễ sau xác nhận cộng tim.
+
+### Chỉnh bằng file, không sửa code
+
+Mở **`settings.json`** trong thư mục này bằng Notepad. Đây là file cấu hình dạng dữ liệu tương tự `.env`; mọi khóa có đuôi `Ms` dùng **mili giây: 1000 = 1 giây**. JSON không hỗ trợ comment; giữ dấu ngoặc, dấu phẩy và dùng số không có dấu nháy.
+
+| Khóa | Mặc định | Ý nghĩa |
+| --- | ---: | --- |
+| `session.idleTableMs` | 8000 | Rời bàn khi một mình hoặc chờ đối thủ sẵn sàng quá lâu; giữ giá trị đang có ở máy trước lần cập nhật này |
+| `session.readyMinMs` / `readyMaxMs` | 1000 / 1500 | Khoảng chờ ngẫu nhiên trước Sẵn sàng/Bắt đầu, sau khi đủ hai người |
+| `session.finishedLeaveMs` | 4000 | Chờ rời bàn sau kết thúc ván |
+| `session.rewardResumeMs` | 2000 | Chờ sau nhận tim trước khi tiếp tục |
+| `session.rewardPopupWindowMs` | 30000 | Khoảng theo dõi popup nhận tim xuất hiện trễ |
+| `move.minDelayMs` / `quickMaxMs` | 500 / 1000 | Chờ thêm sau kết quả engine/ponder; nước duy nhất dùng mức tối thiểu |
+| `move.bookMinMs` / `bookMaxMs` | 120 / 1400 | Khoảng chờ book, vẫn chịu mức tối thiểu `move.minDelayMs` |
+| `move.smallSearchMs` / `mediumSearchMs` / `complexSearchMs` | 650 / 2500 / 10000 | Ngân sách engine ở chế độ thời gian Tự động |
+| `draw.maxOffers` | 2 | Giới hạn mỗi ván, chỉ được đặt 0–2 |
+| `draw.minOwnTurnsBetweenOffers` | 1 | Ít nhất bao nhiêu lượt mới của mình trước lần đề nghị tiếp theo |
+| `draw.offerCooldownMs` | 60000 | Khoảng nghỉ giữa hai đề nghị, đồng thời với điều kiện lượt |
+| `ads.timeoutMs` / `loadTimeoutMs` | 120000 / 10000 | Chờ quảng cáo kết thúc / bắt đầu tải |
+| `engine.ponderBurstMs` / `ponderRestMs` | 2000 / 3000 | Thời lượng tính trước mỗi đợt / nghỉ giữa đợt |
+| `cpu.highForMs` / `reduceIntervalMs` | 10000 / 10000 | CPU >70% kéo dài bao lâu thì giảm luồng / khoảng giữa hai lần giảm |
+| `cpu.ponderPauseMs` / `lowForMs` | 15000 / 15000 | Nghỉ ponder khi quá tải / CPU <50% ổn định trước phục hồi |
+
+Sau khi lưu, chạy **`apply-settings.cmd`**, rồi **Reload extension và tải lại Ziga**. Có thể dùng `npm run build` thay cho file CMD. Lần cài trên máy mới cần Node.js >=22.12 và `npm install` trước. Cấu hình được kiểm tra khi build; giá trị sai sẽ báo rõ khóa bị lỗi. Chỉnh thông số engine/CPU cần dừng và chạy lại bridge để tiến trình đang mở đọc cấu hình mới; chỉnh delay/menu không cần chạy lại bridge. Đây không phải cấu hình tự cập nhật trong tab đang mở.
+
+Các nhóm `engine`, `ads`, `session`, `cpu` còn có timeout xác nhận, hồi phục quảng cáo và kết nối để chỉnh khi cần. Giới hạn giao thức engine vẫn là 100–10000 ms, delay tối thiểu 500 ms; timeout HTTP phải dài hơn thời gian tính + dừng engine, timeout client phải dài hơn HTTP. Các lựa chọn thời gian cố định trong menu giữ nguyên, các ngân sách trong file áp dụng cho chế độ Tự động.
+
+## Bản 0.6.8 — tự đóng thông báo nhận tim sau khi xem xong quảng cáo
+
+Sau khi Ziga xác nhận số dư tim tăng lên từ quảng cáo đã xem (`hearts > this.ad.hearts`), bot tự nhận diện popup thông báo nhận tim của Ziga (qua nội dung thông báo "nhận được tim" / "cộng tim", nút Đóng / Đồng ý / `removeSelf`, dạng alert một nút hoặc DOM modal thông báo) và tự kích hoạt đóng thông báo này. Popup xuất hiện ngay lúc nhận tim hoặc xuất hiện sau đó trong thời gian chờ đều được xử lý tự động, không còn bị chặn bởi lỗi popup chưa xử lý, giúp bot chuyển thẳng sang sảnh và tự vào bàn Cờ tướng tiếp tục chơi. Reload extension và tải lại tab Ziga; 71 bài test Node và kiểm tra Playwright browser thật đã đạt.
+
+## Bản 0.6.7 — đóng quảng cáo đã xem xong
+
+Sau callback SDK thật `adViewed`, `afterAd` hoặc `adBreakDone` với trạng thái `viewed`, tìm nút đóng đang hiện, được phép bấm và không bị che trong vùng quảng cáo hoặc iframe có thể truy cập. Bấm một lần cho mỗi nút, không bấm link quảng cáo hay Skip, không gọi giả callback nhận thưởng. Khung khác tên miền được trình duyệt bảo vệ có thể không truy cập được; menu báo cần đóng thủ công nếu quảng cáo vẫn che trang. Chưa xác nhận nút đóng trên quảng cáo thật của phiên người dùng; 66 bài test đã đạt. Reload extension và tải lại Ziga, không cần khởi động lại bridge.
+
+## Bản 0.6.6 — xác nhận quảng cáo khi hết tim
+
+Nhận diện thêm popup thông báo thiếu tim (`Fn`) và popup chung `Fl` của Ziga. Khi bật Tự chơi và “Hết tim: tự mở quảng cáo nhận tim”, bot dùng callback Đồng ý thật của đúng thông báo này một lần, chờ quảng cáo và số dư tim tăng rồi mới chơi tiếp. Không tự đồng ý popup mua tim hoặc popup lạ, không nhận thưởng giả. Vẫn áp dụng giới hạn quảng cáo/phiên và yêu cầu tab hiện. Nếu chưa bật tùy chọn nhận tim, hết giới hạn phiên hoặc nhà quảng cáo không có video, trạng thái sẽ báo lý do. Reload extension và tải lại Ziga; không cần khởi động lại bridge. Đã kiểm tra 64 bài test, bao gồm popup thiếu tim, không gọi lặp, chờ số dư và popup không liên quan; chưa xác nhận video thưởng thật trên phiên Ziga của người dùng.
+
 ## Bản 0.6.5 — mức chờ tối thiểu trước khi đi
 
 Giữ nguyên ponder, bộ giảm tải CPU và ngân sách tính nước lạ tối đa 10 giây. Sau khi đã có kết quả, bot chờ thêm 0,5–1 giây thay vì gửi ngay; kết quả trúng ponder cũng áp dụng mức chờ này. Nước duy nhất hợp lệ không cần gọi engine nhưng vẫn chờ 0,5 giây. Nước book cũng không dưới 0,5 giây (giữ khoảng chờ cũ, tối đa 1,4 giây). Có đếm ngược và kiểm tra lại bàn trước khi gửi; Dừng/đổi thế vẫn hủy nước đang chờ. Thời gian này cộng ngoài thời gian engine tính; nhịp kiểm tra trang có thể làm gửi trễ thêm một chút. Reload extension và tải lại Ziga, không cần khởi động lại bridge cho thay đổi này.
@@ -139,3 +219,5 @@ Sau khi book hoặc engine trả kết quả, bot chờ thêm theo số nước 
 Bản 0.3.1 đã kiểm tra hai cặp nút độc lập trên extension: Dừng bot vẫn giữ tự chơi, Tắt tự chơi vẫn giữ bot đang bật. Để ngừng mọi thao tác dùng Esc hoặc tắt cả hai phần.
 
 Để chạy các script kiểm tra trình duyệt trên máy khác, cài Playwright bằng `npm install --no-save playwright` trong thư mục thử nghiệm. Script dùng Chrome/Edge đã cài trên máy; nếu thiếu, cài trình duyệt tương ứng trước khi chạy.
+
+Kiểm tra bản 0.6.10: 82/82 bài test Node đạt; browser-ad-frame-check.cjs đạt với video WebM thật trong iframe khác tên miền và nút thử khi còn 10 tim; browser-native-check.cjs đạt toàn bộ luồng tự chơi, ponder, quảng cáo, lưu menu và mở lại trình duyệt. Các bài trình duyệt dùng trang mô phỏng có kiểm soát, không xác nhận quảng cáo thương mại thật trên phiên người dùng.

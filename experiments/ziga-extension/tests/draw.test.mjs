@@ -57,3 +57,21 @@ test('proactive draw sends only the draw request, once, and revalidates current 
   assert.equal(policy.offer(state,result(),f.w,1100),false);assert.equal(f.calls.length,1);
   f.w.BkGlobal.ia=8;assert.throws(()=>policy.offer(state,result(),f.w,100000));assert.equal(f.calls.length,1);
 });
+
+test('at most two requests per game, each on a separate own turn; repeated ticks and later turns cannot spam',()=>{
+  const f=fixture(),p=new DrawPolicy();f.w.Fl=null;
+  const prime=()=>{const s=f.state();p.record(s,result());p.plies=44;p.quiet=44;p.streak=4;return s;};
+  let state=prime();assert.equal(p.offer(state,result(),f.w,1000),true);
+  assert.equal(p.offer(state,result(),f.w,100000),false);
+  f.layer.Yc=1;p.observe(f.state());assert.equal(p.canOffer(f.state(),result(),100000),false);
+  f.layer.V[11].rowIndex=4;f.layer.Yc=0;state=prime();assert.equal(p.offer(state,result(),f.w,100000),true);
+  f.layer.Yc=1;p.observe(f.state());f.layer.V[12].rowIndex=4;f.layer.Yc=0;state=prime();
+  assert.equal(p.offer(state,result(),f.w,1000000),false);assert.deepEqual(f.calls,[10,10]);
+});
+
+test('an attempted draw dispatch that throws is still counted to prevent retries',()=>{
+  const f=fixture(),p=new DrawPolicy();f.w.Fl=null;const state=f.state();p.observe(state);p.plies=44;p.quiet=44;p.streak=4;
+  state.logic.yr=()=>{throw Error('dispatch failed after send');};
+  assert.throws(()=>p.offer(state,result(),f.w,1000),/dispatch/);
+  assert.equal(p.offers,1);assert.equal(p.offer(state,result(),f.w,100000),false);
+});

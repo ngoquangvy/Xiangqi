@@ -64,6 +64,7 @@ const path=require('node:path');const fs=require('node:fs');const os=require('no
  assert.match(await page.evaluate(()=>__testRoot.getElementById('status').textContent),/hủy nước/);
   await page.reload();await page.waitForFunction(()=>!!window.__testRoot && !__testRoot.getElementById("start").disabled);
  await page.evaluate(()=>{
+   __testRoot.getElementById('book').value='5';__testRoot.getElementById('depth').value='4';__testRoot.getElementById('time').value='650';
    window.autoCalls=[];window.autoHearts=5;window.me={Ka:false,status:2};
    window.initialPieces=structuredClone(layer.V);
    window.sj=10;window.V=11;window.Q=12;window.GAME_STATE_READY=1;window.GAME_STATE_NOT_READY=0;window.GAME_STATE_FINISH=100;
@@ -76,7 +77,7 @@ const path=require('node:path');const fs=require('node:fs');const os=require('no
    window.BkLogicManager={T:()=>common};
    __testRoot.getElementById('autoStart').click();__testRoot.getElementById('start').click();
  });
- await page.waitForFunction(()=>sent.length===1,null,{timeout:15000});
+ await page.waitForFunction(()=>sent.length===1,null,{timeout:15000}).catch(async e=>{console.log('AUTO FAILURE',await page.evaluate(()=>({status:__testRoot.getElementById('status').textContent,auto:__testRoot.getElementById('autoStatus').textContent,calls:autoCalls,ad:BkGlobal.Tg})));throw e;});
  await page.evaluate(()=>{logic.Fb=100;});
  await page.waitForFunction(()=>sent.length===2,null,{timeout:20000});
   assert.deepEqual(await page.evaluate(()=>autoCalls),['choose:7','join','ready','leave','join','ready']);
@@ -100,6 +101,17 @@ const path=require('node:path');const fs=require('node:fs');const os=require('no
  await page.waitForFunction(()=>adStarts===1);await page.waitForTimeout(600);
  assert.equal(await page.evaluate(()=>adStarts),1);
  assert.match(await page.evaluate(()=>__testRoot.getElementById('autoStatus').textContent),/Chờ Ziga xác nhận tim/);
+ await page.evaluate(()=>{
+   window.rewardClosed=0;
+   window.Fl={
+     la:{getString:()=>'Bạn đã nhận được 1 tim khi xem xong quảng cáo.'},
+     Vl:()=>{window.rewardClosed++;},
+     removeSelf:()=>{window.rewardClosed++;window.Fl=null;}
+   };
+   autoHearts=1;
+ });
+ await page.waitForFunction(()=>window.rewardClosed>=1,{timeout:5000});
+ assert.equal(await page.evaluate(()=>window.Fl),null);
  await page.evaluate(()=>__testRoot.getElementById('stop').click());
   await page.reload();await page.waitForFunction(()=>!!window.__testRoot && !__testRoot.getElementById("start").disabled);
  const beforeForced=await worker.evaluate(()=>globalThis.testRequests);const forcedAt=Date.now();
@@ -126,7 +138,7 @@ const path=require('node:path');const fs=require('node:fs');const os=require('no
    __testRoot.getElementById('autoStart').click();__testRoot.getElementById('start').click();
  });
  await page.waitForTimeout(2400);assert.equal(await page.evaluate(()=>idleCalls.length),0);
- await page.waitForFunction(()=>sent.length===1,null,{timeout:15000});
+ await page.waitForFunction(()=>sent.length===1,null,{timeout:15000}).catch(async e=>{console.log('AUTO FAILURE',await page.evaluate(()=>({status:__testRoot.getElementById('status').textContent,auto:__testRoot.getElementById('autoStatus').textContent,calls:autoCalls,ad:BkGlobal.Tg})));throw e;});
  assert.deepEqual(await page.evaluate(()=>idleCalls),['leave','join:2','ready']);
   await worker.evaluate(()=>{
    const previous=globalThis.fetch;globalThis.drawScenario=null;globalThis.drawRequests=[];
@@ -162,7 +174,7 @@ const path=require('node:path');const fs=require('node:fs');const os=require('no
   await worker.evaluate(()=>{globalThis.drawScenario=null;globalThis.lastPonder=null;});
  await page.reload();await page.waitForFunction(()=>!!window.__testRoot && !__testRoot.getElementById("start").disabled);
  await page.evaluate(()=>{__testRoot.getElementById('book').value='0';__testRoot.getElementById('threads').value='1';__testRoot.getElementById('depth').value='14';__testRoot.getElementById('time').value='1200';__testRoot.getElementById('start').click();});
- await page.waitForFunction(()=>sent.length===1,null,{timeout:10000});
+ await page.waitForFunction(()=>sent.length===1,null,{timeout:10000}).catch(async e=>{console.log('PONDER FAILURE',await page.evaluate(()=>({status:__testRoot.getElementById('status').textContent,detail:__testRoot.getElementById('detail').textContent})));console.log('HEALTH',await(await fetch(testBase+'/health')).json());throw e;});
  let prediction;
  for(let i=0;i<100;i++){prediction=await worker.evaluate(()=>globalThis.lastPonder?.predictedMove);if(prediction)break;await page.waitForTimeout(50);}
  assert.match(prediction,/^[a-i][0-9][a-i][0-9]$/);await page.waitForTimeout(500);

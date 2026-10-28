@@ -1,0 +1,76 @@
+{
+  "session": {
+    "idleTableMs": 8000,
+    "readyMinMs": 1000,
+    "readyMaxMs": 1500,
+    "actionConfirmMs": 20000,
+    "transitionMs": 2500,
+    "tableSyncMs": 20000,
+    "finishedLeaveMs": 4000,
+    "rewardResumeMs": 2000,
+    "rewardPopupWindowMs": 30000
+  },
+  "move": {
+    "minDelayMs": 500,
+    "quickMaxMs": 1000,
+    "bookMinMs": 120,
+    "bookMaxMs": 1400,
+    "maxDelayMs": 5000,
+    "confirmMs": 8000,
+    "stableMs": 500,
+    "ponderStableMs": 200,
+    "pollMs": 250,
+    "smallSearchMs": 650,
+    "mediumSearchMs": 2500,
+    "complexSearchMs": 10000
+  },
+  "draw": {
+    "maxOffers": 2,
+    "minOwnTurnsBetweenOffers": 1,
+    "offerCooldownMs": 60000,
+    "replySearchMs": 1200,
+    "acceptWaitMs": 5000
+  },
+  "ads": {
+    "timeoutMs": 120000,
+    "loadTimeoutMs": 10000,
+    "clearMs": 3000,
+    "exposedRecoveryMs": 10000
+  },
+  "engine": {
+    "ponderRequestIntervalMs": 5000,
+    "ponderBurstMs": 2000,
+    "ponderRestMs": 3000,
+    "ponderSeedMs": 300,
+    "stopTimeoutMs": 4000,
+    "handshakeMs": 15000,
+    "searchGraceMs": 8000,
+    "httpTimeoutMs": 20000,
+    "clientTimeoutMs": 22000,
+    "healthCacheMs": 5000,
+    "legacyTimeoutMs": 15000,
+    "stableSearchMinMs": 250,
+    "stableSearchMaxMs": 600
+  },
+  "cpu": {
+    "sampleMs": 2000,
+    "highForMs": 10000,
+    "reduceIntervalMs": 10000,
+    "ponderPauseMs": 15000,
+    "lowForMs": 15000,
+    "recoverIntervalMs": 10000,
+    "limitedSearchMs": 2000
+  },
+  "fallbackDelay": {
+    "quickSearchThresholdMs": 600,
+    "quickMaxMs": 250,
+    "advantageMinMs": 150,
+    "advantageMaxMs": 900,
+    "complexMinMs": 2200,
+    "baseMinMs": 350,
+    "baseMs": 900,
+    "perChoiceMs": 20,
+    "perDepthMs": 45,
+    "maxMs": 4000
+  }
+}

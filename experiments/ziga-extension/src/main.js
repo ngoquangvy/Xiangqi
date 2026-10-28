@@ -1,3 +1,4 @@
+import {settings} from '../settings.mjs';
 import {nativeBestMove,nativePonder,nativeStop,nativeRequest} from './native-client.js';
 import XiangqiGame from '../vendor/XiangqiGame.js';
 import {legalMoves} from './engine.js';
@@ -18,8 +19,8 @@ if(!document.getElementById('ziga-xq-experiment')) {
   $('time').innerHTML='<option value="auto" selected>Tự động ≤10 giây</option><option value="650">0,65 giây</option><option value="1200">1,2 giây</option><option value="2500">2,5 giây</option><option value="5000">5 giây</option><option value="10000">10 giây</option>';
   const bookLabel=document.createElement('label');bookLabel.innerHTML='Ưu tiên book <select id="book"><option value="3">3 lượt đầu / bên</option><option value="4">4 lượt đầu / bên</option><option value="5" selected>5 lượt đầu / bên</option><option value="0">Tắt book</option></select>';
   $('start').before(bookLabel);
-  const settings=document.createElement('div');settings.innerHTML='<label>Độ sâu tối đa <input id="depth" type="number" min="0" max="64" step="1" value="0" style="width:65px"> <small>0 = theo thời gian</small></label><label>Threads <input id="threads" type="number" min="1" max="16" step="1" value="2" style="width:65px"></label>';
-  $('start').before(settings);
+  const engineSettings=document.createElement('div');engineSettings.innerHTML='<label>Độ sâu tối đa <input id="depth" type="number" min="0" max="64" step="1" value="0" style="width:65px"> <small>0 = theo thời gian</small></label><label>Threads <input id="threads" type="number" min="1" max="16" step="1" value="2" style="width:65px"></label>';
+  $('start').before(engineSettings);
   const ponderSettings=document.createElement('div');ponderSettings.innerHTML='<label><input id="ponder" type="checkbox" checked> Tính trước trong lượt đối thủ</label><small id="cpuStatus">CPU: đang đo · tự giảm tải khi >70% trong 10 giây</small>';
   $('start').before(ponderSettings);
   let engineGameId=null,ponderJob=null,lastPonderAt=0,lastPonderKey=null;
@@ -32,6 +33,20 @@ if(!document.getElementById('ziga-xq-experiment')) {
   const draws=new DrawPolicy();let manualDraw=null,drawHoldUntil=0;
   const autoSettings=document.createElement('div');autoSettings.innerHTML='<hr><strong>Tự chơi liên tiếp · chỉ Cờ tướng</strong><label>Tim tối đa / bàn <input id="maxHearts" type="number" min="1" max="10000" value="1" style="width:65px"></label><label><input id="autoAds" type="checkbox"> Hết tim: tự mở quảng cáo nhận tim</label><label>Tối đa quảng cáo / phiên <input id="maxAds" type="number" min="1" max="10" value="3" style="width:45px"></label><button id="autoStart">Bật tự chơi</button><button id="autoStop">Tắt tự chơi</button><p id="autoStatus">Tự chơi: đã tắt.</p><hr><strong>Bot đi quân trong bàn</strong><br>';
   $('start').before(autoSettings);
+  const adTestControls=document.createElement('div');adTestControls.innerHTML='<button id="testAd">Thử quảng cáo nhận tim</button><p id="adTestStatus">Thử riêng khi còn tim, không cần bật tự chơi.</p>';
+  $('autoStatus').after(adTestControls);
+  const diagnosticControls=document.createElement('div');diagnosticControls.innerHTML='<button id="adDiagnostic">Xem chẩn đoán quảng cáo</button><textarea id="adDiagnosticText" readonly hidden aria-label="Chẩn đoán lần quảng cáo" style="box-sizing:border-box;width:100%;height:150px"></textarea>';
+  adTestControls.append(diagnosticControls);
+  $('adDiagnostic').onclick=async()=>{
+    const output=$('adDiagnosticText');output.hidden=false;output.value='Đang đọc chẩn đoán đã lưu…';
+    try{
+      const result=await nativeRequest('ad-diagnostics',null,null,new AbortController().signal);
+      output.value=result.diagnostic.events.map(e=>e.stage+(e.frame!==undefined?` · khung ${e.frame} · kết thúc: ${e.completed?'có':'chưa'}${e.candidates!==undefined?' · số nút nhận diện: '+e.candidates:''}${e.clicked!==undefined?' · đã bấm: '+(e.clicked?'có':'chưa'):''}`:'')).join('\n');
+      const surfaces=result.diagnostic.surfaces||[];
+      output.value+=result.diagnostic.events.some(e=>e.continued)?'\nĐã chọn TIẾP TỤC xem khi quảng cáo cảnh báo mất phần thưởng.':'';
+      output.value+='\n\nCẤU TRÚC KHUNG VÀ NÚT:\n'+(surfaces.length?surfaces.map(s=>`Khung ${s.frame} · số video: ${s.videos}\n  Iframe con: ${s.frames.map(f=>f.host+(f.visible?' [có kích thước]':' [ẩn/rỗng]')).join(', ')||'không có'}\n  Nhãn nút: ${s.controls.join(' | ')||'không thấy nút Đóng/X'}`).join('\n'):'Chưa thu được cấu trúc. Hãy thử quảng cáo một lần sau khi Reload extension.');
+    }catch(e){output.value='Không đọc được chẩn đoán: '+e.message;}
+  };
   const settingsStatus=document.createElement('small');settingsStatus.id='settingsStatus';settingsStatus.textContent='Đang đọc thiết lập đã lưu…';$('detail').after(settingsStatus);
   const panel=shadow.querySelector('section'),title=panel.querySelector('h3');
   const header=document.createElement('div');header.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:8px;position:sticky;top:0;background:#17212c;z-index:1;padding-bottom:6px';
@@ -58,15 +73,27 @@ if(!document.getElementById('ziga-xq-experiment')) {
   });
   void preferences.ready.then(()=>{settingsReady=true;renderMenu();updateButtons();});
   const session=new AutoSession();let continuous=false;
+  const rewardTest=new AutoSession();let testingReward=false;
   let observedPly=null,observedKey=null,observedRoom=null,waiting=null;
   let enabled=false,pending=null,lastRoom=null,stableKey='',stableAt=0,search=null,generation=0;
   const setStatus=t=>{$('status').textContent=t;};
   function updateButtons(){
     $('start').disabled=!settingsReady||enabled;$('stop').disabled=!enabled;
     $('autoStart').disabled=!settingsReady||continuous;$('autoStop').disabled=!continuous;
+    $('testAd').disabled=!settingsReady||testingReward;
+    $('adDiagnostic').disabled=!settingsReady;
     compact.textContent=`Tự chơi: ${continuous?'bật':'tắt'} · Đi quân: ${enabled?'bật':'tắt'}`;
   }
-  function stop(message,all=true){enabled=false;generation++;search?.controller.abort();search=null;waiting=null;clearBackground();if(all){continuous=false;session.reset();$('autoStatus').textContent='Tự chơi: đã dừng.';}updateButtons();setStatus(message);}
+  function stop(message,all=true){enabled=false;generation++;search?.controller.abort();search=null;waiting=null;clearBackground();if(all){continuous=false;session.reset();testingReward=false;rewardTest.ad=null;$('autoStatus').textContent='Tự chơi: đã dừng.';}updateButtons();setStatus(message);}
+  $('testAd').onclick=()=>{
+    try{
+      const result=rewardTest.beginReward(sessionSnapshot(),{maxAds:Number($('maxAds').value)});
+      $('adTestStatus').textContent=result.status;
+      testingReward=!!rewardTest.ad;
+      if(testingReward){generation++;search?.controller.abort();search=null;waiting=null;clearBackground();}
+      updateButtons();
+    }catch(e){$('adTestStatus').textContent='Không mở được quảng cáo thử: '+e.message;}
+  };
   $('stop').onclick=()=>stop('Bot đi quân đã dừng.',false);
   $('start').onclick=()=>{try{if(enabled)return;const s=continuous?sessionSnapshot():readState();enabled=true;generation++;lastRoom=continuous?null:s.room;stableKey='';updateButtons();setStatus('Đã bật bot đi quân. Đang theo dõi Cờ tướng…');}catch(e){setStatus(e.message);}};
   $('autoStart').onclick=()=>{try{if(continuous)return;sessionSnapshot();session.reset();continuous=true;updateButtons();$('autoStatus').textContent='Tự chơi: đã bật. Tự vào/rời bàn Cờ tướng.';}catch(e){$('autoStatus').textContent=e.message;}};
@@ -74,8 +101,16 @@ if(!document.getElementById('ziga-xq-experiment')) {
   updateButtons();
   document.addEventListener('keydown',e=>{if(e.key==='Escape')stop('Đã dừng bằng Esc.');});
   async function tick(){
-    if(!enabled&&!continuous)return;
+    if(!enabled&&!continuous&&!testingReward)return;
     try{
+      if(testingReward){
+        try{
+          const result=rewardTest.step(sessionSnapshot(),{rewardOnly:true,maxAds:Number($('maxAds').value)});
+          $('adTestStatus').textContent=result.status;
+          if(result.done){testingReward=false;updateButtons();}
+        }catch(e){testingReward=false;rewardTest.ad=null;$('adTestStatus').textContent='Thử quảng cáo: '+e.message;updateButtons();}
+        return;
+      }
       if(continuous){
         const snapshot=sessionSnapshot();
         const sessionResult=session.step(snapshot,{autoAds:$('autoAds').checked,maxHearts:Number($('maxHearts').value),maxAds:Number($('maxAds').value)});
@@ -119,7 +154,7 @@ if(!document.getElementById('ziga-xq-experiment')) {
         const job={kind:'draw',key:state.key,controller:new AbortController(),generation};search=job;
         setStatus('Đối thủ cầu hòa. Đang tính lại bằng Pikafish…');
         let evaluation;
-        try{evaluation=await nativeBestMove(state.fen,1200,job.controller.signal,{bookMoves:0,depth:0,threads:Number($('threads').value),reverse:state.layer.hc,gameId:engineGameId,usePonder:false});}
+        try{evaluation=await nativeBestMove(state.fen,settings.draw.replySearchMs,job.controller.signal,{bookMoves:0,depth:0,threads:Number($('threads').value),reverse:state.layer.hc,gameId:engineGameId,usePonder:false});}
         catch(e){if(generation===job.generation&&enabled){manualDraw={popup:offerPopup,key:state.key};setStatus('Không đánh giá được lời cầu hòa: '+e.message);}return;}
         finally{if(search===job)search=null;}
         if(!enabled||generation!==job.generation||!$('autoDrawReply').checked)return;
@@ -129,7 +164,7 @@ if(!document.getElementById('ziga-xq-experiment')) {
         respondDraw(state,offerPopup,decision);
         $('drawStatus').textContent=decision==='accept'?'Đã đồng ý hòa theo đánh giá engine.':'Đã từ chối hòa vì engine đánh giá có lợi thế.';
         setStatus($('drawStatus').textContent);manualDraw=null;
-        if(decision==='accept')drawHoldUntil=Date.now()+5000;
+        if(decision==='accept')drawHoldUntil=Date.now()+settings.draw.acceptWaitMs;
         return;
       }
       manualDraw=null;
@@ -147,16 +182,16 @@ if(!document.getElementById('ziga-xq-experiment')) {
       }
       if(search){if(search.key!==state.key)stop('Bàn cờ đã thay đổi trong lúc tính. Bấm Bật để tiếp tục.');return;}
       if(pending){
-        if(state.key===pending.key){if(Date.now()-pending.at>8000)stop('Chưa nhận xác nhận sau 8 giây. Đã dừng; hãy kiểm tra bàn cờ.');return;}
+        if(state.key===pending.key){if(Date.now()-pending.at>settings.move.confirmMs)stop(`Chưa nhận xác nhận sau ${settings.move.confirmMs/1000} giây. Đã dừng; hãy kiểm tra bàn cờ.`);return;}
         pending=null;
       }
       if(state.key!==stableKey){stableKey=state.key;stableAt=Date.now();return;}
-      if(Date.now()-stableAt<($('ponder').checked&&state.myTurn?200:500))return;
+      if(Date.now()-stableAt<($('ponder').checked&&state.myTurn?settings.move.ponderStableMs:settings.move.stableMs))return;
       if(!state.myTurn){
         const ponderKey=state.key+':'+$('threads').value+':'+$('depth').value;
         if(lastPonderKey!==ponderKey){ponderJob?.controller.abort();ponderJob=null;lastPonderKey=ponderKey;lastPonderAt=0;}
         setStatus($('ponder').checked?'Đang chờ đối thủ · engine tính trước có giới hạn CPU…':'Đang chờ đối thủ…');
-        if($('ponder').checked&&!ponderJob&&Date.now()-lastPonderAt>=5000){
+        if($('ponder').checked&&!ponderJob&&Date.now()-lastPonderAt>=settings.engine.ponderRequestIntervalMs){
           const job={key:state.key,controller:new AbortController(),gameId:engineGameId};ponderJob=job;lastPonderAt=Date.now();
           void nativePonder(state.fen,job.controller.signal,{gameId:job.gameId,threads:Number($('threads').value),depth:Number($('depth').value)})
             .then(r=>{if(enabled&&engineGameId===job.gameId)cpuStatus(r);}).catch(e=>{if(enabled&&engineGameId===job.gameId&&!job.controller.signal.aborted)$('cpuStatus').textContent='Ponder chưa sẵn sàng: '+e.message;})
@@ -169,16 +204,16 @@ if(!document.getElementById('ziga-xq-experiment')) {
       if(!forcedGame.importFen(state.fen))throw Error('Thế cờ không hợp lệ.');
       const initialChoices=legalMoves(forcedGame,forcedGame.currentTurn);
       if(initialChoices.length===1){
-        waiting={state,move:initialChoices[0],generation,readyAt:Date.now()+500};
-        setStatus('Đã có nước duy nhất hợp lệ. Chờ 0,5 giây trước khi đi…');
-        $('detail').textContent='1 lựa chọn · không cần gọi engine · chờ thêm 0,5s';return;
+        waiting={state,move:initialChoices[0],generation,readyAt:Date.now()+settings.move.minDelayMs};
+        setStatus(`Đã có nước duy nhất hợp lệ. Chờ ${settings.move.minDelayMs/1000} giây trước khi đi…`);
+        $('detail').textContent=`1 lựa chọn · không cần gọi engine · chờ thêm ${settings.move.minDelayMs/1000}s`;return;
       }
       setStatus('Đang tính nước…');
       const job={key:state.key,controller:new AbortController(),generation};search=job;
       let result;
       const threads=Number($('threads').value),depth=Number($('depth').value);
       if(!Number.isInteger(threads)||threads<1||threads>16||!Number.isInteger(depth)||depth<0||depth>64){stop('Threads: 1–16; độ sâu: 0–64.');return;}
-      const budget=$('time').value==='auto'?(initialChoices.length<=4?650:initialChoices.length<=12?2500:10000):Number($('time').value);
+      const budget=$('time').value==='auto'?(initialChoices.length<=4?settings.move.smallSearchMs:initialChoices.length<=12?settings.move.mediumSearchMs:settings.move.complexSearchMs):Number($('time').value);
       try{result=await nativeBestMove(state.fen,budget,job.controller.signal,{reverse:state.layer.hc,bookMoves:Number($('book').value),ply:observedPly,threads,depth,gameId:engineGameId,usePonder:$('ponder').checked});}
       catch(e){if(generation===job.generation&&enabled)stop(e.message);return;}
       finally{if(search===job)search=null;}
@@ -201,6 +236,6 @@ if(!document.getElementById('ziga-xq-experiment')) {
       $('detail').textContent=`${result.engine}${result.ponderHit?' · trúng nhánh tính trước':''} · sâu ${result.depth} · ${result.threads?result.threads+' threads · ':''}${result.nodes} nút · ${result.ms} ms · ${choices.length} lựa chọn · chờ thêm ${(delay/1000).toFixed(1)}s`;
     }catch(e){stop(e.message);}
   }
-  setInterval(tick,250);
+  setInterval(tick,settings.move.pollMs);
   window.addEventListener('pagehide',()=>stop('Đã dừng.'));
 }

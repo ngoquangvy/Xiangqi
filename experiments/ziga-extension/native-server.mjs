@@ -1,3 +1,4 @@
+import {settings} from './settings.mjs';
 import http from 'node:http';
 import {spawn} from 'node:child_process';
 import {dirname,resolve} from 'node:path';
@@ -20,7 +21,7 @@ export function validateSettings(threads=2,depth=0){
   if(!Number.isInteger(threads)||threads<1||threads>16)throw Error('Threads phải từ 1 đến 16');
   if(!Number.isInteger(depth)||depth<0||depth>64)throw Error('Depth phải từ 0 đến 64');
 }
-export function analyze(fen,movetime,{enginePath=defaultEngine,signal,timeoutMs=15000,threads=2,depth:depthLimit=0}={}){
+export function analyze(fen,movetime,{enginePath=defaultEngine,signal,timeoutMs=settings.engine.legacyTimeoutMs,threads=2,depth:depthLimit=0}={}){
   const game=validate(fen,movetime);
   validateSettings(threads,depthLimit);
   return new Promise((resolveResult,reject)=>{
@@ -108,7 +109,7 @@ export function createServer(options={}){
 }
 if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url)){
   const server=createServer({enginePath:process.env.ZIGA_ENGINE_PATH||defaultEngine});
-  server.requestTimeout=20000;
+  server.requestTimeout=settings.engine.httpTimeoutMs;
   server.on('error',e=>{console.error('Không mở được bridge:',e.message);process.exitCode=1;});
   server.listen(17864,'127.0.0.1',()=>console.log('Pikafish bridge 0.6.0: http://127.0.0.1:17864 — Ctrl+C để dừng'));
 }

@@ -52,3 +52,24 @@ test('reported playing state 2/role 1 resumes after stale Tg, rather than pressi
   const s=new AutoSession();assert.equal(s.step(sessionSnapshot(w),{},0).play,false);
   assert.equal(s.step(sessionSnapshot(w),{},3000).play,true);assert.equal(w.BkGlobal.Tg,false);
 });
+
+test('completed ad closes accessible enabled close button once, never before genuine completion',()=>{
+  const f=fixture();let clicks=0;
+  const button={disabled:false,getAttribute:()=>null,closest:()=>({}),getBoundingClientRect:()=>({left:10,top:10,width:30,height:30}),click:()=>clicks++};
+  const doc=f.w.document;doc.querySelectorAll=selector=>selector.includes('#dismiss-button')?[button]:[];doc.elementFromPoint=()=>button;
+  f.watch.inspect(f.w,0);f.w.adBreak({adViewed:()=>f.callbacks.push('reward')});
+  f.watch.inspect(f.w,1000);assert.equal(clicks,0);
+  button.disabled=true;f.options().adViewed();f.watch.inspect(f.w,2000);assert.equal(clicks,0);
+  button.disabled=false;f.watch.inspect(f.w,3000);f.watch.inspect(f.w,4000);
+  assert.equal(clicks,1);assert.deepEqual(f.callbacks,['reward']);
+});
+
+test('completed ad cannot click hidden, covered, unrelated or cross-origin controls',()=>{
+  const f=fixture();let clicks=0;
+  const button={getAttribute:()=>null,closest:()=>null,getBoundingClientRect:()=>({left:10,top:10,width:30,height:30}),click:()=>clicks++};
+  const protectedFrame={id:'google_vignette',get contentDocument(){throw Error('SecurityError');}};
+  f.w.document.querySelectorAll=selector=>selector==='iframe'?[protectedFrame]:selector.includes('#dismiss-button')?[button]:[];
+  f.watch.inspect(f.w,0);f.w.adBreak({});f.options().adViewed();f.watch.inspect(f.w,1000);assert.equal(clicks,0);
+  button.closest=()=>({});f.w.document.elementFromPoint=()=>({});f.watch.inspect(f.w,2000);assert.equal(clicks,0);
+  f.w.document.elementFromPoint=()=>button;f.w.document.visibilityState='hidden';f.watch.inspect(f.w,3000);assert.equal(clicks,0);
+});

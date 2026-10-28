@@ -1,3 +1,4 @@
+import {settings} from './settings.mjs';
 import {spawn} from 'node:child_process';
 import {dirname} from 'node:path';
 import XiangqiGame from './vendor/XiangqiGame.js';
@@ -9,13 +10,13 @@ export const fenKey=fen=>fen.split(/\s+/).slice(0,2).join(' ');
 function gameFor(fen){const g=new XiangqiGame();if(!g.importFen(fen))throw Error('Invalid FEN');return g;}
 function apply(fen,uci){const g=gameFor(fen),m=parseMove(uci);if(!m||!legalMoves(g,g.currentTurn).some(n=>n.x===m.x&&n.y===m.y&&n.tx===m.tx&&n.ty===m.ty)||!g.move(m.x,m.y,m.tx,m.ty))throw Error('Invalid engine move');return {move:m,fen:g.exportFen()};}
 export class PersistentEngine{
-  constructor(enginePath,{guard=new CpuGuard(),ponderBurstMs=2000,ponderRestMs=3000,stopTimeoutMs=4000}={}){
+  constructor(enginePath,{guard=new CpuGuard(),ponderBurstMs=settings.engine.ponderBurstMs,ponderRestMs=settings.engine.ponderRestMs,stopTimeoutMs=settings.engine.stopTimeoutMs}={}){
     Object.assign(this,{enginePath,guard,ponderBurstMs,ponderRestMs,stopTimeoutMs});this.proc=null;this.task=null;this.waiters=new Map();this.queue=Promise.resolve();this.owner=null;this.gameId=null;this.prediction=null;this.cache=null;this.plan=null;this.nextPonderAt=0;this.closed=false;this.name='Pikafish';
-    this.guard.sample();this.cpuTimer=setInterval(()=>{this.guard.sample();if(this.task&&this.guard.status().ponderPaused)this.interrupt(false);},2000);this.cpuTimer.unref();
+    this.guard.sample();this.cpuTimer=setInterval(()=>{this.guard.sample();if(this.task&&this.guard.status().ponderPaused)this.interrupt(false);},settings.cpu.sampleMs);this.cpuTimer.unref();
   }
   serial(fn){const p=this.queue.then(fn);this.queue=p.catch(()=>{});return p;}
   send(line){if(!this.proc?.stdin.writable)throw Error('Engine is not running');this.proc.stdin.write(line+'\n');}
-  wait(line,ms=15000){return new Promise((resolve,reject)=>{const timer=setTimeout(()=>{this.waiters.delete(line);reject(Error('Engine handshake timed out'));},ms);this.waiters.set(line,{resolve:()=>{clearTimeout(timer);this.waiters.delete(line);resolve();},reject:e=>{clearTimeout(timer);this.waiters.delete(line);reject(e);}});});}
+  wait(line,ms=settings.engine.handshakeMs){return new Promise((resolve,reject)=>{const timer=setTimeout(()=>{this.waiters.delete(line);reject(Error('Engine handshake timed out'));},ms);this.waiters.set(line,{resolve:()=>{clearTimeout(timer);this.waiters.delete(line);resolve();},reject:e=>{clearTimeout(timer);this.waiters.delete(line);reject(e);}});});}
   fail(error){for(const w of [...this.waiters.values()])w.reject(error);if(this.task)clearTimeout(this.task.timer);this.task?.reject(error);this.task=null;this.cache=null;this.plan=null;const proc=this.proc;this.proc=null;proc?.kill();}
   async boot(){
     if(this.closed)throw Error('Bridge closed');if(this.proc)return;
@@ -55,7 +56,7 @@ export class PersistentEngine{
     let resolve,reject;const done=new Promise((r,j)=>{resolve=r;reject=j;});done.catch(()=>{});
     const t=this.task={fen,threads,movetime,depth,ponder,progress:new SearchProgress(),started:Date.now(),done,resolve,reject,discard:false,stopping:false};
     this.send('position fen '+fen);this.send(`go ${ponder?'ponder ':''}movetime ${movetime}${depth?' depth '+depth:''}`);
-    t.timer=setTimeout(()=>{if(this.task===t){if(ponder)this.interrupt(false);else this.fail(Error('Engine timed out'));}},ponder?this.ponderBurstMs:movetime+8000);
+    t.timer=setTimeout(()=>{if(this.task===t){if(ponder)this.interrupt(false);else this.fail(Error('Engine timed out'));}},ponder?this.ponderBurstMs:movetime+settings.engine.searchGraceMs);
     return t;
   }
   analyze(fen,{clientId='legacy',gameId='legacy',threads=2,movetime=1200,depth=0,signal,usePonder=true}={}){
@@ -92,7 +93,7 @@ export class PersistentEngine{
       if(this.prediction?.afterKey===fenKey(fen))reply=this.prediction.reply;
       else if(this.plan?.opponentKey===fenKey(fen))reply=this.plan.reply;
       else{
-        const seed=await this.launch(fen,{...limits,movetime:Math.min(300,limits.movetime),depth:0,multiPV:1});const abort=()=>this.interrupt(true);signal?.addEventListener('abort',abort,{once:true});
+        const seed=await this.launch(fen,{...limits,movetime:Math.min(settings.engine.ponderSeedMs,limits.movetime),depth:0,multiPV:1});const abort=()=>this.interrupt(true);signal?.addEventListener('abort',abort,{once:true});
         try{if(signal?.aborted)abort();const result=await seed.done;if(result.cancelled)throw Error('Search cancelled');reply=result.uci;}finally{signal?.removeEventListener('abort',abort);}
       }
       if(signal?.aborted)throw Error('Search cancelled');

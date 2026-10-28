@@ -1,4 +1,5 @@
 import {readState} from './adapter.js';
+import {settings} from '../settings.mjs';
 const requestText='Đối phương muốn hòa. Bạn có đồng ý không?';
 export function drawPopup(w=window){
   const popup=w.Fl;
@@ -28,10 +29,11 @@ export function respondDraw(expected,popup,decision,w=window){
 }
 export class DrawPolicy{
   constructor(){this.reset();}
-  reset(){this.layer=null;this.room=null;this.key=null;this.plies=0;this.quiet=0;this.pieces=null;this.streak=0;this.evalKey=null;this.offers=0;this.lastOfferAt=-Infinity;this.lastOfferPly=-Infinity;}
+  reset(){this.layer=null;this.room=null;this.key=null;this.plies=0;this.quiet=0;this.pieces=null;this.streak=0;this.evalKey=null;this.offers=0;this.lastOfferAt=-Infinity;this.lastOfferPly=-Infinity;this.ownTurns=0;this.lastOfferOwnTurn=-Infinity;this.lastOfferKey=null;}
   observe(state){
     if(this.layer!==state.layer||this.room!==state.room){this.reset();this.layer=state.layer;this.room=state.room;}
     if(state.key!==this.key){
+      if(state.myTurn)this.ownTurns++;
       const count=(state.fen.split(' ')[0].match(/[a-z]/gi)||[]).length;
       if(this.key!==null){this.plies++;this.quiet=this.pieces===count?this.quiet+1:0;}
       this.pieces=count;this.key=state.key;
@@ -48,12 +50,16 @@ export class DrawPolicy{
     const attackers=(state.fen.split(' ')[0].match(/[rncp]/gi)||[]).length;
     return state.myTurn&&this.key===state.key&&this.plies>=40&&this.streak>=4&&
       result?.source==='engine'&&result.depth>=14&&result.score?.bound===false&&result.score?.type==='cp'&&Math.abs(result.score.value)<=20&&
-      (attackers<=4||this.quiet>=40)&&this.offers<2&&now-this.lastOfferAt>=60000&&this.plies-this.lastOfferPly>=10;
+      (attackers<=4||this.quiet>=40)&&this.offers<settings.draw.maxOffers&&this.offers<2&&
+      this.lastOfferKey!==state.key&&now-this.lastOfferAt>=settings.draw.offerCooldownMs&&
+      this.ownTurns-this.lastOfferOwnTurn>=settings.draw.minOwnTurnsBetweenOffers;
   }
   offer(expected,result,w=window,now=Date.now()){
     const state=readState(w);
     if(state.key!==expected.key||state.layer!==expected.layer||!this.canOffer(state,result,now)||w.Fl||w.BkStackWindow?.Vj?.())return false;
     if(w.CHESS_DRAW_REQUEST===undefined||typeof state.logic.yr!=='function')return false;
-    state.logic.yr(w.CHESS_DRAW_REQUEST);this.offers++;this.lastOfferAt=now;this.lastOfferPly=this.plies;return true;
+    // Reserve the attempt before sending, even if the client throws after dispatch.
+    this.offers++;this.lastOfferAt=now;this.lastOfferPly=this.plies;this.lastOfferOwnTurn=this.ownTurns;this.lastOfferKey=state.key;
+    state.logic.yr(w.CHESS_DRAW_REQUEST);return true;
   }
 }

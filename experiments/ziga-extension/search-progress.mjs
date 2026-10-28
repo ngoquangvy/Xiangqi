@@ -1,3 +1,4 @@
+import {settings} from './settings.mjs';
 export class SearchProgress{
   constructor(){this.depth=0;this.nodes=0;this.searchMs=0;this.score=null;this.scoreGap=null;this.stableDepths=0;this.pv=null;this.scores=new Map();}
   update(line){
@@ -16,5 +17,5 @@ export class SearchProgress{
     if(d>this.depth){this.stableDepths=pv&&pv===this.pv&&this.score?.type===s[1]&&Math.abs(this.score.value-Number(s[2]))<=35?this.stableDepths+1:0;this.pv=pv;}
     this.depth=d;this.score={type:s[1],value:Number(s[2]),bound:/\b(lowerbound|upperbound)\b/.test(line)};
   }
-  canStop(movetime){return this.depth>=8&&this.stableDepths>=3&&this.scoreGap>=120&&this.searchMs>=Math.min(600,Math.max(250,movetime/2));}
+  canStop(movetime){return this.depth>=8&&this.stableDepths>=3&&this.scoreGap>=120&&this.searchMs>=Math.min(settings.engine.stableSearchMaxMs,Math.max(settings.engine.stableSearchMinMs,movetime/2));}
 }
